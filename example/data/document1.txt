@@ -1,0 +1,2 @@
+This is a sample text document for testing the filescan plugin.
+It contains some basic text content that will be scanned by our plugin.

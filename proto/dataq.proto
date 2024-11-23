@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package dataq;
+option go_package = "go.quinn.io/dataq/proto";
+
+// Plugin represents a data extraction plugin
+message Plugin {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  map<string, string> config = 4;
+}
+
+// DataItem represents a single piece of data extracted by a plugin
+message DataItem {
+  string plugin_id = 1;
+  string source_id = 2;
+  int64 timestamp = 3;
+  string content_type = 4;
+  bytes raw_data = 5;
+  map<string, string> metadata = 6;
+}
+
+// PluginConfig represents the configuration for all plugins
+message PluginConfig {
+  repeated Plugin plugins = 1;
+}

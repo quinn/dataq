@@ -1,0 +1,27 @@
+# DataQ Example Configuration
+
+plugins:
+  - id: filescan
+    enabled: true
+    config:
+      root_path: "./data"  # Directory to scan
+      include_patterns:
+        - "*.txt"
+        - "*.pdf"
+        - "*.doc*"
+      exclude_patterns:
+        - "*.tmp"
+        - "~$*"
+
+  # Example of other plugin configurations (commented out for now)
+  # - id: gmail
+  #   enabled: false
+  #   config:
+  #     credentials_file: "credentials.json"
+  #     query: "after:2024/01/01"
+
+  # - id: webscraper
+  #   enabled: false
+  #   config:
+  #     url: "https://example.com"
+  #     interval: "1h"
