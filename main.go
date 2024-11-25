@@ -42,6 +42,7 @@ func loadConfig(path string) (*Config, error) {
 func runPlugin(ctx context.Context, pluginPath string, req *pb.PluginRequest) (*pb.PluginResponse, error) {
 	log.Printf("Running plugin %s with config: %+v", pluginPath, req.Config)
 	cmd := exec.CommandContext(ctx, pluginPath)
+	cmd.Stderr = os.Stderr
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

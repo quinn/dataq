@@ -94,7 +94,7 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 
 	var token oauth2.Token
 	if err := json.Unmarshal(tokenBytes, &token); err != nil {
-		return nil, fmt.Errorf("unable to parse token: (%s): %v", p.tokenPath, err)
+		return nil, fmt.Errorf("unable to parse token (%s): %v", p.tokenPath, err)
 	}
 
 	client := config.Client(ctx, &token)
@@ -107,7 +107,14 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 		defer close(items)
 
 		var pageToken string
+		pageNum := 0
 		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			req := srv.Users.Messages.List("me").MaxResults(100)
 			if pageToken != "" {
 				req.PageToken(pageToken)
@@ -115,43 +122,47 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 
 			r, err := req.Do()
 			if err != nil {
-				fmt.Printf("Error listing messages: %v\n", err)
+				log.Printf("Error listing messages: %v", err)
 				return
 			}
 
-			for _, msg := range r.Messages {
-				message, err := srv.Users.Messages.Get("me", msg.Id).Format("raw").Do()
-				if err != nil {
-					fmt.Printf("Error getting message %s: %v\n", msg.Id, err)
-					continue
-				}
+			if r.Messages == nil {
+				log.Printf("No messages found")
+				return
+			}
 
-				// Create DataItem for the email
-				item := &pb.DataItem{
-					PluginId:    p.ID(),
-					SourceId:    message.Id,
-					Timestamp:   message.InternalDate / 1000, // Convert to seconds
-					ContentType: "message/rfc822",
-					RawData:     []byte(message.Raw),
-					Metadata:    make(map[string]string),
-				}
+			// Marshal the entire page response to JSON
+			rawJSON, err := json.MarshalIndent(r, "", "  ")
+			if err != nil {
+				log.Printf("Error marshaling page response: %v", err)
+				continue
+			}
 
-				// Add headers to metadata
-				for _, header := range message.Payload.Headers {
-					item.Metadata[header.Name] = header.Value
-				}
+			// Create a DataItem for the entire page
+			item := &pb.DataItem{
+				PluginId:    p.ID(),
+				SourceId:    fmt.Sprintf("page_%d", pageNum),
+				ContentType: "application/json",
+				RawData:     rawJSON,
+				Metadata: map[string]string{
+					"page_number":        fmt.Sprintf("%d", pageNum),
+					"messages_count":     fmt.Sprintf("%d", len(r.Messages)),
+					"next_page_token":    r.NextPageToken,
+					"result_size_estimate": fmt.Sprintf("%d", r.ResultSizeEstimate),
+				},
+			}
 
-				select {
-				case items <- item:
-				case <-ctx.Done():
-					return
-				}
+			select {
+			case items <- item:
+			case <-ctx.Done():
+				return
 			}
 
 			if r.NextPageToken == "" {
 				break
 			}
 			pageToken = r.NextPageToken
+			pageNum++
 		}
 	}()
 
