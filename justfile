@@ -64,7 +64,4 @@ lint:
 # Run example with plugins
 run-example: build
     Write-Host "Running example..." -ForegroundColor Green
-    New-Item -ItemType Directory -Force -Path "example/plugins/filescan"
-    Copy-Item -Force cmd/plugins/filescan/bin/filescan.exe example/plugins/filescan/
-    cd example
-    ../dataq -config config.yaml
+    cd example; ../dataq.exe
