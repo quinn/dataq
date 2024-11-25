@@ -1,2 +1,4 @@
 
 *.exe
+cmd/plugins/gmail/auth/credentials.json
+cmd/plugins/gmail/auth/token.json
