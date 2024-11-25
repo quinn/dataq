@@ -23,16 +23,28 @@ install-protoc:
 generate-proto:
     protoc --go_out=. --go_opt=paths=source_relative proto/dataq.proto
 
-# Clean generated files
-clean:
+# Build all plugins
+build-plugins:
+    Write-Host "Building plugins..." -ForegroundColor Green
+    New-Item -ItemType Directory -Force -Path "cmd/plugins/filescan/bin"
+    go build -o cmd/plugins/filescan/bin/filescan.exe cmd/plugins/filescan/main.go cmd/plugins/filescan/filescan.go
+    Write-Host "Plugins built successfully" -ForegroundColor Green
+
+# Clean plugins
+clean-plugins:
+    Write-Host "Cleaning plugins..." -ForegroundColor Green
+    Remove-Item -Force -Recurse -ErrorAction SilentlyContinue cmd/plugins/*/bin
+
+# Clean generated files and plugins
+clean: clean-plugins
     Remove-Item -Force -Recurse -ErrorAction SilentlyContinue proto/*.pb.go
     Remove-Item -Force -ErrorAction SilentlyContinue dataq.exe
 
 # Setup everything (install tools, protoc, and generate code)
 setup: install-tools install-protoc generate-proto
 
-# Build the project
-build:
+# Build the project and plugins
+build: build-plugins
     go build -o dataq.exe
 
 # Run tests
@@ -47,7 +59,10 @@ fmt:
 lint:
     go vet ./...
 
-# Build and run the example
+# Run example with plugins
 run-example: build
+    Write-Host "Running example..." -ForegroundColor Green
+    New-Item -ItemType Directory -Force -Path "example/plugins/filescan"
+    Copy-Item -Force cmd/plugins/filescan/bin/filescan.exe example/plugins/filescan/
     cd example
-    dataq -config config.yaml
+    ../dataq -config config.yaml
