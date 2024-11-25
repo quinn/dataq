@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 
 	pb "go.quinn.io/dataq/proto"
 	"golang.org/x/oauth2"
@@ -15,7 +17,7 @@ import (
 
 type GmailPlugin struct {
 	credentialsPath string
-	tokenPath      string
+	tokenPath       string
 }
 
 func New() *GmailPlugin {
@@ -35,13 +37,33 @@ func (p *GmailPlugin) Description() string {
 }
 
 func (p *GmailPlugin) Configure(config map[string]string) error {
+	log.Printf("Gmail plugin config: %+v", config)
 	if creds, ok := config["credentials_path"]; ok {
+		// Convert to absolute path if relative
+		if !filepath.IsAbs(creds) {
+			wd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("unable to get working directory: %v", err)
+			}
+			log.Printf("Working directory: %s", wd)
+			creds = filepath.Join(wd, creds)
+		}
+		log.Printf("Using credentials path: %s", creds)
 		p.credentialsPath = creds
 	} else {
 		return fmt.Errorf("credentials_path configuration is required")
 	}
 
 	if token, ok := config["token_path"]; ok {
+		// Convert to absolute path if relative
+		if !filepath.IsAbs(token) {
+			wd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("unable to get working directory: %v", err)
+			}
+			token = filepath.Join(wd, token)
+		}
+		log.Printf("Using token path: %s", token)
 		p.tokenPath = token
 	} else {
 		return fmt.Errorf("token_path configuration is required")
@@ -56,23 +78,23 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 	// Read credentials file
 	b, err := os.ReadFile(p.credentialsPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read credentials file: %v", err)
+		return nil, fmt.Errorf("unable to read credentials file (%s): %v", p.credentialsPath, err)
 	}
 
 	config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse credentials: %v", err)
+		return nil, fmt.Errorf("unable to parse credentials (%s): %v", p.credentialsPath, err)
 	}
 
 	// Read token file
 	tokenBytes, err := os.ReadFile(p.tokenPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read token file: %v", err)
+		return nil, fmt.Errorf("unable to read token file (%s): %v", p.tokenPath, err)
 	}
 
 	var token oauth2.Token
 	if err := json.Unmarshal(tokenBytes, &token); err != nil {
-		return nil, fmt.Errorf("unable to parse token: %v", err)
+		return nil, fmt.Errorf("unable to parse token: (%s): %v", p.tokenPath, err)
 	}
 
 	client := config.Client(ctx, &token)

@@ -14,5 +14,5 @@ plugins:
     enabled: true
     binary_path: "../cmd/plugins/gmail/bin/gmail.exe"
     config:
-      credentials_path: "./credentials.json"  # Credentials in example dir
-      token_path: "./token.json"             # Token in example dir
+      credentials_path: "credentials.json"  # Credentials in example dir
+      token_path: "token.json"             # Token in example dir
