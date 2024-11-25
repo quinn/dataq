@@ -40,6 +40,7 @@ func loadConfig(path string) (*Config, error) {
 }
 
 func runPlugin(ctx context.Context, pluginPath string, req *pb.PluginRequest) (*pb.PluginResponse, error) {
+	log.Printf("Running plugin %s with config: %+v", pluginPath, req.Config)
 	cmd := exec.CommandContext(ctx, pluginPath)
 
 	stdin, err := cmd.StdinPipe()
@@ -111,6 +112,8 @@ func main() {
 			log.Printf("Plugin binary not found: %s", plugin.BinaryPath)
 			continue
 		}
+
+		log.Printf("Processing plugin %s with config: %+v", plugin.ID, plugin.Config)
 
 		// Configure the plugin
 		req := &pb.PluginRequest{
