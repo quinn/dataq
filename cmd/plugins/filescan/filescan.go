@@ -1,4 +1,4 @@
-package filescan
+package main
 
 import (
 	"context"

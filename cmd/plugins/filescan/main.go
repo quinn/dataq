@@ -2,19 +2,17 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	pb "go.quinn.io/dataq/proto"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func main() {
 	plugin := New()
-	
+
 	// Read request from stdin
 	input, err := io.ReadAll(os.Stdin)
 	if err != nil {
