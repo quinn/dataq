@@ -49,4 +49,5 @@ lint:
 
 # Build and run the example
 run-example: build
-    .\dataq.exe -config example/config.yaml
+    cd example
+    dataq -config config.yaml
