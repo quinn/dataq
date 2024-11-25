@@ -27,7 +27,9 @@ generate-proto:
 build-plugins:
     Write-Host "Building plugins..." -ForegroundColor Green
     New-Item -ItemType Directory -Force -Path "cmd/plugins/filescan/bin"
+    New-Item -ItemType Directory -Force -Path "cmd/plugins/gmail/bin"
     go build -o cmd/plugins/filescan/bin/filescan.exe cmd/plugins/filescan/main.go cmd/plugins/filescan/filescan.go
+    go build -o cmd/plugins/gmail/bin/gmail.exe cmd/plugins/gmail/main.go cmd/plugins/gmail/gmail.go
     Write-Host "Plugins built successfully" -ForegroundColor Green
 
 # Clean plugins
