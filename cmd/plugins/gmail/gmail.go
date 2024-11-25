@@ -2,20 +2,19 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
+
+	pb "go.quinn.io/dataq/proto"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
-	pb "go.quinn.io/dataq/proto"
-	"time"
 )
 
 type GmailPlugin struct {
 	credentialsJSON string
-	tokenJSON      string
+	tokenJSON       string
 }
 
 func New() *GmailPlugin {
@@ -94,10 +93,10 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 
 				// Create DataItem for the email
 				item := &pb.DataItem{
-					PluginId:     p.ID(),
-					SourceId:     message.Id,
-					Timestamp:    message.InternalDate / 1000, // Convert to seconds
-					ContentType:  "message/rfc822",
+					PluginId:    p.ID(),
+					SourceId:    message.Id,
+					Timestamp:   message.InternalDate / 1000, // Convert to seconds
+					ContentType: "message/rfc822",
 					RawData:     []byte(message.Raw),
 					Metadata:    make(map[string]string),
 				}
