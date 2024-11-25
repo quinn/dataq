@@ -25,3 +25,17 @@ message DataItem {
 message PluginConfig {
   repeated Plugin plugins = 1;
 }
+
+// PluginRequest represents a request to a plugin
+message PluginRequest {
+  string plugin_id = 1;
+  map<string, string> config = 2;
+  string operation = 3;  // e.g., "extract", "configure"
+}
+
+// PluginResponse represents a response from a plugin
+message PluginResponse {
+  string plugin_id = 1;
+  repeated DataItem items = 2;
+  string error = 3;  // empty if no error
+}
