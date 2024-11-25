@@ -13,15 +13,22 @@ plugins:
         - "*.tmp"
         - "~$*"
 
-  # Example of other plugin configurations (commented out for now)
-  # - id: gmail
-  #   enabled: false
-  #   config:
-  #     credentials_file: "credentials.json"
-  #     query: "after:2024/01/01"
-
-  # - id: webscraper
-  #   enabled: false
-  #   config:
-  #     url: "https://example.com"
-  #     interval: "1h"
+  # Example Gmail plugin configuration
+  - id: gmail
+    enabled: false  # Set to true after configuring credentials
+    config:
+      credentials_json: |
+        {
+          "installed": {
+            "client_id": "YOUR_CLIENT_ID",
+            "client_secret": "YOUR_CLIENT_SECRET",
+            "redirect_uris": ["http://localhost:8085"]
+          }
+        }
+      token_json: |
+        {
+          "access_token": "YOUR_ACCESS_TOKEN",
+          "token_type": "Bearer",
+          "refresh_token": "YOUR_REFRESH_TOKEN",
+          "expiry": "2024-01-01T00:00:00Z"
+        }

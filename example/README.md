@@ -36,12 +36,41 @@ plugins:
         - "~$*"
 ```
 
+### Gmail Plugin Configuration
+
+The Gmail plugin requires OAuth2 credentials from Google Cloud Console. Set up your credentials using the auth helper in `cmd/plugins/gmail/auth/`:
+
+```yaml
+plugins:
+  - id: gmail
+    enabled: true
+    config:
+      credentials_json: |
+        {
+          "installed": {
+            "client_id": "YOUR_CLIENT_ID",
+            "client_secret": "YOUR_CLIENT_SECRET",
+            "redirect_uris": ["http://localhost:8085"]
+          }
+        }
+      token_json: |
+        {
+          "access_token": "YOUR_ACCESS_TOKEN",
+          "token_type": "Bearer",
+          "refresh_token": "YOUR_REFRESH_TOKEN",
+          "expiry": "2024-01-01T00:00:00Z"
+        }
+```
+
 ## Running the Example
 
 1. Make sure you have the DataQ binary in your PATH
-2. Run the example:
+2. Configure your plugins in `config.yaml`
+3. Run DataQ:
    ```bash
-   dataq -config config.yaml
+   dataq extract
    ```
 
-The file scanner plugin will scan the `data` directory and collect information about the files matching the specified patterns.
+The plugins will:
+- File Scanner: Scan the `data` directory for matching files
+- Gmail: Extract emails using your OAuth credentials
