@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	pb "go.quinn.io/dataq/proto"
 	"golang.org/x/oauth2"
@@ -13,8 +14,8 @@ import (
 )
 
 type GmailPlugin struct {
-	credentialsJSON string
-	tokenJSON       string
+	credentialsPath string
+	tokenPath      string
 }
 
 func New() *GmailPlugin {
@@ -34,16 +35,16 @@ func (p *GmailPlugin) Description() string {
 }
 
 func (p *GmailPlugin) Configure(config map[string]string) error {
-	if creds, ok := config["credentials_json"]; ok {
-		p.credentialsJSON = creds
+	if creds, ok := config["credentials_path"]; ok {
+		p.credentialsPath = creds
 	} else {
-		return fmt.Errorf("credentials_json configuration is required")
+		return fmt.Errorf("credentials_path configuration is required")
 	}
 
-	if token, ok := config["token_json"]; ok {
-		p.tokenJSON = token
+	if token, ok := config["token_path"]; ok {
+		p.tokenPath = token
 	} else {
-		return fmt.Errorf("token_json configuration is required")
+		return fmt.Errorf("token_path configuration is required")
 	}
 
 	return nil
@@ -52,13 +53,25 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) {
 	items := make(chan *pb.DataItem)
 
-	config, err := google.ConfigFromJSON([]byte(p.credentialsJSON), gmail.GmailReadonlyScope)
+	// Read credentials file
+	b, err := os.ReadFile(p.credentialsPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read credentials file: %v", err)
+	}
+
+	config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse credentials: %v", err)
 	}
 
+	// Read token file
+	tokenBytes, err := os.ReadFile(p.tokenPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read token file: %v", err)
+	}
+
 	var token oauth2.Token
-	if err := json.Unmarshal([]byte(p.tokenJSON), &token); err != nil {
+	if err := json.Unmarshal(tokenBytes, &token); err != nil {
 		return nil, fmt.Errorf("unable to parse token: %v", err)
 	}
 

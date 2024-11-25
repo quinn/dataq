@@ -2,7 +2,7 @@
 
 plugins:
   - id: filescan
-    enabled: true
+    enabled: false  # Disable filescan for now
     config:
       root_path: "./data"  # Directory to scan
       include_patterns:
@@ -13,22 +13,9 @@ plugins:
         - "*.tmp"
         - "~$*"
 
-  # Example Gmail plugin configuration
+  # Gmail plugin configuration
   - id: gmail
-    enabled: false  # Set to true after configuring credentials
+    enabled: true
     config:
-      credentials_json: |
-        {
-          "installed": {
-            "client_id": "YOUR_CLIENT_ID",
-            "client_secret": "YOUR_CLIENT_SECRET",
-            "redirect_uris": ["http://localhost:8085"]
-          }
-        }
-      token_json: |
-        {
-          "access_token": "YOUR_ACCESS_TOKEN",
-          "token_type": "Bearer",
-          "refresh_token": "YOUR_REFRESH_TOKEN",
-          "expiry": "2024-01-01T00:00:00Z"
-        }
+      credentials_path: "./credentials.json"  # Credentials in example dir
+      token_path: "./token.json"             # Token in example dir

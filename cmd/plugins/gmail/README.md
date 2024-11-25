@@ -31,8 +31,8 @@ This plugin extracts emails and metadata from Gmail using the Gmail API.
 
 The plugin requires two configuration parameters:
 
-- `credentials_json`: The contents of your OAuth client credentials JSON file
-- `token_json`: The OAuth token JSON obtained after authentication
+- `credentials_path`: Path to your OAuth client credentials JSON file
+- `token_path`: Path to your OAuth token JSON file
 
 Example configuration:
 ```yaml
@@ -40,21 +40,8 @@ plugins:
   - id: gmail
     enabled: true
     config:
-      credentials_json: |
-        {
-          "installed": {
-            "client_id": "YOUR_CLIENT_ID",
-            "client_secret": "YOUR_CLIENT_SECRET",
-            "redirect_uris": ["http://localhost:8085"]
-          }
-        }
-      token_json: |
-        {
-          "access_token": "YOUR_ACCESS_TOKEN",
-          "token_type": "Bearer",
-          "refresh_token": "YOUR_REFRESH_TOKEN",
-          "expiry": "2024-01-01T00:00:00Z"
-        }
+      credentials_path: "./gmail/credentials.json"
+      token_path: "./gmail/token.json"
 ```
 
 ## Usage
