@@ -2,20 +2,17 @@
 
 plugins:
   - id: filescan
-    enabled: false  # Disable filescan for now
+    enabled: false
+    binary_path: "../cmd/plugins/filescan/bin/filescan.exe"
     config:
-      root_path: "./data"  # Directory to scan
-      include_patterns:
-        - "*.txt"
-        - "*.pdf"
-        - "*.doc*"
-      exclude_patterns:
-        - "*.tmp"
-        - "~$*"
+      root_path: "./data"
+      include_patterns: "*.txt,*.pdf,*.doc*"  # Fixed: single string with comma-separated patterns
+      exclude_patterns: "*.tmp,~$*"           # Fixed: single string with comma-separated patterns
 
   # Gmail plugin configuration
   - id: gmail
     enabled: true
+    binary_path: "../cmd/plugins/gmail/bin/gmail.exe"
     config:
       credentials_path: "./credentials.json"  # Credentials in example dir
       token_path: "./token.json"             # Token in example dir

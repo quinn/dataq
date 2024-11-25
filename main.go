@@ -17,9 +17,10 @@ import (
 )
 
 type PluginConfig struct {
-	ID      string            `yaml:"id"`
-	Enabled bool              `yaml:"enabled"`
-	Config  map[string]string `yaml:"config"`
+	ID         string            `yaml:"id"`
+	Enabled    bool              `yaml:"enabled"`
+	Config     map[string]string `yaml:"config"`
+	BinaryPath string            `yaml:"binary_path"` // Path to the plugin binary
 }
 
 type Config struct {
@@ -106,10 +107,9 @@ func main() {
 			continue
 		}
 
-		// Construct plugin binary path
-		pluginPath := filepath.Join("cmd", "plugins", plugin.ID, plugin.ID)
-		if _, err := os.Stat(pluginPath); err != nil {
-			log.Printf("Plugin binary not found: %s", pluginPath)
+		// Check if plugin binary exists
+		if _, err := os.Stat(plugin.BinaryPath); err != nil {
+			log.Printf("Plugin binary not found: %s", plugin.BinaryPath)
 			continue
 		}
 
@@ -120,14 +120,14 @@ func main() {
 			Operation: "configure",
 		}
 
-		if _, err := runPlugin(ctx, pluginPath, req); err != nil {
+		if _, err := runPlugin(ctx, plugin.BinaryPath, req); err != nil {
 			log.Printf("Failed to configure plugin %s: %v", plugin.ID, err)
 			continue
 		}
 
 		// Extract data
 		req.Operation = "extract"
-		resp, err := runPlugin(ctx, pluginPath, req)
+		resp, err := runPlugin(ctx, plugin.BinaryPath, req)
 		if err != nil {
 			log.Printf("Failed to extract data from plugin %s: %v", plugin.ID, err)
 			continue
