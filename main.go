@@ -14,6 +14,10 @@ import (
 	"go.quinn.io/dataq/plugin"
 	pb "go.quinn.io/dataq/proto"
 	"google.golang.org/protobuf/encoding/protojson"
+
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill-boltdb/v2"
+	"github.com/ThreeDotsLabs/watermill/message"
 )
 
 type PluginConfig struct {
@@ -30,7 +34,7 @@ type Config struct {
 		BinaryPath string            `yaml:"binary_path"`
 		Config     map[string]string `yaml:"config"`
 	} `yaml:"plugins"`
-	StateFile string `yaml:"state_file"`
+	QueuePath string `yaml:"queue_path"`
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -105,14 +109,15 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Initialize state manager
-	if config.StateFile == "" {
-		config.StateFile = "plugin_state.json"
+	// Initialize queue
+	if config.QueuePath == "" {
+		config.QueuePath = "queue.db"
 	}
-	stateManager, err := plugin.NewStateManager(config.StateFile)
+	q, err := watermill.NewBoltDBQueue(watermill.NewBoltDBConfig(config.QueuePath))
 	if err != nil {
-		log.Fatalf("Failed to initialize state manager: %v", err)
+		log.Fatalf("Failed to initialize queue: %v", err)
 	}
+	defer q.Close()
 
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -130,37 +135,57 @@ func main() {
 			continue
 		}
 
-		// Get plugin state
-		state := stateManager.GetState(plugin.ID)
-
-		// Merge state metadata into plugin config
-		pluginConfig := make(map[string]string)
-		for k, v := range plugin.Config {
-			pluginConfig[k] = v
-		}
-		for k, v := range state.Metadata {
-			pluginConfig[k] = v
+		// Create initial task
+		task := &message.Message{
+			UUID:        fmt.Sprintf("%s_%d", plugin.ID, time.Now().UnixNano()),
+			Payload:     []byte(fmt.Sprintf("%+v", plugin.Config)),
+			Metadata:    map[string]string{"plugin_id": plugin.ID},
+			ContentType: "application/json",
 		}
 
-		log.Printf("Processing plugin %s with config: %+v", plugin.ID, pluginConfig)
+		if err := q.Publish(ctx, "tasks", task); err != nil {
+			log.Printf("Failed to queue task for plugin %s: %v", plugin.ID, err)
+			continue
+		}
+	}
+
+	// Process tasks
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		msg, err := q.Get(ctx, "tasks")
+		if err != nil {
+			log.Printf("Failed to get task: %v", err)
+			continue
+		}
+		if msg == nil {
+			// No more tasks
+			return
+		}
 
 		// Configure the plugin
 		req := &pb.PluginRequest{
-			PluginId:  plugin.ID,
-			Config:    pluginConfig,
+			PluginId:  msg.Metadata["plugin_id"],
+			Config:    map[string]string(msg.Payload),
 			Operation: "configure",
 		}
 
-		if _, err := runPlugin(ctx, plugin.BinaryPath, req); err != nil {
-			log.Printf("Failed to configure plugin %s: %v", plugin.ID, err)
+		if _, err := runPlugin(ctx, req.PluginId, req); err != nil {
+			log.Printf("Failed to configure plugin %s: %v", req.PluginId, err)
+			q.Ack(ctx, msg.UUID)
 			continue
 		}
 
 		// Extract data
 		req.Operation = "extract"
-		resp, err := runPlugin(ctx, plugin.BinaryPath, req)
+		resp, err := runPlugin(ctx, req.PluginId, req)
 		if err != nil {
-			log.Printf("Failed to extract data from plugin %s: %v", plugin.ID, err)
+			log.Printf("Failed to extract data from plugin %s: %v", req.PluginId, err)
+			q.Ack(ctx, msg.UUID)
 			continue
 		}
 
@@ -172,16 +197,30 @@ func main() {
 			}
 			fmt.Println()
 
-			// Update plugin state with metadata from the last item
-			if nextToken, ok := item.Metadata["next_page_token"]; ok {
-				state.Metadata["page_token"] = nextToken
+			// If plugin returned a next page token, queue a new task for it
+			if nextToken, ok := item.Metadata["next_page_token"]; ok && nextToken != "" {
+				nextConfig := make(map[string]string)
+				for k, v := range req.Config {
+					nextConfig[k] = v
+				}
+				nextConfig["page_token"] = nextToken
+
+				nextTask := &message.Message{
+					UUID:        fmt.Sprintf("%s_%d", req.PluginId, time.Now().UnixNano()),
+					Payload:     []byte(fmt.Sprintf("%+v", nextConfig)),
+					Metadata:    map[string]string{"plugin_id": req.PluginId},
+					ContentType: "application/json",
+				}
+
+				if err := q.Publish(ctx, "tasks", nextTask); err != nil {
+					log.Printf("Failed to queue next page task: %v", err)
+				}
 			}
 		}
 
-		// Update plugin state
-		state.LastRun = time.Now().Unix()
-		if err := stateManager.UpdateState(state); err != nil {
-			log.Printf("Failed to update plugin state: %v", err)
+		// Acknowledge task
+		if err := q.Ack(ctx, msg.UUID); err != nil {
+			log.Printf("Failed to acknowledge task: %v", err)
 		}
 	}
 }
