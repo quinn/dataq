@@ -111,9 +111,12 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 
 		// Get the page token from config if provided
 		pageToken := p.config["page_token"]
+		if pageToken == "" {
+			pageToken = "first"  // Use "first" for initial page
+		}
 		
 		req := srv.Users.Messages.List("me").MaxResults(100)
-		if pageToken != "" {
+		if pageToken != "first" {
 			req.PageToken(pageToken)
 		}
 
@@ -138,7 +141,7 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 		// Create a DataItem for the page
 		item := &pb.DataItem{
 			PluginId:    p.ID(),
-			SourceId:    fmt.Sprintf("page_%s", pageToken), // Empty string for first page
+			SourceId:    fmt.Sprintf("page_%s", pageToken),
 			ContentType: "application/json",
 			RawData:     rawJSON,
 			Metadata: map[string]string{

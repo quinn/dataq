@@ -39,7 +39,10 @@ func NewBoltQueue(opts ...QueueOption) (Queue, error) {
 
 	// Open BBolt database
 	db, err := bbolt.Open(options.Path, 0600, &bbolt.Options{
-		Timeout: 1 * time.Second,
+		Timeout: 5 * time.Second,
+		NoSync: false,
+		NoGrowSync: false,
+		FreelistType: bbolt.FreelistArrayType,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open queue database: %v", err)
