@@ -73,6 +73,103 @@ The system is designed for easy extension through:
 - YAML-based configuration
 - Plugin-specific settings
 
+## Core Protocol
+
+The system is built around a simple but flexible protocol defined in `proto/dataq.proto`:
+
+1. **Plugin Definition**
+   ```protobuf
+   message Plugin {
+     string id = 1;
+     string name = 2;
+     string description = 3;
+     map<string, string> config = 4;
+   }
+   ```
+   Plugins are self-describing units that can be configured via key-value pairs.
+
+2. **Data Model**
+   ```protobuf
+   message DataItem {
+     string plugin_id = 1;
+     string source_id = 2;
+     int64 timestamp = 3;
+     string content_type = 4;
+     bytes raw_data = 5;
+     map<string, string> metadata = 6;
+   }
+   ```
+   DataItems are the fundamental unit of data exchange, containing:
+   - Source identification
+   - Raw data payload
+   - Extensible metadata
+
+3. **Plugin Communication**
+   ```protobuf
+   message PluginRequest {
+     string plugin_id = 1;
+     map<string, string> config = 2;
+     string operation = 3;
+   }
+
+   message PluginResponse {
+     string plugin_id = 1;
+     repeated DataItem items = 2;
+     string error = 3;
+   }
+   ```
+   The request/response protocol allows for:
+   - Plugin configuration
+   - Data extraction operations
+   - Error reporting
+
+## Data Processing Pipeline
+
+The pipeline is designed to be generic and extensible, working with the core protocol:
+
+1. **Plugin Operations**
+   - Configure: Set up plugin with required parameters
+   - Extract: Request data from the source
+   - Each plugin determines its own extraction strategy
+
+2. **Data Flow**
+   - Plugins stream DataItems to the core system
+   - Each DataItem is self-contained
+   - Metadata enables plugin-specific features
+   - Core system remains agnostic to plugin implementation details
+
+3. **Plugin Implementation Patterns**
+   Plugins can implement various data access patterns:
+   - Single-shot extraction
+   - Stateful extraction (via config/metadata)
+   - Incremental updates
+   - Streaming real-time data
+
+4. **Processing Stages**
+   - Raw data validation against content_type
+   - Optional transformation based on metadata
+   - Storage according to plugin_id and source_id
+
+## Plugin Implementation Example
+
+A plugin implementing stateful extraction (like Gmail) might:
+```yaml
+# Initial request
+plugin_request:
+  plugin_id: "gmail"
+  operation: "extract"
+  config: {}
+
+# Subsequent request using metadata from previous response
+plugin_request:
+  plugin_id: "gmail"
+  operation: "extract"
+  config:
+    page_token: "token_from_previous_metadata"
+```
+
+The core system remains unaware of the pagination mechanism, while the plugin can maintain its state through the generic config and metadata fields.
+
 ## Future Considerations
 
 1. **Scalability**
@@ -82,7 +179,6 @@ The system is designed for easy extension through:
 
 2. **Enhanced Features**
    - Real-time data monitoring
-   - Data transformation pipeline
    - Advanced search capabilities
    - Data deduplication
 
