@@ -3,6 +3,7 @@ module go.quinn.io/dataq
 go 1.22.0
 
 require (
+	go.etcd.io/bbolt v1.3.11
 	golang.org/x/oauth2 v0.24.0
 	google.golang.org/api v0.209.0
 	google.golang.org/protobuf v1.35.2

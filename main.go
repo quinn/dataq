@@ -11,6 +11,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"go.quinn.io/dataq/plugin"
 	pb "go.quinn.io/dataq/proto"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -18,12 +19,18 @@ import (
 type PluginConfig struct {
 	ID         string            `yaml:"id"`
 	Enabled    bool              `yaml:"enabled"`
-	Config     map[string]string `yaml:"config"`
 	BinaryPath string            `yaml:"binary_path"` // Path to the plugin binary
+	Config     map[string]string `yaml:"config"`
 }
 
 type Config struct {
-	Plugins []PluginConfig `yaml:"plugins"`
+	Plugins []struct {
+		ID         string            `yaml:"id"`
+		Enabled    bool              `yaml:"enabled"`
+		BinaryPath string            `yaml:"binary_path"`
+		Config     map[string]string `yaml:"config"`
+	} `yaml:"plugins"`
+	StateFile string `yaml:"state_file"`
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -98,6 +105,15 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Initialize state manager
+	if config.StateFile == "" {
+		config.StateFile = "plugin_state.json"
+	}
+	stateManager, err := plugin.NewStateManager(config.StateFile)
+	if err != nil {
+		log.Fatalf("Failed to initialize state manager: %v", err)
+	}
+
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -114,12 +130,24 @@ func main() {
 			continue
 		}
 
-		log.Printf("Processing plugin %s with config: %+v", plugin.ID, plugin.Config)
+		// Get plugin state
+		state := stateManager.GetState(plugin.ID)
+
+		// Merge state metadata into plugin config
+		pluginConfig := make(map[string]string)
+		for k, v := range plugin.Config {
+			pluginConfig[k] = v
+		}
+		for k, v := range state.Metadata {
+			pluginConfig[k] = v
+		}
+
+		log.Printf("Processing plugin %s with config: %+v", plugin.ID, pluginConfig)
 
 		// Configure the plugin
 		req := &pb.PluginRequest{
 			PluginId:  plugin.ID,
-			Config:    plugin.Config,
+			Config:    pluginConfig,
 			Operation: "configure",
 		}
 
@@ -138,10 +166,22 @@ func main() {
 
 		// Process the extracted data
 		for _, item := range resp.Items {
-			fmt.Printf("Found file: %s\n", item.SourceId)
-			fmt.Printf("  Size: %s\n", item.Metadata["size"])
-			fmt.Printf("  Last Modified: %s\n", item.Metadata["last_modified"])
+			fmt.Printf("Found item from %s: %s\n", item.PluginId, item.SourceId)
+			for k, v := range item.Metadata {
+				fmt.Printf("  %s: %s\n", k, v)
+			}
 			fmt.Println()
+
+			// Update plugin state with metadata from the last item
+			if nextToken, ok := item.Metadata["next_page_token"]; ok {
+				state.Metadata["page_token"] = nextToken
+			}
+		}
+
+		// Update plugin state
+		state.LastRun = time.Now().Unix()
+		if err := stateManager.UpdateState(state); err != nil {
+			log.Printf("Failed to update plugin state: %v", err)
 		}
 	}
 }
