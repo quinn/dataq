@@ -11,7 +11,7 @@ import (
 // State represents the execution state of a plugin
 type State struct {
 	PluginID string            `json:"plugin_id"`
-	LastRun  int64            `json:"last_run"`
+	LastRun  int64             `json:"last_run"`
 	Metadata map[string]string `json:"metadata"`
 }
 
