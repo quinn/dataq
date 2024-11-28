@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -11,13 +11,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"go.quinn.io/dataq/plugin"
 	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/queue"
 	"google.golang.org/protobuf/encoding/protojson"
-
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill-boltdb/v2"
-	"github.com/ThreeDotsLabs/watermill/message"
 )
 
 type PluginConfig struct {
@@ -50,56 +46,33 @@ func loadConfig(path string) (*Config, error) {
 	return &config, nil
 }
 
-func runPlugin(ctx context.Context, pluginPath string, req *pb.PluginRequest) (*pb.PluginResponse, error) {
-	log.Printf("Running plugin %s with config: %+v", pluginPath, req.Config)
-	cmd := exec.CommandContext(ctx, pluginPath)
-	cmd.Stderr = os.Stderr
+func runPlugin(_ context.Context, binaryPath string, req *pb.PluginRequest) (*pb.PluginResponse, error) {
+	log.Printf("Running plugin %s with config: %+v", req.PluginId, req.Config)
 
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get stdin pipe: %v", err)
-	}
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get stdout pipe: %v", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start plugin: %v", err)
-	}
-
-	// Write request to stdin
-	reqData, err := protojson.Marshal(req)
+	// Serialize request to JSON
+	reqJson, err := protojson.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
-	if _, err := stdin.Write(reqData); err != nil {
-		return nil, fmt.Errorf("failed to write to stdin: %v", err)
-	}
-	stdin.Close()
+	// Start plugin process
+	cmd := exec.Command(binaryPath)
+	cmd.Stdin = bytes.NewReader(reqJson)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
-	// Read response from stdout
-	respData, err := io.ReadAll(stdout)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read from stdout: %v", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return nil, fmt.Errorf("plugin execution failed: %v", err)
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to start plugin: %v\nstderr: %s", err, stderr.String())
 	}
 
-	var resp pb.PluginResponse
-	if err := protojson.Unmarshal(respData, &resp); err != nil {
+	// Parse response
+	resp := &pb.PluginResponse{}
+	if err := protojson.Unmarshal(stdout.Bytes(), resp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
 	}
 
-	if resp.Error != "" {
-		return nil, fmt.Errorf("plugin error: %s", resp.Error)
-	}
-
-	return &resp, nil
+	return resp, nil
 }
 
 func main() {
@@ -113,7 +86,7 @@ func main() {
 	if config.QueuePath == "" {
 		config.QueuePath = "queue.db"
 	}
-	q, err := watermill.NewBoltDBQueue(watermill.NewBoltDBConfig(config.QueuePath))
+	q, err := queue.NewBoltQueue(queue.WithPath(config.QueuePath))
 	if err != nil {
 		log.Fatalf("Failed to initialize queue: %v", err)
 	}
@@ -136,14 +109,18 @@ func main() {
 		}
 
 		// Create initial task
-		task := &message.Message{
-			UUID:        fmt.Sprintf("%s_%d", plugin.ID, time.Now().UnixNano()),
-			Payload:     []byte(fmt.Sprintf("%+v", plugin.Config)),
-			Metadata:    map[string]string{"plugin_id": plugin.ID},
-			ContentType: "application/json",
+		task := &queue.Task{
+			ID:        fmt.Sprintf("%s_%d", plugin.ID, time.Now().UnixNano()),
+			PluginID:  plugin.ID,
+			Config:    plugin.Config,
+			Status:    queue.TaskStatusPending,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		}
+		// Add binary path to config
+		task.Config["binary_path"] = plugin.BinaryPath
 
-		if err := q.Publish(ctx, "tasks", task); err != nil {
+		if err := q.Push(ctx, task); err != nil {
 			log.Printf("Failed to queue task for plugin %s: %v", plugin.ID, err)
 			continue
 		}
@@ -157,35 +134,35 @@ func main() {
 		default:
 		}
 
-		msg, err := q.Get(ctx, "tasks")
+		task, err := q.Pop(ctx)
 		if err != nil {
-			log.Printf("Failed to get task: %v", err)
+			log.Printf("Failed to pop task: %v", err)
 			continue
 		}
-		if msg == nil {
+		if task == nil {
 			// No more tasks
 			return
 		}
 
 		// Configure the plugin
 		req := &pb.PluginRequest{
-			PluginId:  msg.Metadata["plugin_id"],
-			Config:    map[string]string(msg.Payload),
+			PluginId:  task.PluginID,
+			Config:    task.Config,
 			Operation: "configure",
 		}
 
-		if _, err := runPlugin(ctx, req.PluginId, req); err != nil {
-			log.Printf("Failed to configure plugin %s: %v", req.PluginId, err)
-			q.Ack(ctx, msg.UUID)
+		if _, err := runPlugin(ctx, task.Config["binary_path"], req); err != nil {
+			log.Printf("Failed to configure plugin %s: %v", task.PluginID, err)
+			q.Update(ctx, task.ID, queue.TaskStatusFailed, nil, err.Error())
 			continue
 		}
 
 		// Extract data
 		req.Operation = "extract"
-		resp, err := runPlugin(ctx, req.PluginId, req)
+		resp, err := runPlugin(ctx, task.Config["binary_path"], req)
 		if err != nil {
-			log.Printf("Failed to extract data from plugin %s: %v", req.PluginId, err)
-			q.Ack(ctx, msg.UUID)
+			log.Printf("Failed to extract data from plugin %s: %v", task.PluginID, err)
+			q.Update(ctx, task.ID, queue.TaskStatusFailed, nil, err.Error())
 			continue
 		}
 
@@ -200,27 +177,29 @@ func main() {
 			// If plugin returned a next page token, queue a new task for it
 			if nextToken, ok := item.Metadata["next_page_token"]; ok && nextToken != "" {
 				nextConfig := make(map[string]string)
-				for k, v := range req.Config {
+				for k, v := range task.Config {
 					nextConfig[k] = v
 				}
 				nextConfig["page_token"] = nextToken
 
-				nextTask := &message.Message{
-					UUID:        fmt.Sprintf("%s_%d", req.PluginId, time.Now().UnixNano()),
-					Payload:     []byte(fmt.Sprintf("%+v", nextConfig)),
-					Metadata:    map[string]string{"plugin_id": req.PluginId},
-					ContentType: "application/json",
+				nextTask := &queue.Task{
+					ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
+					PluginID:  task.PluginID,
+					Config:    nextConfig,
+					Status:    queue.TaskStatusPending,
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
 				}
 
-				if err := q.Publish(ctx, "tasks", nextTask); err != nil {
+				if err := q.Push(ctx, nextTask); err != nil {
 					log.Printf("Failed to queue next page task: %v", err)
 				}
 			}
 		}
 
-		// Acknowledge task
-		if err := q.Ack(ctx, msg.UUID); err != nil {
-			log.Printf("Failed to acknowledge task: %v", err)
+		// Update task status
+		if err := q.Update(ctx, task.ID, queue.TaskStatusCompleted, resp, ""); err != nil {
+			log.Printf("Failed to update task status: %v", err)
 		}
 	}
 }

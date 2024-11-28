@@ -4,3 +4,4 @@ cmd/plugins/gmail/auth/credentials.json
 cmd/plugins/gmail/auth/token.json
 example/credentials.json
 example/token.json
+example/queue.db
