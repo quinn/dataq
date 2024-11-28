@@ -18,6 +18,7 @@ import (
 type GmailPlugin struct {
 	credentialsPath string
 	tokenPath       string
+	config          map[string]string
 }
 
 func New() *GmailPlugin {
@@ -69,6 +70,8 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 		return fmt.Errorf("token_path configuration is required")
 	}
 
+	p.config = config
+
 	return nil
 }
 
@@ -106,63 +109,49 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 	go func() {
 		defer close(items)
 
-		var pageToken string
-		pageNum := 0
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
+		// Get the page token from config if provided
+		pageToken := p.config["page_token"]
+		
+		req := srv.Users.Messages.List("me").MaxResults(100)
+		if pageToken != "" {
+			req.PageToken(pageToken)
+		}
 
-			req := srv.Users.Messages.List("me").MaxResults(100)
-			if pageToken != "" {
-				req.PageToken(pageToken)
-			}
+		r, err := req.Do()
+		if err != nil {
+			log.Printf("Error listing messages: %v", err)
+			return
+		}
 
-			r, err := req.Do()
-			if err != nil {
-				log.Printf("Error listing messages: %v", err)
-				return
-			}
+		if r.Messages == nil {
+			log.Printf("No messages found")
+			return
+		}
 
-			if r.Messages == nil {
-				log.Printf("No messages found")
-				return
-			}
+		// Marshal the response to JSON
+		rawJSON, err := json.MarshalIndent(r, "", "  ")
+		if err != nil {
+			log.Printf("Error marshaling response: %v", err)
+			return
+		}
 
-			// Marshal the entire page response to JSON
-			rawJSON, err := json.MarshalIndent(r, "", "  ")
-			if err != nil {
-				log.Printf("Error marshaling page response: %v", err)
-				continue
-			}
+		// Create a DataItem for the page
+		item := &pb.DataItem{
+			PluginId:    p.ID(),
+			SourceId:    fmt.Sprintf("page_%s", pageToken),
+			ContentType: "application/json",
+			RawData:     rawJSON,
+			Metadata: map[string]string{
+				"messages_count":      fmt.Sprintf("%d", len(r.Messages)),
+				"next_page_token":     r.NextPageToken,
+				"result_size_estimate": fmt.Sprintf("%d", r.ResultSizeEstimate),
+			},
+		}
 
-			// Create a DataItem for the entire page
-			item := &pb.DataItem{
-				PluginId:    p.ID(),
-				SourceId:    fmt.Sprintf("page_%d", pageNum),
-				ContentType: "application/json",
-				RawData:     rawJSON,
-				Metadata: map[string]string{
-					"page_number":        fmt.Sprintf("%d", pageNum),
-					"messages_count":     fmt.Sprintf("%d", len(r.Messages)),
-					"next_page_token":    r.NextPageToken,
-					"result_size_estimate": fmt.Sprintf("%d", r.ResultSizeEstimate),
-				},
-			}
-
-			select {
-			case items <- item:
-			case <-ctx.Done():
-				return
-			}
-
-			if r.NextPageToken == "" {
-				break
-			}
-			pageToken = r.NextPageToken
-			pageNum++
+		select {
+		case items <- item:
+		case <-ctx.Done():
+			return
 		}
 	}()
 
