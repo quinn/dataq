@@ -138,14 +138,18 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 		// Create a DataItem for the page
 		item := &pb.DataItem{
 			PluginId:    p.ID(),
-			SourceId:    fmt.Sprintf("page_%s", pageToken),
+			SourceId:    fmt.Sprintf("page_%s", pageToken), // Empty string for first page
 			ContentType: "application/json",
 			RawData:     rawJSON,
 			Metadata: map[string]string{
-				"messages_count":      fmt.Sprintf("%d", len(r.Messages)),
-				"next_page_token":     r.NextPageToken,
+				"messages_count": fmt.Sprintf("%d", len(r.Messages)),
 				"result_size_estimate": fmt.Sprintf("%d", r.ResultSizeEstimate),
 			},
+		}
+
+		// Only add next page token if it's different from current
+		if r.NextPageToken != "" && r.NextPageToken != pageToken {
+			item.Metadata["next_page_token"] = r.NextPageToken
 		}
 
 		select {

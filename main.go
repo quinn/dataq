@@ -174,13 +174,16 @@ func main() {
 			}
 			fmt.Println()
 
-			// If plugin returned a next page token, queue a new task for it
-			if nextToken, ok := item.Metadata["next_page_token"]; ok && nextToken != "" {
+			// If plugin returned metadata that requires a new task, create one
+			if len(item.Metadata) > 0 {
 				nextConfig := make(map[string]string)
 				for k, v := range task.Config {
 					nextConfig[k] = v
 				}
-				nextConfig["page_token"] = nextToken
+				// Add all metadata to next task's config
+				for k, v := range item.Metadata {
+					nextConfig[k] = v
+				}
 
 				nextTask := &queue.Task{
 					ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
@@ -192,7 +195,7 @@ func main() {
 				}
 
 				if err := q.Push(ctx, nextTask); err != nil {
-					log.Printf("Failed to queue next page task: %v", err)
+					log.Printf("Failed to queue next task: %v", err)
 				}
 			}
 		}
