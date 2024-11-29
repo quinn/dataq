@@ -19,6 +19,15 @@ type Config struct {
 }
 
 func main() {
+	// Check if status command
+	if len(os.Args) > 1 && os.Args[1] == "status" {
+		if err := printStatus(); err != nil {
+			log.Printf("Error: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Load config
 	configPath := "config.yaml"
 	if len(os.Args) > 1 {
@@ -33,6 +42,11 @@ func main() {
 	var config Config
 	if err := yaml.Unmarshal(configData, &config); err != nil {
 		log.Fatalf("Failed to parse config: %v", err)
+	}
+
+	log.Printf("Loaded config with %d plugins", len(config.Plugins))
+	for _, p := range config.Plugins {
+		log.Printf("Plugin: %s (enabled: %v, binary: %s)", p.ID, p.Enabled, p.BinaryPath)
 	}
 
 	// Initialize queue
@@ -55,6 +69,8 @@ func main() {
 			continue
 		}
 
+		log.Printf("Creating initial task for plugin %s", p.ID)
+
 		// Create initial task
 		task := &queue.Task{
 			ID:        fmt.Sprintf("%s_%d", p.ID, time.Now().UnixNano()),
@@ -69,7 +85,11 @@ func main() {
 			log.Printf("Failed to push task for plugin %s: %v", p.ID, err)
 			continue
 		}
+
+		log.Printf("Initial task created for plugin %s with ID %s", p.ID, task.ID)
 	}
+
+	log.Println("Starting task processing loop")
 
 	// Process tasks
 	for {
@@ -137,6 +157,17 @@ func main() {
 			continue
 		}
 
+		// Check if plugin returned any data
+		if len(resp.Items) == 0 {
+			log.Printf("Plugin %s returned no data", pluginConfig.ID)
+			task.Status = queue.TaskStatusFailed
+			task.Error = "plugin returned no data"
+			if err := q.Update(context.Background(), task); err != nil {
+				log.Printf("Failed to update task %s: %v", task.ID, err)
+			}
+			continue
+		}
+
 		// Update task with result
 		task.Status = queue.TaskStatusComplete
 		task.Result = resp
@@ -164,4 +195,61 @@ func main() {
 			}
 		}
 	}
+}
+
+func printStatus() error {
+	// Load config
+	configPath := "config.yaml"
+	if len(os.Args) > 2 {
+		configPath = os.Args[2]
+	}
+
+	var config Config
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config: %v", err)
+	}
+	if err := yaml.Unmarshal(configData, &config); err != nil {
+		return fmt.Errorf("failed to parse config: %v", err)
+	}
+
+	// Open queue
+	q, err := queue.NewBoltQueue(queue.WithPath(config.QueuePath))
+	if err != nil {
+		return fmt.Errorf("failed to open queue: %v", err)
+	}
+
+	// Get tasks by status
+	ctx := context.Background()
+	statuses := []queue.TaskStatus{
+		queue.TaskStatusPending,
+		queue.TaskStatusComplete,
+		queue.TaskStatusFailed,
+	}
+
+	fmt.Println("\nQueue Status:")
+	fmt.Println("=============")
+
+	for _, status := range statuses {
+		tasks, err := q.List(ctx, status)
+		if err != nil {
+			return fmt.Errorf("failed to list %s tasks: %v", status, err)
+		}
+
+		fmt.Printf("\n%s Tasks: %d\n", status, len(tasks))
+		if len(tasks) > 0 {
+			fmt.Printf("Latest tasks:\n")
+			// Show last 5 tasks
+			start := len(tasks) - 5
+			if start < 0 {
+				start = 0
+			}
+			for _, task := range tasks[start:] {
+				fmt.Printf("  - %s (plugin: %s, created: %s)\n",
+					task.ID, task.PluginID, task.CreatedAt.Format(time.RFC3339))
+			}
+		}
+	}
+
+	return nil
 }

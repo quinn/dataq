@@ -78,36 +78,41 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) {
 	items := make(chan *pb.DataItem)
 
-	// Read credentials file
-	b, err := os.ReadFile(p.credentialsPath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read credentials file (%s): %v", p.credentialsPath, err)
-	}
-
-	config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse credentials (%s): %v", p.credentialsPath, err)
-	}
-
-	// Read token file
-	tokenBytes, err := os.ReadFile(p.tokenPath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read token file (%s): %v", p.tokenPath, err)
-	}
-
-	var token oauth2.Token
-	if err := json.Unmarshal(tokenBytes, &token); err != nil {
-		return nil, fmt.Errorf("unable to parse token (%s): %v", p.tokenPath, err)
-	}
-
-	client := config.Client(ctx, &token)
-	srv, err := gmail.NewService(ctx, option.WithHTTPClient(client))
-	if err != nil {
-		return nil, fmt.Errorf("unable to create Gmail client: %v", err)
-	}
-
 	go func() {
 		defer close(items)
+
+		// Read credentials file
+		b, err := os.ReadFile(p.credentialsPath)
+		if err != nil {
+			log.Printf("Error reading credentials: %v", err)
+			return
+		}
+
+		config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
+		if err != nil {
+			log.Printf("Error parsing credentials (%s): %v", p.credentialsPath, err)
+			return
+		}
+
+		// Read token file
+		tokenBytes, err := os.ReadFile(p.tokenPath)
+		if err != nil {
+			log.Printf("Error reading token file (%s): %v", p.tokenPath, err)
+			return
+		}
+
+		var token oauth2.Token
+		if err := json.Unmarshal(tokenBytes, &token); err != nil {
+			log.Printf("Error parsing token (%s): %v", p.tokenPath, err)
+			return
+		}
+
+		client := config.Client(ctx, &token)
+		srv, err := gmail.NewService(ctx, option.WithHTTPClient(client))
+		if err != nil {
+			log.Printf("Error creating Gmail client: %v", err)
+			return
+		}
 
 		var pageToken string
 

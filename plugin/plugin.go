@@ -1,9 +1,13 @@
 package plugin
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"os/exec"
 
 	pb "go.quinn.io/dataq/proto"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // PluginConfig contains configuration for a plugin
@@ -35,14 +39,36 @@ type binaryPlugin struct {
 
 // Extract implements Plugin interface
 func (p *binaryPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (*pb.PluginResponse, error) {
-	// Set plugin ID in request
+	// Set plugin ID and operation in request
 	req.PluginId = p.config.ID
+	req.Operation = "extract"
 
-	// For now, just return empty response
-	return &pb.PluginResponse{
-		PluginId: p.config.ID,
-		Items:    []*pb.DataItem{},
-	}, nil
+	// Serialize request to JSON
+	reqJson, err := protojson.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	// Start plugin process
+	cmd := exec.CommandContext(ctx, p.config.BinaryPath)
+	cmd.Stdin = bytes.NewReader(reqJson)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Run plugin
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to run plugin: %v\nstderr: %s", err, stderr.String())
+	}
+
+	// Parse response
+	resp := &pb.PluginResponse{}
+	if err := protojson.Unmarshal(stdout.Bytes(), resp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return resp, nil
+
 }
 
 func (p *binaryPlugin) ID() string {

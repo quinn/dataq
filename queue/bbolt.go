@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -61,6 +62,7 @@ func NewBoltQueue(opts ...Option) (Queue, error) {
 
 // Push adds a task to the queue
 func (q *BoltQueue) Push(ctx context.Context, task *Task) error {
+	log.Printf("Pushing task %s (status: %s)", task.ID, task.Status)
 	return q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(queueBucket)
 
@@ -78,6 +80,7 @@ func (q *BoltQueue) Push(ctx context.Context, task *Task) error {
 // Pop removes and returns the next task from the queue
 func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
 	var task *Task
+	var taskKey []byte
 
 	err := q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(queueBucket)
@@ -88,13 +91,23 @@ func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
 		for ; k != nil; k, v = c.Next() {
 			var t Task
 			if err := json.Unmarshal(v, &t); err != nil {
+				log.Printf("Failed to unmarshal task: %v", err)
 				continue
 			}
 
+			log.Printf("Checking task %s (status: %s)", t.ID, t.Status)
 			if t.Status == TaskStatusPending {
 				task = &t
-				return b.Delete(k)
+				taskKey = k
+				log.Printf("Found pending task %s", t.ID)
+				break
 			}
+		}
+
+		// If we found a task, delete it
+		if taskKey != nil {
+			log.Printf("Deleting task %s", task.ID)
+			return b.Delete(taskKey)
 		}
 
 		return nil
@@ -150,31 +163,33 @@ func (q *BoltQueue) Update(ctx context.Context, task *Task) error {
 }
 
 // List returns all tasks in the queue, optionally filtered by status
-func (q *BoltQueue) List(ctx context.Context, status *TaskStatus) ([]*Task, error) {
+func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error) {
 	var tasks []*Task
 
 	err := q.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(queueBucket)
-		c := b.Cursor()
-
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			var task Task
-			if err := json.Unmarshal(v, &task); err != nil {
-				continue
-			}
-			
-			if status != nil && task.Status != *status {
-				continue
-			}
-			
-			tasks = append(tasks, &task)
+		if b == nil {
+			return fmt.Errorf("task bucket not found")
 		}
 
-		return nil
+		return b.ForEach(func(k, v []byte) error {
+			var task Task
+			if err := json.Unmarshal(v, &task); err != nil {
+				log.Printf("Failed to unmarshal task: %v", err)
+				return nil // Skip invalid tasks
+			}
+
+			// Filter by status if specified
+			if task.Status == status {
+				tasks = append(tasks, &task)
+			}
+
+			return nil
+		})
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tasks: %v", err)
+		return nil, fmt.Errorf("error listing tasks: %v", err)
 	}
 
 	return tasks, nil

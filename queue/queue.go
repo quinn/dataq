@@ -30,27 +30,22 @@ type Task struct {
 	UpdatedAt time.Time
 }
 
-// Queue defines the interface for queue implementations
+// Queue defines the interface for task queues
 type Queue interface {
-	// Push adds a new task to the queue
+	// Push adds a task to the queue
 	Push(ctx context.Context, task *Task) error
 
 	// Pop removes and returns the next task from the queue
-	// If no task is available, returns nil and no error
 	Pop(ctx context.Context) (*Task, error)
 
-	// Get retrieves a task by ID without removing it
-	Get(ctx context.Context, id string) (*Task, error)
-
-	// Update updates the status and result of a task
+	// Update updates an existing task in the queue
 	Update(ctx context.Context, task *Task) error
-
-	// List returns all tasks matching the given status
-	// If status is nil, returns all tasks
-	List(ctx context.Context, status *TaskStatus) ([]*Task, error)
 
 	// Close closes the queue and releases any resources
 	Close() error
+
+	// List returns all tasks in the queue, optionally filtered by status
+	List(ctx context.Context, status TaskStatus) ([]*Task, error)
 }
 
 // QueueOption represents an option when creating a new queue
