@@ -8,25 +8,23 @@ import (
 )
 
 // TaskStatus represents the current state of a task
-type TaskStatus int
+type TaskStatus string
 
 const (
-	TaskStatusPending TaskStatus = iota
-	TaskStatusRunning
-	TaskStatusCompleted
-	TaskStatusFailed
+	TaskStatusPending   TaskStatus = "pending"
+	TaskStatusComplete  TaskStatus = "complete"
+	TaskStatusFailed    TaskStatus = "failed"
+	TaskStatusCancelled TaskStatus = "cancelled"
 )
 
 // Task represents a unit of work to be processed
 type Task struct {
 	ID        string
 	PluginID  string
-	Config    map[string]string
+	Data      *pb.DataItem
 	Status    TaskStatus
-	Error     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Result    *pb.PluginResponse
 }
 
 // Queue defines the interface for queue implementations

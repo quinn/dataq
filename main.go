@@ -169,34 +169,27 @@ func main() {
 		// Process the extracted data
 		for _, item := range resp.Items {
 			fmt.Printf("Found item from %s: %s\n", item.PluginId, item.SourceId)
-			for k, v := range item.Metadata {
-				fmt.Printf("  %s: %s\n", k, v)
+
+			// Create next task with the response data
+			nextConfig := make(map[string]string)
+			for k, v := range task.Config {
+				nextConfig[k] = v
 			}
-			fmt.Println()
+			// Add all metadata to next task's config
+			for k, v := range item.Metadata {
+				nextConfig[k] = v
+			}
 
-			// If plugin returned metadata that requires a new task, create one
-			if len(item.Metadata) > 0 {
-				nextConfig := make(map[string]string)
-				for k, v := range task.Config {
-					nextConfig[k] = v
-				}
-				// Add all metadata to next task's config
-				for k, v := range item.Metadata {
-					nextConfig[k] = v
-				}
+			nextTask := &queue.Task{
+				ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
+				PluginID:  task.PluginID,
+				Status:    queue.TaskStatusPending,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
 
-				nextTask := &queue.Task{
-					ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
-					PluginID:  task.PluginID,
-					Config:    nextConfig,
-					Status:    queue.TaskStatusPending,
-					CreatedAt: time.Now(),
-					UpdatedAt: time.Now(),
-				}
-
-				if err := q.Push(ctx, nextTask); err != nil {
-					log.Printf("Failed to queue next task: %v", err)
-				}
+			if err := q.Push(ctx, nextTask); err != nil {
+				log.Printf("Failed to queue next task: %v", err)
 			}
 		}
 

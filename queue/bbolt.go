@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"go.etcd.io/bbolt"
-	pb "go.quinn.io/dataq/proto"
 )
 
 var (
@@ -39,10 +38,10 @@ func NewBoltQueue(opts ...QueueOption) (Queue, error) {
 
 	// Open BBolt database
 	db, err := bbolt.Open(options.Path, 0600, &bbolt.Options{
-		Timeout: 5 * time.Second,
-		NoSync: false,
-		NoGrowSync: false,
-		FreelistType: bbolt.FreelistArrayType,
+		Timeout:      5 * time.Second, // Increased timeout
+		NoSync:       false,           // Ensure durability
+		NoGrowSync:   false,
+		FreelistType: bbolt.FreelistArrayType, // More memory efficient
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open queue database: %v", err)

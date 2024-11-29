@@ -109,14 +109,21 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 	go func() {
 		defer close(items)
 
-		// Get the page token from config if provided
-		pageToken := p.config["page_token"]
-		if pageToken == "" {
-			pageToken = "first"  // Use "first" for initial page
+		var pageToken string
+
+		// If we have previous response data, extract the next page token
+		if p.prevItem != nil && len(p.prevItem.RawData) > 0 {
+			var prevResp gmail.ListMessagesResponse
+			if err := json.Unmarshal(p.prevItem.RawData, &prevResp); err != nil {
+				log.Printf("Error parsing previous response: %v", err)
+				return
+			}
+			pageToken = prevResp.NextPageToken
 		}
-		
+
+		// If no previous response or invalid, start from beginning
 		req := srv.Users.Messages.List("me").MaxResults(100)
-		if pageToken != "first" {
+		if pageToken != "" {
 			req.PageToken(pageToken)
 		}
 
@@ -144,15 +151,6 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 			SourceId:    fmt.Sprintf("page_%s", pageToken),
 			ContentType: "application/json",
 			RawData:     rawJSON,
-			Metadata: map[string]string{
-				"messages_count": fmt.Sprintf("%d", len(r.Messages)),
-				"result_size_estimate": fmt.Sprintf("%d", r.ResultSizeEstimate),
-			},
-		}
-
-		// Only add next page token if it's different from current
-		if r.NextPageToken != "" && r.NextPageToken != pageToken {
-			item.Metadata["next_page_token"] = r.NextPageToken
 		}
 
 		select {
