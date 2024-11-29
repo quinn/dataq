@@ -21,8 +21,11 @@ const (
 type Task struct {
 	ID        string
 	PluginID  string
+	Config    map[string]string
 	Data      *pb.DataItem
 	Status    TaskStatus
+	Result    *pb.PluginResponse
+	Error     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -40,7 +43,7 @@ type Queue interface {
 	Get(ctx context.Context, id string) (*Task, error)
 
 	// Update updates the status and result of a task
-	Update(ctx context.Context, id string, status TaskStatus, result *pb.PluginResponse, err string) error
+	Update(ctx context.Context, task *Task) error
 
 	// List returns all tasks matching the given status
 	// If status is nil, returns all tasks
@@ -56,11 +59,4 @@ type QueueOption func(*QueueOptions)
 // QueueOptions contains all queue configuration options
 type QueueOptions struct {
 	Path string // Path to the queue storage directory
-}
-
-// WithPath sets the storage path for the queue
-func WithPath(path string) QueueOption {
-	return func(o *QueueOptions) {
-		o.Path = path
-	}
 }

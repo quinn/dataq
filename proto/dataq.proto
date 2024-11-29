@@ -30,7 +30,8 @@ message PluginConfig {
 message PluginRequest {
   string plugin_id = 1;
   map<string, string> config = 2;
-  string operation = 3;  // e.g., "extract", "configure"
+  DataItem item = 3;
+  string operation = 4;  // e.g., "extract", "configure"
 }
 
 // PluginResponse represents a response from a plugin

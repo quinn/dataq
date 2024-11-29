@@ -112,9 +112,9 @@ func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) 
 		var pageToken string
 
 		// If we have previous response data, extract the next page token
-		if p.prevItem != nil && len(p.prevItem.RawData) > 0 {
+		if prevData := p.config["response_data"]; prevData != "" {
 			var prevResp gmail.ListMessagesResponse
-			if err := json.Unmarshal(p.prevItem.RawData, &prevResp); err != nil {
+			if err := json.Unmarshal([]byte(prevData), &prevResp); err != nil {
 				log.Printf("Error parsing previous response: %v", err)
 				return
 			}

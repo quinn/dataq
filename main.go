@@ -1,201 +1,167 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"time"
 
-	"gopkg.in/yaml.v3"
-
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/plugin"
+	"go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/queue"
-	"google.golang.org/protobuf/encoding/protojson"
+	"gopkg.in/yaml.v3"
 )
 
-type PluginConfig struct {
-	ID         string            `yaml:"id"`
-	Enabled    bool              `yaml:"enabled"`
-	BinaryPath string            `yaml:"binary_path"` // Path to the plugin binary
-	Config     map[string]string `yaml:"config"`
-}
-
 type Config struct {
-	Plugins []struct {
-		ID         string            `yaml:"id"`
-		Enabled    bool              `yaml:"enabled"`
-		BinaryPath string            `yaml:"binary_path"`
-		Config     map[string]string `yaml:"config"`
-	} `yaml:"plugins"`
-	QueuePath string `yaml:"queue_path"`
-}
-
-func loadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var config Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, err
-	}
-	return &config, nil
-}
-
-func runPlugin(_ context.Context, binaryPath string, req *pb.PluginRequest) (*pb.PluginResponse, error) {
-	log.Printf("Running plugin %s with config: %+v", req.PluginId, req.Config)
-
-	// Serialize request to JSON
-	reqJson, err := protojson.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %v", err)
-	}
-
-	// Start plugin process
-	cmd := exec.Command(binaryPath)
-	cmd.Stdin = bytes.NewReader(reqJson)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to start plugin: %v\nstderr: %s", err, stderr.String())
-	}
-
-	// Parse response
-	resp := &pb.PluginResponse{}
-	if err := protojson.Unmarshal(stdout.Bytes(), resp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
-	}
-
-	return resp, nil
+	QueuePath string                 `yaml:"queue_path"`
+	Plugins   []*plugin.PluginConfig `yaml:"plugins"`
 }
 
 func main() {
-	// Load configuration
-	config, err := loadConfig("config.yaml")
+	// Load config
+	configPath := "config.yaml"
+	if len(os.Args) > 1 {
+		configPath = os.Args[1]
+	}
+
+	configData, err := os.ReadFile(configPath)
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatalf("Failed to read config file: %v", err)
+	}
+
+	var config Config
+	if err := yaml.Unmarshal(configData, &config); err != nil {
+		log.Fatalf("Failed to parse config: %v", err)
 	}
 
 	// Initialize queue
-	if config.QueuePath == "" {
-		config.QueuePath = "queue.db"
-	}
 	q, err := queue.NewBoltQueue(queue.WithPath(config.QueuePath))
 	if err != nil {
-		log.Fatalf("Failed to initialize queue: %v", err)
+		log.Fatalf("Failed to create queue: %v", err)
 	}
 	defer q.Close()
 
-	// Create a context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	// Process each enabled plugin
-	for _, plugin := range config.Plugins {
-		if !plugin.Enabled {
+	// Process each plugin
+	for _, p := range config.Plugins {
+		if !p.Enabled {
+			log.Printf("Plugin %s is disabled", p.ID)
 			continue
 		}
 
 		// Check if plugin binary exists
-		if _, err := os.Stat(plugin.BinaryPath); err != nil {
-			log.Printf("Plugin binary not found: %s", plugin.BinaryPath)
+		if _, err := os.Stat(p.BinaryPath); err != nil {
+			log.Printf("Plugin binary not found: %s", p.BinaryPath)
 			continue
 		}
 
 		// Create initial task
 		task := &queue.Task{
-			ID:        fmt.Sprintf("%s_%d", plugin.ID, time.Now().UnixNano()),
-			PluginID:  plugin.ID,
-			Config:    plugin.Config,
+			ID:        fmt.Sprintf("%s_%d", p.ID, time.Now().UnixNano()),
+			PluginID:  p.ID,
+			Config:    p.Config,
 			Status:    queue.TaskStatusPending,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		// Add binary path to config
-		task.Config["binary_path"] = plugin.BinaryPath
 
-		if err := q.Push(ctx, task); err != nil {
-			log.Printf("Failed to queue task for plugin %s: %v", plugin.ID, err)
+		if err := q.Push(context.Background(), task); err != nil {
+			log.Printf("Failed to push task for plugin %s: %v", p.ID, err)
 			continue
 		}
 	}
 
 	// Process tasks
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		task, err := q.Pop(ctx)
+		task, err := q.Pop(context.Background())
 		if err != nil {
 			log.Printf("Failed to pop task: %v", err)
+			time.Sleep(time.Second)
 			continue
 		}
+
 		if task == nil {
-			// No more tasks
-			return
-		}
-
-		// Configure the plugin
-		req := &pb.PluginRequest{
-			PluginId:  task.PluginID,
-			Config:    task.Config,
-			Operation: "configure",
-		}
-
-		if _, err := runPlugin(ctx, task.Config["binary_path"], req); err != nil {
-			log.Printf("Failed to configure plugin %s: %v", task.PluginID, err)
-			q.Update(ctx, task.ID, queue.TaskStatusFailed, nil, err.Error())
+			log.Println("No pending tasks")
+			time.Sleep(time.Second)
 			continue
 		}
 
-		// Extract data
-		req.Operation = "extract"
-		resp, err := runPlugin(ctx, task.Config["binary_path"], req)
+		// Find plugin config
+		var pluginConfig *plugin.PluginConfig
+		for _, p := range config.Plugins {
+			if p.ID == task.PluginID {
+				pluginConfig = p
+				break
+			}
+		}
+
+		if pluginConfig == nil {
+			log.Printf("Plugin config not found for task %s", task.ID)
+			task.Status = queue.TaskStatusFailed
+			task.Error = "plugin config not found"
+			if err := q.Update(context.Background(), task); err != nil {
+				log.Printf("Failed to update task %s: %v", task.ID, err)
+			}
+			continue
+		}
+
+		// Create plugin request
+		pluginReq := &proto.PluginRequest{
+			PluginId: task.PluginID,
+			Config:   task.Config,
+		}
+		if task.Data != nil {
+			pluginReq.Item = task.Data
+		}
+
+		// Run plugin
+		plugin, err := plugin.NewPlugin(pluginConfig)
 		if err != nil {
-			log.Printf("Failed to extract data from plugin %s: %v", task.PluginID, err)
-			q.Update(ctx, task.ID, queue.TaskStatusFailed, nil, err.Error())
+			log.Printf("Failed to create plugin %s: %v", pluginConfig.ID, err)
+			task.Status = queue.TaskStatusFailed
+			task.Error = fmt.Sprintf("failed to create plugin: %v", err)
+			if err := q.Update(context.Background(), task); err != nil {
+				log.Printf("Failed to update task %s: %v", task.ID, err)
+			}
 			continue
 		}
 
-		// Process the extracted data
+		resp, err := plugin.Extract(context.Background(), pluginReq)
+		if err != nil {
+			log.Printf("Plugin %s failed: %v", pluginConfig.ID, err)
+			task.Status = queue.TaskStatusFailed
+			task.Error = fmt.Sprintf("plugin failed: %v", err)
+			if err := q.Update(context.Background(), task); err != nil {
+				log.Printf("Failed to update task %s: %v", task.ID, err)
+			}
+			continue
+		}
+
+		// Update task with result
+		task.Status = queue.TaskStatusComplete
+		task.Result = resp
+		task.UpdatedAt = time.Now()
+
+		if err := q.Update(context.Background(), task); err != nil {
+			log.Printf("Failed to update task %s: %v", task.ID, err)
+			continue
+		}
+
+		// Create next task for each item
 		for _, item := range resp.Items {
-			fmt.Printf("Found item from %s: %s\n", item.PluginId, item.SourceId)
-
-			// Create next task with the response data
-			nextConfig := make(map[string]string)
-			for k, v := range task.Config {
-				nextConfig[k] = v
-			}
-			// Add all metadata to next task's config
-			for k, v := range item.Metadata {
-				nextConfig[k] = v
-			}
-
 			nextTask := &queue.Task{
-				ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
-				PluginID:  task.PluginID,
+				ID:        fmt.Sprintf("%s_%d", pluginConfig.ID, time.Now().UnixNano()),
+				PluginID:  pluginConfig.ID,
+				Config:    task.Config,
+				Data:      item,
 				Status:    queue.TaskStatusPending,
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}
 
-			if err := q.Push(ctx, nextTask); err != nil {
-				log.Printf("Failed to queue next task: %v", err)
+			if err := q.Push(context.Background(), nextTask); err != nil {
+				log.Printf("Failed to push next task for plugin %s: %v", pluginConfig.ID, err)
 			}
-		}
-
-		// Update task status
-		if err := q.Update(ctx, task.ID, queue.TaskStatusCompleted, resp, ""); err != nil {
-			log.Printf("Failed to update task status: %v", err)
 		}
 	}
 }

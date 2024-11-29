@@ -12,8 +12,6 @@ import (
 )
 
 var (
-	// Bucket names
-	tasksBucket = []byte("tasks")
 	queueBucket = []byte("queue")
 )
 
@@ -22,11 +20,12 @@ type BoltQueue struct {
 	db *bbolt.DB
 }
 
-// NewBoltQueue creates a new BBolt-backed queue
-func NewBoltQueue(opts ...QueueOption) (Queue, error) {
-	options := &QueueOptions{
+// NewBoltQueue creates a new BoltQueue instance
+func NewBoltQueue(opts ...Option) (Queue, error) {
+	options := &Options{
 		Path: "queue.db",
 	}
+
 	for _, opt := range opts {
 		opt(options)
 	}
@@ -38,158 +37,150 @@ func NewBoltQueue(opts ...QueueOption) (Queue, error) {
 
 	// Open BBolt database
 	db, err := bbolt.Open(options.Path, 0600, &bbolt.Options{
-		Timeout:      5 * time.Second, // Increased timeout
-		NoSync:       false,           // Ensure durability
+		Timeout:      5 * time.Second,
+		NoSync:       false,
 		NoGrowSync:   false,
-		FreelistType: bbolt.FreelistArrayType, // More memory efficient
+		FreelistType: bbolt.FreelistArrayType,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open queue database: %v", err)
 	}
 
-	// Create buckets if they don't exist
-	if err := db.Update(func(tx *bbolt.Tx) error {
-		if _, err := tx.CreateBucketIfNotExists(tasksBucket); err != nil {
-			return fmt.Errorf("failed to create tasks bucket: %v", err)
-		}
-		if _, err := tx.CreateBucketIfNotExists(queueBucket); err != nil {
-			return fmt.Errorf("failed to create queue bucket: %v", err)
-		}
-		return nil
-	}); err != nil {
+	// Create bucket if it doesn't exist
+	err = db.Update(func(tx *bbolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(queueBucket)
+		return err
+	})
+	if err != nil {
 		db.Close()
-		return nil, err
+		return nil, fmt.Errorf("failed to create queue bucket: %v", err)
 	}
 
 	return &BoltQueue{db: db}, nil
 }
 
+// Push adds a task to the queue
 func (q *BoltQueue) Push(ctx context.Context, task *Task) error {
 	return q.db.Update(func(tx *bbolt.Tx) error {
-		// Store task data
-		tasksBucket := tx.Bucket(tasksBucket)
-		taskData, err := json.Marshal(task)
+		b := tx.Bucket(queueBucket)
+
+		// Marshal task to JSON
+		data, err := json.Marshal(task)
 		if err != nil {
 			return fmt.Errorf("failed to marshal task: %v", err)
 		}
-		if err := tasksBucket.Put([]byte(task.ID), taskData); err != nil {
-			return fmt.Errorf("failed to store task: %v", err)
-		}
 
-		// Add to queue
-		queueBucket := tx.Bucket(queueBucket)
-		return queueBucket.Put([]byte(task.ID), []byte{})
+		// Store task
+		return b.Put([]byte(task.ID), data)
 	})
 }
 
+// Pop removes and returns the next task from the queue
 func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
 	var task *Task
+
 	err := q.db.Update(func(tx *bbolt.Tx) error {
-		// Get first task from queue
-		queueBucket := tx.Bucket(queueBucket)
-		cursor := queueBucket.Cursor()
-		taskID, _ := cursor.First()
-		if taskID == nil {
-			return nil
-		}
+		b := tx.Bucket(queueBucket)
+		c := b.Cursor()
 
-		// Get task data
-		tasksBucket := tx.Bucket(tasksBucket)
-		taskData := tasksBucket.Get(taskID)
-		if taskData == nil {
-			return fmt.Errorf("task %s not found", string(taskID))
-		}
+		// Get first pending task
+		k, v := c.First()
+		for ; k != nil; k, v = c.Next() {
+			var t Task
+			if err := json.Unmarshal(v, &t); err != nil {
+				continue
+			}
 
-		// Delete from queue
-		if err := queueBucket.Delete(taskID); err != nil {
-			return fmt.Errorf("failed to remove task from queue: %v", err)
-		}
-
-		// Unmarshal task
-		task = &Task{}
-		if err := json.Unmarshal(taskData, task); err != nil {
-			return fmt.Errorf("failed to unmarshal task: %v", err)
+			if t.Status == TaskStatusPending {
+				task = &t
+				return b.Delete(k)
+			}
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to pop task: %v", err)
 	}
+
 	return task, nil
 }
 
+// Get returns a task by ID
 func (q *BoltQueue) Get(ctx context.Context, id string) (*Task, error) {
 	var task *Task
+
 	err := q.db.View(func(tx *bbolt.Tx) error {
-		taskData := tx.Bucket(tasksBucket).Get([]byte(id))
-		if taskData == nil {
-			return fmt.Errorf("task %s not found", id)
+		b := tx.Bucket(queueBucket)
+		v := b.Get([]byte(id))
+		if v == nil {
+			return fmt.Errorf("task not found: %s", id)
 		}
 
 		task = &Task{}
-		if err := json.Unmarshal(taskData, task); err != nil {
+		if err := json.Unmarshal(v, task); err != nil {
 			return fmt.Errorf("failed to unmarshal task: %v", err)
 		}
+
 		return nil
 	})
 
 	if err != nil {
 		return nil, err
 	}
+
 	return task, nil
 }
 
-func (q *BoltQueue) Update(ctx context.Context, id string, status TaskStatus, result *pb.PluginResponse, err string) error {
+// Update updates a task in the queue
+func (q *BoltQueue) Update(ctx context.Context, task *Task) error {
 	return q.db.Update(func(tx *bbolt.Tx) error {
-		tasksBucket := tx.Bucket(tasksBucket)
-		taskData := tasksBucket.Get([]byte(id))
-		if taskData == nil {
-			return fmt.Errorf("task %s not found", id)
-		}
+		b := tx.Bucket(queueBucket)
 
-		task := &Task{}
-		if err := json.Unmarshal(taskData, task); err != nil {
-			return fmt.Errorf("failed to unmarshal task: %v", err)
-		}
-
-		task.Status = status
-		task.Result = result
-		task.Error = err
-		task.UpdatedAt = time.Now()
-
-		taskData, err := json.Marshal(task)
+		// Marshal task to JSON
+		data, err := json.Marshal(task)
 		if err != nil {
-			return fmt.Errorf("failed to marshal updated task: %v", err)
+			return fmt.Errorf("failed to marshal task: %v", err)
 		}
 
-		return tasksBucket.Put([]byte(id), taskData)
+		// Store task
+		return b.Put([]byte(task.ID), data)
 	})
 }
 
+// List returns all tasks in the queue, optionally filtered by status
 func (q *BoltQueue) List(ctx context.Context, status *TaskStatus) ([]*Task, error) {
 	var tasks []*Task
-	err := q.db.View(func(tx *bbolt.Tx) error {
-		return tx.Bucket(tasksBucket).ForEach(func(k, v []byte) error {
-			task := &Task{}
-			if err := json.Unmarshal(v, task); err != nil {
-				return fmt.Errorf("failed to unmarshal task: %v", err)
-			}
 
-			if status == nil || task.Status == *status {
-				tasks = append(tasks, task)
+	err := q.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(queueBucket)
+		c := b.Cursor()
+
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var task Task
+			if err := json.Unmarshal(v, &task); err != nil {
+				continue
 			}
-			return nil
-		})
+			
+			if status != nil && task.Status != *status {
+				continue
+			}
+			
+			tasks = append(tasks, &task)
+		}
+
+		return nil
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list tasks: %v", err)
 	}
+
 	return tasks, nil
 }
 
+// Close closes the queue
 func (q *BoltQueue) Close() error {
 	return q.db.Close()
 }

@@ -6,20 +6,45 @@ import (
 	pb "go.quinn.io/dataq/proto"
 )
 
+// PluginConfig contains configuration for a plugin
+type PluginConfig struct {
+	ID         string            `yaml:"id"`
+	Enabled    bool              `yaml:"enabled"`
+	BinaryPath string            `yaml:"binary_path"`
+	Config     map[string]string `yaml:"config"`
+}
+
 // Plugin defines the interface that all data extraction plugins must implement
 type Plugin interface {
-	// ID returns the unique identifier of the plugin
+	// Extract performs the data extraction and returns a plugin response
+	Extract(ctx context.Context, req *pb.PluginRequest) (*pb.PluginResponse, error)
 	ID() string
+}
 
-	// Name returns the human-readable name of the plugin
-	Name() string
+// NewPlugin creates a new plugin instance from config
+func NewPlugin(config *PluginConfig) (Plugin, error) {
+	return &binaryPlugin{
+		config: config,
+	}, nil
+}
 
-	// Description returns a description of what the plugin does
-	Description() string
+// binaryPlugin implements Plugin interface for binary plugins
+type binaryPlugin struct {
+	config *PluginConfig
+}
 
-	// Configure sets up the plugin with the provided configuration
-	Configure(config map[string]string) error
+// Extract implements Plugin interface
+func (p *binaryPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (*pb.PluginResponse, error) {
+	// Set plugin ID in request
+	req.PluginId = p.config.ID
 
-	// Extract performs the data extraction and returns a channel of DataItems
-	Extract(ctx context.Context) (<-chan *pb.DataItem, error)
+	// For now, just return empty response
+	return &pb.PluginResponse{
+		PluginId: p.config.ID,
+		Items:    []*pb.DataItem{},
+	}, nil
+}
+
+func (p *binaryPlugin) ID() string {
+	return p.config.ID
 }
