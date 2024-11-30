@@ -36,7 +36,7 @@ func main() {
 	}
 
 	// Initialize queue
-	q, err := queue.NewBoltQueue(queue.WithPath(config.QueuePath))
+	q, err := queue.NewFileQueue(config.QueuePath)
 	if err != nil {
 		log.Fatalf("Failed to create queue: %v", err)
 	}

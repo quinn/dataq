@@ -18,6 +18,7 @@ const (
 	stateMenu state = iota
 	stateStatus
 	stateWorker
+	stateStep
 )
 
 type Model struct {
@@ -26,6 +27,7 @@ type Model struct {
 	queue       queue.Queue
 	worker      *worker.Worker
 	status      []*queue.Task
+	lastResult  *worker.TaskResult
 	lastUpdated time.Time
 	err         error
 }
@@ -43,6 +45,9 @@ var (
 
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF0000"))
+
+	successStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00FF00"))
 )
 
 func NewModel(q queue.Queue, w *worker.Worker) Model {
@@ -77,7 +82,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.menuCursor--
 				}
 			case "down", "j":
-				if m.menuCursor < 1 {
+				if m.menuCursor < 2 {
 					m.menuCursor++
 				}
 			case "enter":
@@ -94,9 +99,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							log.Printf("Worker error: %v", err)
 						}
 					}()
-					// Store cancel function somewhere to call on quit
 					return m, nil
+				case 2:
+					m.state = stateStep
+					return m, m.processNextTask
 				}
+			}
+		} else if m.state == stateStep {
+			switch msg.String() {
+			case "enter", "space":
+				return m, m.processNextTask
 			}
 		}
 	case statusMsg:
@@ -104,6 +116,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.err
 		m.lastUpdated = time.Now()
 		return m, m.updateStatus
+	case taskResultMsg:
+		m.lastResult = msg.result
+		m.err = msg.err
+		return m, nil
 	}
 
 	return m, nil
@@ -117,6 +133,8 @@ func (m Model) View() string {
 		return m.viewStatus()
 	case stateWorker:
 		return m.viewWorker()
+	case stateStep:
+		return m.viewStep()
 	default:
 		return "Unknown state"
 	}
@@ -126,7 +144,7 @@ func (m Model) viewMenu() string {
 	s := titleStyle.Render("DataQ") + "\n\n"
 	s += "What would you like to do?\n\n"
 
-	choices := []string{"View Status", "Start Worker"}
+	choices := []string{"View Status", "Start Worker", "Step Through Tasks"}
 
 	for i, choice := range choices {
 		cursor := " "
@@ -138,6 +156,30 @@ func (m Model) viewMenu() string {
 	}
 
 	s += "\n(press q to quit)\n"
+	return s
+}
+
+func (m Model) viewStep() string {
+	s := titleStyle.Render("Step Through Tasks") + "\n\n"
+
+	if m.lastResult == nil {
+		s += "Press ENTER to process the next task\n"
+		s += "Press ESC to return to menu\n"
+		return s
+	}
+
+	s += fmt.Sprintf("Task ID: %s\n", m.lastResult.Task.ID)
+	s += fmt.Sprintf("Plugin: %s\n", m.lastResult.Task.PluginID)
+	s += fmt.Sprintf("Status: %s\n", m.lastResult.Task.Status)
+
+	if m.lastResult.Error != nil {
+		s += errorStyle.Render(fmt.Sprintf("Error: %v\n", m.lastResult.Error))
+	} else {
+		s += successStyle.Render("Task completed successfully\n")
+	}
+
+	s += "\nPress ENTER to process next task\n"
+	s += "Press ESC to return to menu\n"
 	return s
 }
 
@@ -179,7 +221,17 @@ type statusMsg struct {
 	err   error
 }
 
+type taskResultMsg struct {
+	result *worker.TaskResult
+	err    error
+}
+
 func (m Model) updateStatus() tea.Msg {
 	tasks, err := m.queue.List(context.Background(), "")
 	return statusMsg{tasks: tasks, err: err}
+}
+
+func (m Model) processNextTask() tea.Msg {
+	result, err := m.worker.ProcessSingleTask(context.Background())
+	return taskResultMsg{result: result, err: err}
 }
