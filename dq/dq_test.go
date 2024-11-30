@@ -2,6 +2,7 @@ package dq
 
 import (
 	"bytes"
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -24,9 +25,9 @@ func TestWriteReadWithDelimiterInMetadata(t *testing.T) {
 
 	// Write the item to a buffer
 	var buf bytes.Buffer
-	err := Write(&buf, item)
+	err := WriteDataItem(&buf, item)
 	if err != nil {
-		t.Fatalf("Write failed: %v", err)
+		t.Fatalf("WriteDataItem failed: %v", err)
 	}
 
 	// Read it back
@@ -86,9 +87,9 @@ func TestWriteReadWithDelimiterInRawData(t *testing.T) {
 
 	// Write the item to a buffer
 	var buf bytes.Buffer
-	err := Write(&buf, item)
+	err := WriteDataItem(&buf, item)
 	if err != nil {
-		t.Fatalf("Write failed: %v", err)
+		t.Fatalf("WriteDataItem failed: %v", err)
 	}
 
 	// Read it back
@@ -115,9 +116,9 @@ func TestWriteReadEmpty(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := Write(&buf, item)
+	err := WriteDataItem(&buf, item)
 	if err != nil {
-		t.Fatalf("Write failed: %v", err)
+		t.Fatalf("WriteDataItem failed: %v", err)
 	}
 
 	readItem, err := Read(&buf)
@@ -133,5 +134,66 @@ func TestWriteReadEmpty(t *testing.T) {
 	}
 	if len(readItem.Metadata) != 0 {
 		t.Errorf("Expected empty metadata, got %v", readItem.Metadata)
+	}
+}
+
+func TestGenericWrite(t *testing.T) {
+	type CustomMetadata struct {
+		Name        string            `json:"name"`
+		Tags        []string          `json:"tags"`
+		Properties  map[string]string `json:"properties"`
+	}
+
+	metadata := CustomMetadata{
+		Name: "test-item",
+		Tags: []string{"tag1", "tag2"},
+		Properties: map[string]string{
+			"prop1": "value1",
+			"prop2": "value2",
+		},
+	}
+	rawData := []byte("custom raw data")
+
+	var buf bytes.Buffer
+	err := Write(&buf, metadata, rawData)
+	if err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+
+	// Read the buffer and split at delimiter
+	data := buf.Bytes()
+	var delimiterIndex int = -1
+	for i := 0; i <= len(data)-len(Delimiter); i++ {
+		match := true
+		for j := 0; j < len(Delimiter); j++ {
+			if data[i+j] != Delimiter[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			delimiterIndex = i
+			break
+		}
+	}
+
+	if delimiterIndex == -1 {
+		t.Fatal("Delimiter not found in output")
+	}
+
+	// Verify metadata
+	var readMetadata CustomMetadata
+	if err := json.Unmarshal(data[:delimiterIndex], &readMetadata); err != nil {
+		t.Fatalf("Failed to unmarshal metadata: %v", err)
+	}
+
+	if !reflect.DeepEqual(metadata, readMetadata) {
+		t.Errorf("Metadata mismatch: got %v, want %v", readMetadata, metadata)
+	}
+
+	// Verify raw data
+	readRawData := data[delimiterIndex+len(Delimiter):]
+	if !bytes.Equal(rawData, readRawData) {
+		t.Errorf("RawData mismatch: got %v, want %v", readRawData, rawData)
 	}
 }

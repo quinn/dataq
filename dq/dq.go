@@ -19,19 +19,10 @@ type DataItemWrapper struct {
 	Metadata    map[string]string `json:"metadata"`
 }
 
-// Write writes a DataItem to the provided writer in the custom format
-func Write(w io.Writer, item *proto.DataItem) error {
-	// Create wrapper without raw_data
-	wrapper := DataItemWrapper{
-		PluginID:    item.PluginId,
-		SourceID:    item.SourceId,
-		Timestamp:   item.Timestamp,
-		ContentType: item.ContentType,
-		Metadata:    item.Metadata,
-	}
-
-	// Marshal wrapper to JSON
-	jsonData, err := json.Marshal(wrapper)
+// Write writes any JSON-serializable object followed by raw data to the provided writer
+func Write(w io.Writer, metadata interface{}, rawData []byte) error {
+	// Marshal metadata to JSON
+	jsonData, err := json.Marshal(metadata)
 	if err != nil {
 		return err
 	}
@@ -47,8 +38,22 @@ func Write(w io.Writer, item *proto.DataItem) error {
 	}
 
 	// Write raw data
-	_, err = w.Write(item.RawData)
+	_, err = w.Write(rawData)
 	return err
+}
+
+// WriteDataItem writes a DataItem to the provided writer in the custom format
+func WriteDataItem(w io.Writer, item *proto.DataItem) error {
+	// Create wrapper without raw_data
+	wrapper := DataItemWrapper{
+		PluginID:    item.PluginId,
+		SourceID:    item.SourceId,
+		Timestamp:   item.Timestamp,
+		ContentType: item.ContentType,
+		Metadata:    item.Metadata,
+	}
+
+	return Write(w, wrapper, item.RawData)
 }
 
 // Read reads a DataItem from the provided reader in the custom format
