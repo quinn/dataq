@@ -5,7 +5,7 @@ plugins:
     enabled: false
     binary_path: "../cmd/plugins/filescan/bin/filescan.exe"
     config:
-      root_path: "./data"
+      root_path: "./files"
       include_patterns: "*.txt,*.pdf,*.doc*"  # Fixed: single string with comma-separated patterns
       exclude_patterns: "*.tmp,~$*"           # Fixed: single string with comma-separated patterns
 
@@ -17,4 +17,4 @@ plugins:
       credentials_path: "credentials.json"  # Credentials in example dir
       token_path: "token.json"             # Token in example dir
 
-queue_path: "queue.db"  # Queue database in example dir
+queue_path: "data"  # Queue database in example dir
