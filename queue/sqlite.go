@@ -18,8 +18,17 @@ type SQLiteQueue struct {
 }
 
 // NewSQLiteQueue creates a new SQLite-backed queue
-func NewSQLiteQueue(opts *QueueOptions) (*SQLiteQueue, error) {
-	db, err := sql.Open("sqlite3", opts.Path)
+func NewSQLiteQueue(opts ...Option) (*SQLiteQueue, error) {
+	options := &Options{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	if options.Path == "" {
+		return nil, fmt.Errorf("path is required")
+	}
+
+	db, err := sql.Open("sqlite3", options.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}

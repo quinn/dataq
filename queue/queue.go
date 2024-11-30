@@ -47,11 +47,3 @@ type Queue interface {
 	// List returns all tasks in the queue, optionally filtered by status
 	List(ctx context.Context, status TaskStatus) ([]*Task, error)
 }
-
-// QueueOption represents an option when creating a new queue
-type QueueOption func(*QueueOptions)
-
-// QueueOptions contains all queue configuration options
-type QueueOptions struct {
-	Path string // Path to the queue storage directory
-}
