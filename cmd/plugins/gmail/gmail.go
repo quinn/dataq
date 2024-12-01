@@ -75,7 +75,7 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 	return nil
 }
 
-func (p *GmailPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) {
+func (p *GmailPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-chan *pb.DataItem, error) {
 	items := make(chan *pb.DataItem)
 
 	go func() {
