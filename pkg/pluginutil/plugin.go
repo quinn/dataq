@@ -102,6 +102,12 @@ func ExecutePlugin(ctx context.Context, pc *plugin.PluginConfig, data *pb.DataIt
 	return responses, nil
 }
 
+func GenerateHash(data []byte) string {
+	h := sha256.New()
+	h.Write(data)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 // HandlePlugin handles plugin execution and writes responses to stdout
 func HandlePlugin(p Plugin) {
 	// Read request from stdin
