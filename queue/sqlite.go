@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
-	"go.quinn.io/dataq/dq"
 )
 
 type SQLiteQueue struct {
@@ -23,45 +21,38 @@ func newSQLiteQueue(path string) (*SQLiteQueue, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Create tasks table if it doesn't exist
+	// Create tasks table
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS tasks (
 			id TEXT PRIMARY KEY,
-			plugin_id TEXT NOT NULL,
 			status TEXT NOT NULL,
-			data BLOB,
+			error TEXT,
+			data_hash TEXT,
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
 		)
 	`)
 	if err != nil {
 		db.Close()
-		return nil, fmt.Errorf("failed to create table: %w", err)
+		return nil, fmt.Errorf("failed to create tasks table: %w", err)
 	}
 
 	return &SQLiteQueue{db: db}, nil
 }
 
-func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
-	if task.Meta.ID == "" {
-		task.Meta.ID = uuid.New().String()
+func (q *SQLiteQueue) Push(ctx context.Context, task *TaskMetadata) error {
+	if task.ID == "" {
+		task.ID = uuid.New().String()
 	}
-	if task.Meta.CreatedAt.IsZero() {
-		task.Meta.CreatedAt = time.Now()
+	if task.CreatedAt.IsZero() {
+		task.CreatedAt = time.Now()
 	}
-	task.Meta.UpdatedAt = time.Now()
-
-	// Serialize data using dq package
-	var buf bytes.Buffer
-	if err := dq.WriteDataItem(&buf, task.Data); err != nil {
-		return fmt.Errorf("failed to serialize data: %w", err)
-	}
-	data := buf.Bytes()
+	task.UpdatedAt = time.Now()
 
 	_, err := q.db.ExecContext(ctx, `
-		INSERT INTO tasks (id, plugin_id, status, created_at, updated_at, data)
+		INSERT INTO tasks (id, status, error, data_hash, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, task.Meta.ID, task.Data.Meta.PluginId, task.Meta.Status, task.Meta.CreatedAt, task.Meta.UpdatedAt, data)
+	`, task.ID, task.Status, task.Error, task.DataHash, task.CreatedAt, task.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to insert task: %w", err)
 	}
@@ -69,30 +60,28 @@ func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
 	return nil
 }
 
-func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
+func (q *SQLiteQueue) Pop(ctx context.Context) (*TaskMetadata, error) {
 	tx, err := q.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	var task Task
+	var task TaskMetadata
 	row := tx.QueryRowContext(ctx, `
-		SELECT id, plugin_id, status, data, created_at, updated_at
+		SELECT id, status, error, data_hash, created_at, updated_at
 		FROM tasks
 		WHERE status = ?
-		ORDER BY created_at ASC
 		LIMIT 1
 	`, TaskStatusPending)
 
-	var data []byte
 	err = row.Scan(
-		&task.Meta.ID,
-		&task.Data.Meta.PluginId,
-		&task.Meta.Status,
-		&data,
-		&task.Meta.CreatedAt,
-		&task.Meta.UpdatedAt,
+		&task.ID,
+		&task.Status,
+		&task.Error,
+		&task.DataHash,
+		&task.CreatedAt,
+		&task.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -101,36 +90,55 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 		return nil, fmt.Errorf("failed to scan task: %w", err)
 	}
 
-	// Deserialize data using dq package
-	if len(data) > 0 {
-		task.Data, err = dq.Read(bytes.NewReader(data))
-		if err != nil {
-			return nil, fmt.Errorf("failed to deserialize data: %w", err)
-		}
-	}
-
+	// Delete the task from the queue
 	_, err = tx.ExecContext(ctx, `
 		DELETE FROM tasks
 		WHERE id = ?
-	`, task.Meta.ID)
+	`, task.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete task: %w", err)
 	}
 
-	err = tx.Commit()
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return &task, nil
 }
 
+func (q *SQLiteQueue) Update(ctx context.Context, meta *TaskMetadata) error {
+	meta.UpdatedAt = time.Now()
+
+	result, err := q.db.ExecContext(ctx, `
+		UPDATE tasks
+		SET status = ?, error = ?, data_hash = ?, updated_at = ?
+		WHERE id = ?
+	`, meta.Status, meta.Error, meta.DataHash, meta.UpdatedAt, meta.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update task: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("task not found: %s", meta.ID)
+	}
+
+	return nil
+}
+
 func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetadata, error) {
-	rows, err := q.db.QueryContext(ctx, `
-		SELECT id, plugin_id, status, created_at, updated_at
-		FROM tasks
-		WHERE status = ? OR ? = ''
-	`, status, status)
+	query := `SELECT id, status, error, data_hash, created_at, updated_at FROM tasks`
+	args := []interface{}{}
+
+	if status != "" {
+		query += ` WHERE status = ?`
+		args = append(args, status)
+	}
+
+	rows, err := q.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tasks: %w", err)
 	}
@@ -139,8 +147,14 @@ func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetad
 	var tasks []*TaskMetadata
 	for rows.Next() {
 		var task TaskMetadata
-		var pluginID string
-		err := rows.Scan(&task.ID, &pluginID, &task.Status, &task.CreatedAt, &task.UpdatedAt)
+		err := rows.Scan(
+			&task.ID,
+			&task.Status,
+			&task.Error,
+			&task.DataHash,
+			&task.CreatedAt,
+			&task.UpdatedAt,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
@@ -148,26 +162,6 @@ func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetad
 	}
 
 	return tasks, nil
-}
-
-func (q *SQLiteQueue) Update(ctx context.Context, meta *TaskMetadata) error {
-	meta.UpdatedAt = time.Now()
-
-	_, err := q.db.ExecContext(ctx, `
-		UPDATE tasks
-		SET status = ?,
-			updated_at = ?
-		WHERE id = ?
-	`,
-		meta.Status,
-		meta.UpdatedAt,
-		meta.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to update task: %w", err)
-	}
-
-	return nil
 }
 
 func (q *SQLiteQueue) Close() error {

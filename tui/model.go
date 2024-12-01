@@ -27,7 +27,7 @@ type Model struct {
 	queue       queue.Queue
 	worker      *worker.Worker
 	status      []*queue.TaskMetadata
-	lastResult  *worker.TaskResult
+	lastTask    *queue.TaskMetadata
 	lastUpdated time.Time
 	err         error
 	cancel      context.CancelFunc
@@ -134,7 +134,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastUpdated = time.Now()
 		return m, m.updateStatus
 	case taskResultMsg:
-		m.lastResult = msg.result
+		m.lastTask = msg.task
 		m.err = msg.err
 		return m, nil
 	}
@@ -179,19 +179,17 @@ func (m Model) viewMenu() string {
 func (m Model) viewStep() string {
 	s := titleStyle.Render("Step Through Tasks") + "\n\n"
 
-	if m.lastResult == nil {
+	if m.lastTask == nil {
 		s += "Press ENTER to process the next task\n"
 		s += "Press ESC to return to menu\n"
 		return s
 	}
 
-	s += fmt.Sprintf("Task ID: %s\n", m.lastResult.Task.Meta.ID)
-	// s += fmt.Sprintf("Kind: %s\n", m.lastResult.Task.Kind)
-	s += fmt.Sprintf("Plugin: %s\n", m.lastResult.Task.Data.Meta.PluginId)
-	s += fmt.Sprintf("Status: %s\n", m.lastResult.Task.Meta.Status)
+	s += fmt.Sprintf("Task ID: %s\n", m.lastTask.ID)
+	s += fmt.Sprintf("Status: %s\n", m.lastTask.Status)
 
-	if m.lastResult.Error != nil {
-		s += errorStyle.Render(fmt.Sprintf("Error: %v\n", m.lastResult.Error))
+	if m.lastTask.Error != "" {
+		s += errorStyle.Render(fmt.Sprintf("Error: %v\n", m.lastTask.Error))
 	} else {
 		s += successStyle.Render("Task completed successfully\n")
 	}
@@ -239,8 +237,8 @@ type statusMsg struct {
 }
 
 type taskResultMsg struct {
-	result *worker.TaskResult
-	err    error
+	task *queue.TaskMetadata
+	err  error
 }
 
 func (m Model) updateStatus() tea.Msg {
@@ -249,6 +247,6 @@ func (m Model) updateStatus() tea.Msg {
 }
 
 func (m Model) processNextTask() tea.Msg {
-	result, err := m.worker.ProcessSingleTask(context.Background())
-	return taskResultMsg{result: result, err: err}
+	task, err := m.worker.ProcessSingleTask(context.Background())
+	return taskResultMsg{task: task, err: err}
 }

@@ -15,8 +15,8 @@ import (
 )
 
 type Config struct {
-	QueuePath string                 `yaml:"queue_path"`
-	Plugins   []*plugin.PluginConfig `yaml:"plugins"`
+	DataDir string                 `yaml:"data_dir"`
+	Plugins []*plugin.PluginConfig `yaml:"plugins"`
 }
 
 func main() {
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	// Initialize queue
-	q, err := queue.NewQueue("file", config.QueuePath)
+	q, err := queue.NewQueue("file", config.DataDir)
 	if err != nil {
 		log.Fatalf("Failed to create queue: %v", err)
 	}
@@ -49,7 +49,7 @@ func main() {
 	}
 
 	// Create worker
-	w := worker.New(q, config.Plugins)
+	w := worker.New(q, config.Plugins, config.DataDir)
 
 	// Create and start the TUI
 	p := tea.NewProgram(tui.NewModel(q, w))

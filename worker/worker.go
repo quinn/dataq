@@ -3,34 +3,33 @@ package worker
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
+	"go.quinn.io/dataq/dq"
 	"go.quinn.io/dataq/plugin"
 	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/queue"
 	"google.golang.org/protobuf/proto"
 )
 
-// TaskResult represents the result of processing a single task
-type TaskResult struct {
-	Task   *queue.Task
-	Error  error
-	Output string
-}
-
 // Worker handles task processing and plugin execution
 type Worker struct {
 	queue   queue.Queue
 	plugins map[string]*plugin.PluginConfig
+	dataDir string
 	done    chan struct{}
 }
 
 // New creates a new Worker
-func New(q queue.Queue, plugins []*plugin.PluginConfig) *Worker {
+func New(q queue.Queue, plugins []*plugin.PluginConfig, dataDir string) *Worker {
 	pluginMap := make(map[string]*plugin.PluginConfig)
 	for _, p := range plugins {
 		if p.Enabled {
@@ -38,9 +37,14 @@ func New(q queue.Queue, plugins []*plugin.PluginConfig) *Worker {
 		}
 	}
 
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		log.Printf("Failed to create data directory: %v", err)
+	}
+
 	return &Worker{
 		queue:   q,
 		plugins: pluginMap,
+		dataDir: dataDir,
 		done:    make(chan struct{}),
 	}
 }
@@ -74,11 +78,11 @@ func (w *Worker) processSingleTask(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return result.Error
+	return errors.New(result.Error)
 }
 
 // ProcessSingleTask processes a single task and returns the result
-func (w *Worker) ProcessSingleTask(ctx context.Context) (*TaskResult, error) {
+func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.TaskMetadata, error) {
 	task, err := w.queue.Pop(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pop task: %w", err)
@@ -88,40 +92,43 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*TaskResult, error) {
 		return nil, fmt.Errorf("no pending tasks")
 	}
 
-	result := &TaskResult{
-		Task: task,
+	data, err := w.loadData(task.DataHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
-	plugin, ok := w.plugins[task.Data.Meta.PluginId]
+	plugin, ok := w.plugins[data.Meta.PluginId]
 	if !ok {
-		task.Meta.Status = queue.TaskStatusFailed
-		task.Meta.Error = fmt.Sprintf("plugin %s not found", task.Data.Meta.PluginId)
-		result.Error = fmt.Errorf("plugin not found: %s", task.Data.Meta.PluginId)
-		w.queue.Update(ctx, &task.Meta)
-		return result, nil
+		task.Status = queue.TaskStatusFailed
+		task.Error = fmt.Sprintf("plugin %s not found", data.Meta.PluginId)
+		w.queue.Update(ctx, task)
+		return task, nil
 	}
 
 	// Execute plugin
-	pluginResp, err := w.executePlugin(ctx, plugin, task)
+	pluginResp, err := w.executePlugin(ctx, plugin, data)
 	if err != nil {
-		task.Meta.Status = queue.TaskStatusFailed
-		task.Meta.Error = err.Error()
-		result.Error = err
+		task.Status = queue.TaskStatusFailed
+		task.Error = err.Error()
 	} else {
-		task.Meta.Status = queue.TaskStatusComplete
+		task.Status = queue.TaskStatusComplete
 	}
 
-	task.Meta.UpdatedAt = time.Now()
-	if err := w.queue.Update(ctx, &task.Meta); err != nil {
-		result.Error = fmt.Errorf("failed to update task: %w", err)
-		return result, nil
+	task.UpdatedAt = time.Now()
+	if err := w.queue.Update(ctx, task); err != nil {
+		return task, fmt.Errorf("failed to update task: %w", err)
 	}
 
 	// Only create tasks if we have items in the response
-	if task.Meta.Status == queue.TaskStatusComplete && len(pluginResp.Items) > 0 {
+	if task.Status == queue.TaskStatusComplete && len(pluginResp.Items) > 0 {
 		// Create a task for each item in the response
 		for _, item := range pluginResp.Items {
-			newTask := queue.NewTask(item)
+			hash, err := w.storeData(item)
+			if err != nil {
+				log.Printf("Failed to store data: %v", err)
+				continue
+			}
+			newTask := queue.NewTaskMetadata(item.Meta.PluginId, item.Meta.Id, hash)
 
 			if err := w.queue.Push(ctx, newTask); err != nil {
 				log.Printf("Failed to create task for item: %v", err)
@@ -130,10 +137,10 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*TaskResult, error) {
 		}
 	}
 
-	return result, nil
+	return task, nil
 }
 
-func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig, task *queue.Task) (*pb.PluginResponse, error) {
+func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig, data *pb.DataItem) (*pb.PluginResponse, error) {
 	if _, err := os.Stat(plugin.BinaryPath); err != nil {
 		return nil, fmt.Errorf("plugin binary not found: %s", plugin.BinaryPath)
 	}
@@ -143,7 +150,7 @@ func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig,
 		PluginId:  plugin.ID,
 		Operation: "extract",
 		Config:    plugin.Config,
-		Item:      task.Data,
+		Item:      data,
 	}
 
 	// Serialize request using protobuf
@@ -171,4 +178,38 @@ func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig,
 	}
 
 	return &resp, nil
+}
+
+func (q *Worker) generateHash(data *pb.DataItem) string {
+	// DataItem must exist since this is only called for plugin response items
+	h := sha256.New()
+	h.Write(data.RawData)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func (q *Worker) storeData(data *pb.DataItem) (string, error) {
+	hash := q.generateHash(data)
+	f, err := os.Create(filepath.Join(q.dataDir, hash+".dq"))
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	if err := dq.WriteDataItem(f, data); err != nil {
+		return "", err
+	}
+
+	return hash, nil
+}
+
+func (w *Worker) loadData(hash string) (*pb.DataItem, error) {
+	filename := filepath.Join(w.dataDir, hash+".dq")
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open data file: %w", err)
+	}
+	defer f.Close()
+
+	return dq.Read(f)
 }

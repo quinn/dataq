@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"go.etcd.io/bbolt"
-	"go.quinn.io/dataq/dq"
 )
 
 var (
@@ -37,33 +36,22 @@ func newBoltQueue(path string) (*BoltQueue, error) {
 	return &BoltQueue{db: db}, nil
 }
 
-func (q *BoltQueue) Push(ctx context.Context, task *Task) error {
+func (q *BoltQueue) Push(ctx context.Context, task *TaskMetadata) error {
 	return q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
 
 		// Serialize metadata
-		meta, err := json.Marshal(task.Meta)
+		meta, err := json.Marshal(task)
 		if err != nil {
 			return fmt.Errorf("failed to marshal metadata: %w", err)
 		}
 
-		// Serialize data using dq package
-		var buf bytes.Buffer
-		if err := dq.WriteDataItem(&buf, task.Data); err != nil {
-			return fmt.Errorf("failed to serialize data: %w", err)
-		}
-		data := buf.Bytes()
-
-		// Combine metadata and data with delimiter
-		value := append(meta, Delimiter...)
-		value = append(value, data...)
-
-		return b.Put([]byte(task.Meta.ID), value)
+		return b.Put([]byte(task.ID), meta)
 	})
 }
 
-func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
-	var task *Task
+func (q *BoltQueue) Pop(ctx context.Context) (*TaskMetadata, error) {
+	var task *TaskMetadata
 
 	err := q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
@@ -77,9 +65,7 @@ func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
 		}
 
 		// Parse task
-		task = &Task{
-			Meta: TaskMetadata{},
-		}
+		task = &TaskMetadata{}
 
 		// Find metadata JSON end
 		var i int
@@ -91,18 +77,8 @@ func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
 		metadataJSON := v[:i]
 
 		// Parse metadata
-		if err := json.Unmarshal(metadataJSON, &task.Meta); err != nil {
+		if err := json.Unmarshal(metadataJSON, &task); err != nil {
 			return fmt.Errorf("failed to unmarshal metadata: %w", err)
-		}
-
-		// Deserialize data using dq package
-		data := v[i:]
-		var err error
-		if len(data) > 0 {
-			task.Data, err = dq.Read(bytes.NewReader(data))
-			if err != nil {
-				return fmt.Errorf("failed to deserialize data: %w", err)
-			}
 		}
 
 		// Delete task from queue

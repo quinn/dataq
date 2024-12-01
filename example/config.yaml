@@ -17,4 +17,4 @@ plugins:
       credentials_path: "credentials.json"  # Credentials in example dir
       token_path: "token.json"             # Token in example dir
 
-queue_path: "data"  # Queue database in example dir
+data_dir: "data"  # Queue database in example dir
