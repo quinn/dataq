@@ -12,12 +12,11 @@ var Delimiter = []byte{0x00, 0x1F, 0x00}
 
 // DataItemWrapper is used for JSON serialization of DataItem without the raw_data field
 type DataItemWrapper struct {
-	PluginID    string            `json:"plugin_id"`
-	ID          string            `json:"id"`
-	Kind        string            `json:"kind"`
-	Timestamp   int64             `json:"timestamp"`
-	ContentType string            `json:"content_type"`
-	Metadata    map[string]string `json:"metadata"`
+	PluginID    string `json:"plugin_id"`
+	ID          string `json:"id"`
+	Kind        string `json:"kind"`
+	Timestamp   int64  `json:"timestamp"`
+	ContentType string `json:"content_type"`
 }
 
 // Write writes any JSON-serializable object followed by raw data to the provided writer
@@ -47,12 +46,11 @@ func Write(w io.Writer, metadata interface{}, rawData []byte) error {
 func WriteDataItem(w io.Writer, item *proto.DataItem) error {
 	// Create wrapper without raw_data
 	wrapper := DataItemWrapper{
-		PluginID:    item.PluginId,
-		ID:          item.Id,
-		Kind:        item.Kind,
-		Timestamp:   item.Timestamp,
-		ContentType: item.ContentType,
-		Metadata:    item.Metadata,
+		PluginID:    item.Meta.PluginId,
+		ID:          item.Meta.Id,
+		Kind:        item.Meta.Kind,
+		Timestamp:   item.Meta.Timestamp,
+		ContentType: item.Meta.ContentType,
 	}
 
 	return Write(w, wrapper, item.RawData)
@@ -94,13 +92,14 @@ func Read(r io.Reader) (*proto.DataItem, error) {
 
 	// Create DataItem
 	item := &proto.DataItem{
-		PluginId:    wrapper.PluginID,
-		Id:          wrapper.ID,
-		Kind:        wrapper.Kind,
-		Timestamp:   wrapper.Timestamp,
-		ContentType: wrapper.ContentType,
-		Metadata:    wrapper.Metadata,
-		RawData:     data[delimiterIndex+len(Delimiter):],
+		Meta: &proto.DataItemMetadata{
+			PluginId:    wrapper.PluginID,
+			Id:          wrapper.ID,
+			Kind:        wrapper.Kind,
+			Timestamp:   wrapper.Timestamp,
+			ContentType: wrapper.ContentType,
+		},
+		RawData: data[delimiterIndex+len(Delimiter):],
 	}
 
 	return item, nil

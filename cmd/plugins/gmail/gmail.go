@@ -124,11 +124,13 @@ func (p *GmailPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-cha
 
 		// Create a DataItem for the page
 		item := &pb.DataItem{
-			PluginId:    p.ID(),
-			Id:          pageToken,
-			Kind:        "page",
-			ContentType: "application/json",
-			RawData:     rawJSON,
+			Meta: &pb.DataItemMetadata{
+				PluginId:    p.ID(),
+				Id:          pageToken,
+				Kind:        "page",
+				ContentType: "application/json",
+			},
+			RawData: rawJSON,
 		}
 
 		select {

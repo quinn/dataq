@@ -45,6 +45,17 @@ func NewTask(data *pb.DataItem) *Task {
 	}
 }
 
+func InitialTask(pluginID string) *Task {
+	return &Task{
+		Meta: TaskMetadata{
+			ID:        fmt.Sprintf("%s_initial", pluginID),
+			Status:    TaskStatusPending,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+	}
+}
+
 // Queue defines the interface for task queues
 type Queue interface {
 	// Push adds a task to the queue

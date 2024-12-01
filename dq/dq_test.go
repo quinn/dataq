@@ -12,14 +12,12 @@ import (
 func TestWriteReadWithDelimiterInMetadata(t *testing.T) {
 	// Create a DataItem with the delimiter sequence in its metadata
 	item := &proto.DataItem{
-		PluginId:    "test-plugin",
-		Id:          "test-source",
-		Kind:        "test",
-		Timestamp:   123456789,
-		ContentType: "text/plain",
-		Metadata: map[string]string{
-			"key_with_delimiter": string([]byte{0x00, 0x1F, 0x00}),
-			"normal_key":        "normal_value",
+		Meta: &proto.DataItemMetadata{
+			PluginId:    "test-plugin",
+			Id:          "test-source",
+			Kind:        "test",
+			Timestamp:   123456789,
+			ContentType: "text/plain",
 		},
 		RawData: []byte("Hello, World!"),
 	}
@@ -38,33 +36,23 @@ func TestWriteReadWithDelimiterInMetadata(t *testing.T) {
 	}
 
 	// Verify all fields match
-	if item.PluginId != readItem.PluginId {
-		t.Errorf("PluginId mismatch: got %v, want %v", readItem.PluginId, item.PluginId)
+	if item.Meta.PluginId != readItem.Meta.PluginId {
+		t.Errorf("PluginId mismatch: got %v, want %v", readItem.Meta.PluginId, item.Meta.PluginId)
 	}
-	if item.Id != readItem.Id {
-		t.Errorf("Id mismatch: got %v, want %v", readItem.Id, item.Id)
+	if item.Meta.Id != readItem.Meta.Id {
+		t.Errorf("Id mismatch: got %v, want %v", readItem.Meta.Id, item.Meta.Id)
 	}
-	if item.Kind != readItem.Kind {
-		t.Errorf("Kind mismatch: got %v, want %v", readItem.Kind, item.Kind)
+	if item.Meta.Kind != readItem.Meta.Kind {
+		t.Errorf("Kind mismatch: got %v, want %v", readItem.Meta.Kind, item.Meta.Kind)
 	}
-	if item.Timestamp != readItem.Timestamp {
-		t.Errorf("Timestamp mismatch: got %v, want %v", readItem.Timestamp, item.Timestamp)
+	if item.Meta.Timestamp != readItem.Meta.Timestamp {
+		t.Errorf("Timestamp mismatch: got %v, want %v", readItem.Meta.Timestamp, item.Meta.Timestamp)
 	}
-	if item.ContentType != readItem.ContentType {
-		t.Errorf("ContentType mismatch: got %v, want %v", readItem.ContentType, item.ContentType)
-	}
-	if !reflect.DeepEqual(item.Metadata, readItem.Metadata) {
-		t.Errorf("Metadata mismatch: got %v, want %v", readItem.Metadata, item.Metadata)
+	if item.Meta.ContentType != readItem.Meta.ContentType {
+		t.Errorf("ContentType mismatch: got %v, want %v", readItem.Meta.ContentType, item.Meta.ContentType)
 	}
 	if !bytes.Equal(item.RawData, readItem.RawData) {
 		t.Errorf("RawData mismatch: got %v, want %v", readItem.RawData, item.RawData)
-	}
-
-	// Specifically verify the metadata with delimiter is preserved
-	if item.Metadata["key_with_delimiter"] != readItem.Metadata["key_with_delimiter"] {
-		t.Errorf("Delimiter in metadata not preserved: got %v, want %v",
-			readItem.Metadata["key_with_delimiter"],
-			item.Metadata["key_with_delimiter"])
 	}
 }
 
@@ -79,13 +67,12 @@ func TestWriteReadWithDelimiterInRawData(t *testing.T) {
 	}, nil)
 
 	item := &proto.DataItem{
-		PluginId:    "test-plugin",
-		Id:          "test-source",
-		Kind:        "test",
-		Timestamp:   123456789,
-		ContentType: "application/octet-stream",
-		Metadata: map[string]string{
-			"test": "value",
+		Meta: &proto.DataItemMetadata{
+			PluginId:    "test-plugin",
+			Id:          "test-source",
+			Kind:        "test",
+			Timestamp:   123456789,
+			ContentType: "application/octet-stream",
 		},
 		RawData: rawData,
 	}
@@ -112,13 +99,14 @@ func TestWriteReadWithDelimiterInRawData(t *testing.T) {
 func TestWriteReadEmpty(t *testing.T) {
 	// Test with empty raw data and metadata
 	item := &proto.DataItem{
-		PluginId:    "test-plugin",
-		Id:          "test-source",
-		Kind:        "test",
-		Timestamp:   123456789,
-		ContentType: "text/plain",
-		Metadata:    map[string]string{},
-		RawData:     []byte{},
+		Meta: &proto.DataItemMetadata{
+			PluginId:    "test-plugin",
+			Id:          "test-source",
+			Kind:        "test",
+			Timestamp:   123456789,
+			ContentType: "text/plain",
+		},
+		RawData: []byte{},
 	}
 
 	var buf bytes.Buffer
@@ -132,28 +120,25 @@ func TestWriteReadEmpty(t *testing.T) {
 		t.Fatalf("Read failed: %v", err)
 	}
 
-	if item.PluginId != readItem.PluginId {
-		t.Errorf("PluginId mismatch: got %v, want %v", readItem.PluginId, item.PluginId)
+	if item.Meta.PluginId != readItem.Meta.PluginId {
+		t.Errorf("PluginId mismatch: got %v, want %v", readItem.Meta.PluginId, item.Meta.PluginId)
 	}
-	if item.Id != readItem.Id {
-		t.Errorf("Id mismatch: got %v, want %v", readItem.Id, item.Id)
+	if item.Meta.Id != readItem.Meta.Id {
+		t.Errorf("Id mismatch: got %v, want %v", readItem.Meta.Id, item.Meta.Id)
 	}
-	if item.Kind != readItem.Kind {
-		t.Errorf("Kind mismatch: got %v, want %v", readItem.Kind, item.Kind)
+	if item.Meta.Kind != readItem.Meta.Kind {
+		t.Errorf("Kind mismatch: got %v, want %v", readItem.Meta.Kind, item.Meta.Kind)
 	}
 	if !bytes.Equal(item.RawData, readItem.RawData) {
 		t.Errorf("RawData mismatch: got %v, want %v", readItem.RawData, item.RawData)
-	}
-	if len(readItem.Metadata) != 0 {
-		t.Errorf("Expected empty metadata, got %v", readItem.Metadata)
 	}
 }
 
 func TestGenericWrite(t *testing.T) {
 	type CustomMetadata struct {
-		Name        string            `json:"name"`
-		Tags        []string          `json:"tags"`
-		Properties  map[string]string `json:"properties"`
+		Name       string            `json:"name"`
+		Tags       []string          `json:"tags"`
+		Properties map[string]string `json:"properties"`
 	}
 
 	metadata := CustomMetadata{

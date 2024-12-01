@@ -74,11 +74,11 @@ func (q *FileQueue) loadState() error {
 		}
 
 		// Update task status from state
-		if status, ok := state.Tasks[task.ID]; ok {
-			task.Status = status
+		if status, ok := state.Tasks[task.Meta.ID]; ok {
+			task.Meta.Status = status
 		}
 
-		q.metadata[task.ID] = task
+		q.metadata[task.Meta.ID] = task
 	}
 
 	return nil
@@ -105,7 +105,7 @@ func (q *FileQueue) writeState() error {
 	}
 
 	for id, task := range q.metadata {
-		state.Tasks[id] = task.Status
+		state.Tasks[id] = task.Meta.Status
 	}
 
 	f, err := os.Create(filepath.Join(q.dir, "state.json"))
@@ -181,7 +181,7 @@ func (q *FileQueue) Pop(ctx context.Context) (*Task, error) {
 	// Find first pending task
 	var task *Task
 	for _, t := range q.metadata {
-		if t.Status == TaskStatusPending {
+		if t.Meta.Status == TaskStatusPending {
 			task = t
 			break
 		}
@@ -192,8 +192,8 @@ func (q *FileQueue) Pop(ctx context.Context) (*Task, error) {
 	}
 
 	// Update task status
-	task.Status = TaskStatusProcessing
-	task.UpdatedAt = time.Now()
+	task.Meta.Status = TaskStatusProcessing
+	task.Meta.UpdatedAt = time.Now()
 
 	// Update state
 	if err := q.writeState(); err != nil {
@@ -203,17 +203,18 @@ func (q *FileQueue) Pop(ctx context.Context) (*Task, error) {
 	return task, nil
 }
 
-func (q *FileQueue) Update(ctx context.Context, task *Task) error {
+func (q *FileQueue) Update(ctx context.Context, meta *TaskMetadata) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	// Check if task exists
-	if _, ok := q.metadata[task.ID]; !ok {
-		return fmt.Errorf("task %s not found", task.ID)
+	if _, ok := q.metadata[meta.ID]; !ok {
+		return fmt.Errorf("task %s not found", meta.ID)
 	}
 
 	// Update metadata
-	q.metadata[task.ID] = task
+	existing := q.metadata[meta.ID]
+	existing.Meta = *meta
 
 	// Update state
 	if err := q.writeState(); err != nil {
@@ -229,7 +230,7 @@ func (q *FileQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error
 
 	var tasks []*Task
 	for _, task := range q.metadata {
-		if status == "" || task.Status == status {
+		if status == "" || task.Meta.Status == status {
 			tasks = append(tasks, task)
 		}
 	}

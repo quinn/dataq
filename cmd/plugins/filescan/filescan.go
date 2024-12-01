@@ -66,16 +66,14 @@ func (p *FileScanPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-
 			}
 
 			item := &pb.DataItem{
-				PluginId:    p.ID(),
-				Id:          path,
-				Kind:        "file",
-				Timestamp:   info.ModTime().Unix(),
-				ContentType: "application/octet-stream",
-				Metadata: map[string]string{
-					"size":          fmt.Sprintf("%d", info.Size()),
-					"mode":          info.Mode().String(),
-					"last_modified": info.ModTime().Format(time.RFC3339),
+				Meta: &pb.DataItemMetadata{
+					PluginId:    p.ID(),
+					Id:          path,
+					Kind:        "file",
+					Timestamp:   info.ModTime().Unix(),
+					ContentType: "application/octet-stream",
 				},
+				RawData: []byte{},
 			}
 
 			items <- item

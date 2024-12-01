@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"go.quinn.io/dataq/plugin"
@@ -44,16 +43,7 @@ func main() {
 	}
 	defer q.Close()
 
-	// Add initial task for Gmail plugin
-	initialTask := &queue.Task{
-		ID:        "gmail_initial",
-		PluginID:  "gmail",
-		Status:    queue.TaskStatusPending,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Config:    config.Plugins[1].Config,  // Use config from the Gmail plugin
-		Data:      nil,  // Initial task has no data
-	}
+	initialTask := queue.InitialTask("gmail")
 	if err := q.Push(context.Background(), initialTask); err != nil {
 		log.Printf("Warning: Failed to add initial task: %v", err)
 	}
