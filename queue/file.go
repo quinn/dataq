@@ -148,7 +148,7 @@ func (q *FileQueue) writeTaskFile(task *Task) error {
 	}
 	defer f.Close()
 
-	return dq.Write(f, task, task.Data.RawData)
+	return dq.WriteDataItem(f, task.Data)
 }
 
 func (q *FileQueue) Push(ctx context.Context, task *Task) error {
