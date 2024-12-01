@@ -93,7 +93,7 @@ func ExecutePlugin(ctx context.Context, pc *plugin.PluginConfig, data *pb.DataIt
 		// Wait for plugin to finish
 		if err := cmd.Wait(); err != nil {
 			responses <- &pb.PluginResponse{
-				PluginId: plugin.ID,
+				PluginId: pc.ID,
 				Error:    fmt.Sprintf("plugin execution failed: %v\nstderr: %s", err, stderr.String()),
 			}
 		}
