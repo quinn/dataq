@@ -26,8 +26,8 @@ type Model struct {
 	menuCursor  int
 	queue       queue.Queue
 	worker      *worker.Worker
-	status      []*queue.TaskMetadata
-	lastTask    *queue.TaskMetadata
+	status      []*queue.Task
+	lastTask    *queue.Task
 	lastUpdated time.Time
 	err         error
 	cancel      context.CancelFunc
@@ -232,12 +232,12 @@ func (m Model) viewWorker() string {
 }
 
 type statusMsg struct {
-	tasks []*queue.TaskMetadata
+	tasks []*queue.Task
 	err   error
 }
 
 type taskResultMsg struct {
-	task *queue.TaskMetadata
+	task *queue.Task
 	err  error
 }
 

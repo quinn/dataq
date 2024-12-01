@@ -40,7 +40,7 @@ func newSQLiteQueue(path string) (*SQLiteQueue, error) {
 	return &SQLiteQueue{db: db}, nil
 }
 
-func (q *SQLiteQueue) Push(ctx context.Context, task *TaskMetadata) error {
+func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
 	if task.ID == "" {
 		task.ID = uuid.New().String()
 	}
@@ -60,14 +60,14 @@ func (q *SQLiteQueue) Push(ctx context.Context, task *TaskMetadata) error {
 	return nil
 }
 
-func (q *SQLiteQueue) Pop(ctx context.Context) (*TaskMetadata, error) {
+func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 	tx, err := q.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	var task TaskMetadata
+	var task Task
 	row := tx.QueryRowContext(ctx, `
 		SELECT id, status, error, data_hash, created_at, updated_at
 		FROM tasks
@@ -106,7 +106,7 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*TaskMetadata, error) {
 	return &task, nil
 }
 
-func (q *SQLiteQueue) Update(ctx context.Context, meta *TaskMetadata) error {
+func (q *SQLiteQueue) Update(ctx context.Context, meta *Task) error {
 	meta.UpdatedAt = time.Now()
 
 	result, err := q.db.ExecContext(ctx, `
@@ -129,7 +129,7 @@ func (q *SQLiteQueue) Update(ctx context.Context, meta *TaskMetadata) error {
 	return nil
 }
 
-func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetadata, error) {
+func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error) {
 	query := `SELECT id, status, error, data_hash, created_at, updated_at FROM tasks`
 	args := []interface{}{}
 
@@ -144,9 +144,9 @@ func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetad
 	}
 	defer rows.Close()
 
-	var tasks []*TaskMetadata
+	var tasks []*Task
 	for rows.Next() {
-		var task TaskMetadata
+		var task Task
 		err := rows.Scan(
 			&task.ID,
 			&task.Status,

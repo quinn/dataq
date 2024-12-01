@@ -18,7 +18,7 @@ const (
 )
 
 // Task represents metadata about a unit of work to be processed
-type TaskMetadata struct {
+type Task struct {
 	ID        string
 	Status    TaskStatus
 	Error     string
@@ -27,9 +27,9 @@ type TaskMetadata struct {
 	DataHash  string // SHA-256 hash of the data, used to reference the actual data
 }
 
-// NewTaskMetadata creates a new TaskMetadata instance
-func NewTaskMetadata(pluginID, itemID string, hash string) *TaskMetadata {
-	return &TaskMetadata{
+// NewTask creates a new TaskMetadata instance
+func NewTask(pluginID, itemID string, hash string) *Task {
+	return &Task{
 		ID:        fmt.Sprintf("%s_%s", pluginID, itemID),
 		Status:    TaskStatusPending,
 		CreatedAt: time.Now(),
@@ -39,8 +39,8 @@ func NewTaskMetadata(pluginID, itemID string, hash string) *TaskMetadata {
 }
 
 // InitialTask creates an initial task metadata for a plugin
-func InitialTask(pluginID string) *TaskMetadata {
-	return &TaskMetadata{
+func InitialTask(pluginID string) *Task {
+	return &Task{
 		ID:        fmt.Sprintf("%s_initial", pluginID),
 		Status:    TaskStatusPending,
 		CreatedAt: time.Now(),
@@ -64,17 +64,17 @@ func NewQueue(queueType, path string) (Queue, error) {
 // Queue defines the interface for task queues
 type Queue interface {
 	// Push adds a task metadata to the queue
-	Push(ctx context.Context, meta *TaskMetadata) error
+	Push(ctx context.Context, meta *Task) error
 
 	// Pop removes and returns the next task metadata from the queue
-	Pop(ctx context.Context) (*TaskMetadata, error)
+	Pop(ctx context.Context) (*Task, error)
 
 	// Update updates an existing task metadata in the queue
-	Update(ctx context.Context, meta *TaskMetadata) error
+	Update(ctx context.Context, meta *Task) error
 
 	// Close closes the queue and releases any resources
 	Close() error
 
 	// List returns all task metadata in the queue, optionally filtered by status
-	List(ctx context.Context, status TaskStatus) ([]*TaskMetadata, error)
+	List(ctx context.Context, status TaskStatus) ([]*Task, error)
 }

@@ -82,7 +82,7 @@ func (w *Worker) processSingleTask(ctx context.Context) error {
 }
 
 // ProcessSingleTask processes a single task and returns the result
-func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.TaskMetadata, error) {
+func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 	task, err := w.queue.Pop(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pop task: %w", err)
@@ -128,7 +128,7 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.TaskMetadata, er
 				log.Printf("Failed to store data: %v", err)
 				continue
 			}
-			newTask := queue.NewTaskMetadata(item.Meta.PluginId, item.Meta.Id, hash)
+			newTask := queue.NewTask(item.Meta.PluginId, item.Meta.Id, hash)
 
 			if err := w.queue.Push(ctx, newTask); err != nil {
 				log.Printf("Failed to create task for item: %v", err)

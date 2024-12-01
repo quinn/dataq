@@ -36,7 +36,7 @@ func newBoltQueue(path string) (*BoltQueue, error) {
 	return &BoltQueue{db: db}, nil
 }
 
-func (q *BoltQueue) Push(ctx context.Context, task *TaskMetadata) error {
+func (q *BoltQueue) Push(ctx context.Context, task *Task) error {
 	return q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
 
@@ -50,8 +50,8 @@ func (q *BoltQueue) Push(ctx context.Context, task *TaskMetadata) error {
 	})
 }
 
-func (q *BoltQueue) Pop(ctx context.Context) (*TaskMetadata, error) {
-	var task *TaskMetadata
+func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
+	var task *Task
 
 	err := q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
@@ -65,7 +65,7 @@ func (q *BoltQueue) Pop(ctx context.Context) (*TaskMetadata, error) {
 		}
 
 		// Parse task
-		task = &TaskMetadata{}
+		task = &Task{}
 
 		// Find metadata JSON end
 		var i int
@@ -96,8 +96,8 @@ func (q *BoltQueue) Pop(ctx context.Context) (*TaskMetadata, error) {
 	return task, nil
 }
 
-func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetadata, error) {
-	var tasks []*TaskMetadata
+func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error) {
+	var tasks []*Task
 
 	err := q.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
@@ -110,7 +110,7 @@ func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetadat
 			}
 
 			// Parse metadata
-			var meta TaskMetadata
+			var meta Task
 			if err := json.Unmarshal(v[:i], &meta); err != nil {
 				return fmt.Errorf("failed to unmarshal metadata: %w", err)
 			}
@@ -130,7 +130,7 @@ func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetadat
 	return tasks, nil
 }
 
-func (q *BoltQueue) Update(ctx context.Context, meta *TaskMetadata) error {
+func (q *BoltQueue) Update(ctx context.Context, meta *Task) error {
 	return q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
 

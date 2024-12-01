@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type QueueState = map[string]*TaskMetadata
+type QueueState = map[string]*Task
 
 // FileQueue implements Queue using a file-based storage system
 type FileQueue struct {
@@ -88,7 +88,7 @@ func (q *FileQueue) writeState() error {
 // 	return dq.WriteDataItem(f, data)
 // }
 
-func (q *FileQueue) Push(ctx context.Context, task *TaskMetadata) error {
+func (q *FileQueue) Push(ctx context.Context, task *Task) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -103,12 +103,12 @@ func (q *FileQueue) Push(ctx context.Context, task *TaskMetadata) error {
 	return nil
 }
 
-func (q *FileQueue) Pop(ctx context.Context) (*TaskMetadata, error) {
+func (q *FileQueue) Pop(ctx context.Context) (*Task, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	// Find first pending task
-	var task *TaskMetadata
+	var task *Task
 	for _, t := range q.state {
 		if t.Status == TaskStatusPending {
 			task = t
@@ -132,7 +132,7 @@ func (q *FileQueue) Pop(ctx context.Context) (*TaskMetadata, error) {
 	return task, nil
 }
 
-func (q *FileQueue) Update(ctx context.Context, meta *TaskMetadata) error {
+func (q *FileQueue) Update(ctx context.Context, meta *Task) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -154,11 +154,11 @@ func (q *FileQueue) Update(ctx context.Context, meta *TaskMetadata) error {
 	return nil
 }
 
-func (q *FileQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetadata, error) {
+func (q *FileQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	var tasks []*TaskMetadata
+	var tasks []*Task
 	for _, task := range q.state {
 		if status == "" || task.Status == status {
 			tasks = append(tasks, task)
