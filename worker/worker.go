@@ -1,8 +1,10 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -11,6 +13,7 @@ import (
 	"go.quinn.io/dataq/plugin"
 	"go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/queue"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // TaskResult represents the result of processing a single task
@@ -179,20 +182,59 @@ func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig,
 		return nil, fmt.Errorf("plugin binary not found: %s", plugin.BinaryPath)
 	}
 
+	// Create plugin request
+	req := &proto.PluginRequest{
+		PluginId:  plugin.ID,
+		Operation: "extract",
+		Config:    plugin.Config,
+		Item:      task.Data,
+	}
+
+	// Marshal request to JSON using protojson
+	reqData, err := protojson.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create command with stdin pipe
 	cmd := exec.CommandContext(ctx, plugin.BinaryPath)
 	cmd.Env = os.Environ()
-	for k, v := range task.Config {
+	for k, v := range plugin.Config {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	output, err := cmd.CombinedOutput()
+	// Get stdin pipe
+	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("plugin execution failed: %w: %s", err, string(output))
+		return nil, fmt.Errorf("failed to get stdin pipe: %w", err)
 	}
 
-	// For now, just create an empty response
-	// In a real implementation, we would parse the plugin output
-	return &proto.PluginResponse{
-		PluginId: plugin.ID,
-	}, nil
+	// Create buffer for stdout and stderr
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start plugin: %w", err)
+	}
+
+	// Write request to stdin
+	if _, err := io.Copy(stdin, bytes.NewReader(reqData)); err != nil {
+		return nil, fmt.Errorf("failed to write request: %w", err)
+	}
+	stdin.Close()
+
+	// Wait for command to complete
+	if err := cmd.Wait(); err != nil {
+		return nil, fmt.Errorf("plugin execution failed: %w: %s", err, stderr.String())
+	}
+
+	// Parse response using protojson
+	var resp proto.PluginResponse
+	if err := protojson.Unmarshal(stdout.Bytes(), &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &resp, nil
 }
