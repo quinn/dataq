@@ -480,29 +480,27 @@ func file_proto_dataq_proto_rawDescGZIP() []byte {
 	return file_proto_dataq_proto_rawDescData
 }
 
-var file_proto_dataq_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_dataq_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_proto_dataq_proto_goTypes = []any{
 	(*Plugin)(nil),           // 0: dataq.Plugin
 	(*DataItemMetadata)(nil), // 1: dataq.DataItemMetadata
 	(*DataItem)(nil),         // 2: dataq.DataItem
 	(*PluginConfig)(nil),     // 3: dataq.PluginConfig
 	(*PluginRequest)(nil),    // 4: dataq.PluginRequest
-	(*PluginResponse)(nil),   // 5: dataq.PluginResponse
-	nil,                      // 6: dataq.Plugin.ConfigEntry
-	nil,                      // 7: dataq.PluginRequest.ConfigEntry
+	nil,                      // 5: dataq.Plugin.ConfigEntry
+	nil,                      // 6: dataq.PluginRequest.ConfigEntry
 }
 var file_proto_dataq_proto_depIdxs = []int32{
-	6, // 0: dataq.Plugin.config:type_name -> dataq.Plugin.ConfigEntry
+	5, // 0: dataq.Plugin.config:type_name -> dataq.Plugin.ConfigEntry
 	1, // 1: dataq.DataItem.meta:type_name -> dataq.DataItemMetadata
 	0, // 2: dataq.PluginConfig.plugins:type_name -> dataq.Plugin
-	7, // 3: dataq.PluginRequest.config:type_name -> dataq.PluginRequest.ConfigEntry
+	6, // 3: dataq.PluginRequest.config:type_name -> dataq.PluginRequest.ConfigEntry
 	2, // 4: dataq.PluginRequest.item:type_name -> dataq.DataItem
-	2, // 5: dataq.PluginResponse.item:type_name -> dataq.DataItem
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_proto_dataq_proto_init() }
@@ -516,7 +514,7 @@ func file_proto_dataq_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_dataq_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
