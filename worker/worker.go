@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -49,17 +48,17 @@ func New(q queue.Queue, plugins []*plugin.PluginConfig) *Worker {
 // Start begins processing tasks
 func (w *Worker) Start(ctx context.Context) error {
 	log.Println("Starting task processing loop")
-
 	for {
 		select {
 		case <-ctx.Done():
+			log.Println("Context cancelled, stopping task processing")
 			return ctx.Err()
 		case <-w.done:
+			log.Println("Worker stopped, exiting task processing")
 			return nil
 		default:
 			if err := w.processSingleTask(ctx); err != nil {
 				log.Printf("Error processing task: %v", err)
-				time.Sleep(time.Second)
 			}
 		}
 	}
@@ -110,7 +109,6 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*TaskResult, error) {
 		result.Error = err
 	} else {
 		task.Status = queue.TaskStatusComplete
-		task.Result = pluginResp
 	}
 
 	task.UpdatedAt = time.Now()
@@ -156,44 +154,22 @@ func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig,
 		Item:      task.Data,
 	}
 
-	// Marshal request using protobuf
+	// Serialize request using protobuf
 	reqData, err := proto.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Create command with stdin pipe
+	// Start plugin process
 	cmd := exec.CommandContext(ctx, plugin.BinaryPath)
-	cmd.Env = os.Environ()
-	for k, v := range plugin.Config {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	// Get stdin pipe
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get stdin pipe: %w", err)
-	}
-
-	// Create buffer for stdout and stderr
+	cmd.Stdin = bytes.NewReader(reqData)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// Start the command
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start plugin: %w", err)
-	}
-
-	// Write request to stdin
-	if _, err := io.Copy(stdin, bytes.NewReader(reqData)); err != nil {
-		return nil, fmt.Errorf("failed to write request: %w", err)
-	}
-	stdin.Close()
-
-	// Wait for command to complete
-	if err := cmd.Wait(); err != nil {
-		return nil, fmt.Errorf("plugin execution failed: %w: %s", err, stderr.String())
+	// Run plugin
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("plugin execution failed: %w\nstderr: %s", err, stderr.String())
 	}
 
 	// Parse response using protobuf

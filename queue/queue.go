@@ -25,7 +25,6 @@ type Task struct {
 	Config    map[string]string
 	Data      *pb.DataItem
 	Status    TaskStatus
-	Result    *pb.PluginResponse
 	Error     string
 	CreatedAt time.Time
 	UpdatedAt time.Time

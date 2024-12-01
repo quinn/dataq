@@ -1,201 +1,276 @@
 package queue
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
 	"go.etcd.io/bbolt"
+	"go.quinn.io/dataq/dq"
 )
 
 var (
-	queueBucket = []byte("queue")
+	tasksBucket = []byte("tasks")
 )
 
-// BoltQueue implements Queue using BBolt
 type BoltQueue struct {
 	db *bbolt.DB
 }
 
-// NewBoltQueue creates a new BoltQueue instance
-func NewBoltQueue(opts ...Option) (Queue, error) {
-	options := &Options{
-		Path: "queue.db",
-	}
-
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(options.Path), 0755); err != nil {
-		return nil, fmt.Errorf("failed to create queue directory: %v", err)
-	}
-
-	// Open BBolt database
-	db, err := bbolt.Open(options.Path, 0600, &bbolt.Options{
-		Timeout:      5 * time.Second,
-		NoSync:       false,
-		NoGrowSync:   false,
-		FreelistType: bbolt.FreelistArrayType,
-	})
+func NewBoltQueue(path string) (*BoltQueue, error) {
+	db, err := bbolt.Open(path, 0600, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open queue database: %v", err)
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Create bucket if it doesn't exist
 	err = db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(queueBucket)
+		_, err := tx.CreateBucketIfNotExists(tasksBucket)
 		return err
 	})
 	if err != nil {
 		db.Close()
-		return nil, fmt.Errorf("failed to create queue bucket: %v", err)
+		return nil, fmt.Errorf("failed to create bucket: %w", err)
 	}
 
 	return &BoltQueue{db: db}, nil
 }
 
-// Push adds a task to the queue
 func (q *BoltQueue) Push(ctx context.Context, task *Task) error {
-	log.Printf("Pushing task %s (status: %s)", task.ID, task.Status)
-	return q.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(queueBucket)
+	if task.ID == "" {
+		task.ID = uuid.New().String()
+	}
+	if task.CreatedAt.IsZero() {
+		task.CreatedAt = time.Now()
+	}
+	task.UpdatedAt = time.Now()
 
-		// Marshal task to JSON
-		data, err := json.Marshal(task)
-		if err != nil {
-			return fmt.Errorf("failed to marshal task: %v", err)
-		}
+	// Serialize task metadata
+	metadata := struct {
+		ID        string            `json:"id"`
+		PluginID  string            `json:"plugin_id"`
+		Config    map[string]string `json:"config"`
+		Status    TaskStatus        `json:"status"`
+		Error     string            `json:"error"`
+		CreatedAt time.Time         `json:"created_at"`
+		UpdatedAt time.Time         `json:"updated_at"`
+	}{
+		ID:        task.ID,
+		PluginID:  task.PluginID,
+		Config:    task.Config,
+		Status:    task.Status,
+		Error:     task.Error,
+		CreatedAt: task.CreatedAt,
+		UpdatedAt: task.UpdatedAt,
+	}
 
-		// Store task
-		return b.Put([]byte(task.ID), data)
+	// Serialize data using dq package
+	var buf bytes.Buffer
+	if err := dq.WriteDataItem(&buf, task.Data); err != nil {
+		return fmt.Errorf("failed to serialize data: %w", err)
+	}
+	data := buf.Bytes()
+
+	// Combine metadata and data
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	value := append(metadataJSON, data...)
+
+	err = q.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(tasksBucket)
+		return b.Put([]byte(task.ID), value)
 	})
+	if err != nil {
+		return fmt.Errorf("failed to insert task: %w", err)
+	}
+
+	return nil
 }
 
-// Pop removes and returns the next task from the queue
 func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
 	var task *Task
-	var taskKey []byte
 
 	err := q.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(queueBucket)
+		b := tx.Bucket(tasksBucket)
 		c := b.Cursor()
 
-		// Get first pending task
-		k, v := c.First()
-		for ; k != nil; k, v = c.Next() {
-			var t Task
-			if err := json.Unmarshal(v, &t); err != nil {
-				log.Printf("Failed to unmarshal task: %v", err)
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var metadata struct {
+				ID        string            `json:"id"`
+				PluginID  string            `json:"plugin_id"`
+				Config    map[string]string `json:"config"`
+				Status    TaskStatus        `json:"status"`
+				Error     string            `json:"error"`
+				CreatedAt time.Time         `json:"created_at"`
+				UpdatedAt time.Time         `json:"updated_at"`
+			}
+
+			// Find metadata length by looking for first non-JSON byte
+			var metadataLen int
+			for i := 0; i < len(v); i++ {
+				if !json.Valid(v[:i+1]) {
+					metadataLen = i
+					break
+				}
+			}
+
+			if err := json.Unmarshal(v[:metadataLen], &metadata); err != nil {
 				continue
 			}
 
-			log.Printf("Checking task %s (status: %s)", t.ID, t.Status)
-			if t.Status == TaskStatusPending {
-				task = &t
-				taskKey = k
-				log.Printf("Found pending task %s", t.ID)
-				break
+			if metadata.Status == TaskStatusPending {
+				task = &Task{
+					ID:        metadata.ID,
+					PluginID:  metadata.PluginID,
+					Config:    metadata.Config,
+					Status:    metadata.Status,
+					Error:     metadata.Error,
+					CreatedAt: metadata.CreatedAt,
+					UpdatedAt: metadata.UpdatedAt,
+				}
+
+				// Deserialize data using dq package
+				if len(v) > metadataLen {
+					data, err := dq.Read(bytes.NewReader(v[metadataLen:]))
+					if err != nil {
+						return fmt.Errorf("failed to deserialize data: %w", err)
+					}
+					task.Data = data
+				}
+
+				if err := b.Delete(k); err != nil {
+					return fmt.Errorf("failed to delete task: %w", err)
+				}
+				return nil
 			}
 		}
-
-		// If we found a task, delete it
-		if taskKey != nil {
-			log.Printf("Deleting task %s", task.ID)
-			return b.Delete(taskKey)
-		}
-
 		return nil
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to pop task: %v", err)
+		return nil, fmt.Errorf("failed to pop task: %w", err)
 	}
 
 	return task, nil
 }
 
-// Get returns a task by ID
-func (q *BoltQueue) Get(ctx context.Context, id string) (*Task, error) {
-	var task *Task
-
-	err := q.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(queueBucket)
-		v := b.Get([]byte(id))
-		if v == nil {
-			return fmt.Errorf("task not found: %s", id)
-		}
-
-		task = &Task{}
-		if err := json.Unmarshal(v, task); err != nil {
-			return fmt.Errorf("failed to unmarshal task: %v", err)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return task, nil
-}
-
-// Update updates a task in the queue
-func (q *BoltQueue) Update(ctx context.Context, task *Task) error {
-	return q.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(queueBucket)
-
-		// Marshal task to JSON
-		data, err := json.Marshal(task)
-		if err != nil {
-			return fmt.Errorf("failed to marshal task: %v", err)
-		}
-
-		// Store task
-		return b.Put([]byte(task.ID), data)
-	})
-}
-
-// List returns all tasks in the queue, optionally filtered by status
 func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error) {
 	var tasks []*Task
 
 	err := q.db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(queueBucket)
-		if b == nil {
-			return fmt.Errorf("task bucket not found")
+		b := tx.Bucket(tasksBucket)
+		c := b.Cursor()
+
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var metadata struct {
+				ID        string            `json:"id"`
+				PluginID  string            `json:"plugin_id"`
+				Config    map[string]string `json:"config"`
+				Status    TaskStatus        `json:"status"`
+				Error     string            `json:"error"`
+				CreatedAt time.Time         `json:"created_at"`
+				UpdatedAt time.Time         `json:"updated_at"`
+			}
+
+			// Find metadata length by looking for first non-JSON byte
+			var metadataLen int
+			for i := 0; i < len(v); i++ {
+				if !json.Valid(v[:i+1]) {
+					metadataLen = i
+					break
+				}
+			}
+
+			if err := json.Unmarshal(v[:metadataLen], &metadata); err != nil {
+				continue
+			}
+
+			if status == "" || metadata.Status == status {
+				task := &Task{
+					ID:        metadata.ID,
+					PluginID:  metadata.PluginID,
+					Config:    metadata.Config,
+					Status:    metadata.Status,
+					Error:     metadata.Error,
+					CreatedAt: metadata.CreatedAt,
+					UpdatedAt: metadata.UpdatedAt,
+				}
+
+				// Deserialize data using dq package
+				if len(v) > metadataLen {
+					data, err := dq.Read(bytes.NewReader(v[metadataLen:]))
+					if err != nil {
+						return fmt.Errorf("failed to deserialize data: %w", err)
+					}
+					task.Data = data
+				}
+
+				tasks = append(tasks, task)
+			}
 		}
-
-		return b.ForEach(func(k, v []byte) error {
-			var task Task
-			if err := json.Unmarshal(v, &task); err != nil {
-				log.Printf("Failed to unmarshal task: %v", err)
-				return nil // Skip invalid tasks
-			}
-
-			// Filter by status if specified
-			if task.Status == status {
-				tasks = append(tasks, &task)
-			}
-
-			return nil
-		})
+		return nil
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("error listing tasks: %v", err)
+		return nil, fmt.Errorf("failed to list tasks: %w", err)
 	}
 
 	return tasks, nil
 }
 
-// Close closes the queue
+func (q *BoltQueue) Update(ctx context.Context, task *Task) error {
+	task.UpdatedAt = time.Now()
+
+	// Serialize task metadata
+	metadata := struct {
+		ID        string            `json:"id"`
+		PluginID  string            `json:"plugin_id"`
+		Config    map[string]string `json:"config"`
+		Status    TaskStatus        `json:"status"`
+		Error     string            `json:"error"`
+		CreatedAt time.Time         `json:"created_at"`
+		UpdatedAt time.Time         `json:"updated_at"`
+	}{
+		ID:        task.ID,
+		PluginID:  task.PluginID,
+		Config:    task.Config,
+		Status:    task.Status,
+		Error:     task.Error,
+		CreatedAt: task.CreatedAt,
+		UpdatedAt: task.UpdatedAt,
+	}
+
+	// Serialize data using dq package
+	var buf bytes.Buffer
+	if err := dq.WriteDataItem(&buf, task.Data); err != nil {
+		return fmt.Errorf("failed to serialize data: %w", err)
+	}
+	data := buf.Bytes()
+
+	// Combine metadata and data
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	value := append(metadataJSON, data...)
+
+	err = q.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(tasksBucket)
+		return b.Put([]byte(task.ID), value)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update task: %w", err)
+	}
+
+	return nil
+}
+
 func (q *BoltQueue) Close() error {
 	return q.db.Close()
 }
