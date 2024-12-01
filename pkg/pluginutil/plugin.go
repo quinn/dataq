@@ -24,7 +24,7 @@ type Plugin interface {
 }
 
 // ExecutePlugin executes a plugin binary with the given request and returns a channel of responses
-func ExecutePlugin(ctx context.Context, pc *plugin.PluginConfig, data *pb.DataItem) (<-chan *plugin.PluginResponse, error) {
+func ExecutePlugin(ctx context.Context, pc *plugin.PluginConfig, data *pb.DataItem) (<-chan *pb.PluginResponse, error) {
 	if _, err := os.Stat(pc.BinaryPath); err != nil {
 		return nil, fmt.Errorf("plugin binary not found: %s", pc.BinaryPath)
 	}
@@ -70,7 +70,7 @@ func ExecutePlugin(ctx context.Context, pc *plugin.PluginConfig, data *pb.DataIt
 		for resp := range stream {
 			if resp.Item != nil {
 				if resp.Item.Meta.Hash != GenerateHash(resp.Item.RawData) {
-					responses <- &plugin.PluginResponse{
+					responses <- &pb.PluginResponse{
 						PluginId: pc.ID,
 						Error:    "hash mismatch",
 					}
@@ -152,8 +152,11 @@ func HandlePlugin(p Plugin) {
 
 		for item := range items {
 			item.Meta.Hash = GenerateHash(item.RawData)
+			if req.Item != nil {
+				item.Meta.ParentHash = req.Item.Meta.Hash
+			}
 
-			stream.WriteResponse(os.Stdout, &plugin.PluginResponse{
+			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
 				PluginId: item.Meta.PluginId,
 				Item:     item,
 			})

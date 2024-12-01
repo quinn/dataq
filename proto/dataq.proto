@@ -18,6 +18,7 @@ message DataItemMetadata {
   int64  timestamp = 4;
   string content_type = 5;
   string hash = 6;
+  string parent_hash = 7;
 }
 
 // DataItem represents a single piece of data extracted by a plugin
