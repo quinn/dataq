@@ -100,6 +100,7 @@ type DataItemMetadata struct {
 	Kind        string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
 	Timestamp   int64  `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	ContentType string `protobuf:"bytes,5,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Hash        string `protobuf:"bytes,6,opt,name=hash,proto3" json:"hash,omitempty"`
 }
 
 func (x *DataItemMetadata) Reset() {
@@ -163,6 +164,13 @@ func (x *DataItemMetadata) GetTimestamp() int64 {
 func (x *DataItemMetadata) GetContentType() string {
 	if x != nil {
 		return x.ContentType
+	}
+	return ""
+}
+
+func (x *DataItemMetadata) GetHash() string {
+	if x != nil {
+		return x.Hash
 	}
 	return ""
 }
