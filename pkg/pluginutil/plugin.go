@@ -22,16 +22,16 @@ type Plugin interface {
 }
 
 // ExecutePlugin executes a plugin binary with the given request and returns a channel of responses
-func ExecutePlugin(ctx context.Context, plugin *plugin.PluginConfig, data *pb.DataItem) (<-chan *pb.PluginResponse, error) {
-	if _, err := os.Stat(plugin.BinaryPath); err != nil {
-		return nil, fmt.Errorf("plugin binary not found: %s", plugin.BinaryPath)
+func ExecutePlugin(ctx context.Context, pc *plugin.PluginConfig, data *pb.DataItem) (<-chan *plugin.PluginResponse, error) {
+	if _, err := os.Stat(pc.BinaryPath); err != nil {
+		return nil, fmt.Errorf("plugin binary not found: %s", pc.BinaryPath)
 	}
 
 	// Create plugin request
 	req := &pb.PluginRequest{
-		PluginId:  plugin.ID,
+		PluginId:  pc.ID,
 		Operation: "extract",
-		Config:    plugin.Config,
+		Config:    pc.Config,
 		Item:      data,
 	}
 
@@ -42,7 +42,7 @@ func ExecutePlugin(ctx context.Context, plugin *plugin.PluginConfig, data *pb.Da
 	}
 
 	// Start plugin process
-	cmd := exec.CommandContext(ctx, plugin.BinaryPath)
+	cmd := exec.CommandContext(ctx, pc.BinaryPath)
 	cmd.Stdin = bytes.NewReader(reqData)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
