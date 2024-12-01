@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.quinn.io/dataq/dq"
+	pb "go.quinn.io/dataq/proto"
 )
 
 // FileQueue implements Queue using a file-based storage system
@@ -116,10 +117,10 @@ func (q *FileQueue) writeState() error {
 	return json.NewEncoder(f).Encode(state)
 }
 
-func (q *FileQueue) generateFilename(task *Task) string {
+func (q *FileQueue) generateFilename(data *pb.DataItem) string {
 	// DataItem must exist since this is only called for plugin response items
 	h := sha256.New()
-	h.Write(task.Data.RawData)
+	h.Write(data.RawData)
 	return hex.EncodeToString(h.Sum(nil)) + ".dq"
 }
 
@@ -140,15 +141,15 @@ func (q *FileQueue) readTaskFile(filename string) (*Task, error) {
 	return &task, nil
 }
 
-func (q *FileQueue) writeTaskFile(task *Task) error {
-	filename := q.generateFilename(task)
+func (q *FileQueue) writeTaskFile(data *pb.DataItem) error {
+	filename := q.generateFilename(data)
 	f, err := os.Create(filepath.Join(q.dir, filename))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	return dq.WriteDataItem(f, task.Data)
+	return dq.WriteDataItem(f, data)
 }
 
 func (q *FileQueue) Push(ctx context.Context, task *Task) error {
@@ -157,13 +158,13 @@ func (q *FileQueue) Push(ctx context.Context, task *Task) error {
 
 	// Only write file for tasks with data (from plugin responses)
 	if task.Data != nil {
-		if err := q.writeTaskFile(task); err != nil {
+		if err := q.writeTaskFile(task.Data); err != nil {
 			return fmt.Errorf("failed to write task file: %w", err)
 		}
 	}
 
 	// Update metadata
-	q.metadata[task.ID] = task
+	q.metadata[task.Meta.ID] = task
 
 	// Update state
 	if err := q.writeState(); err != nil {

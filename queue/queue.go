@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	pb "go.quinn.io/dataq/proto"
@@ -19,15 +20,29 @@ const (
 )
 
 // Task represents a unit of work to be processed
-type Task struct {
+type TaskMetadata struct {
 	ID        string
-	PluginID  string
-	Config    map[string]string
-	Data      *pb.DataItem
 	Status    TaskStatus
 	Error     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type Task struct {
+	Meta TaskMetadata
+	Data *pb.DataItem
+}
+
+func NewTask(data *pb.DataItem) *Task {
+	return &Task{
+		Meta: TaskMetadata{
+			ID:        fmt.Sprintf("%s_%d", data.Meta.PluginId, data.Meta.Id),
+			Status:    TaskStatusPending,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		Data: data,
+	}
 }
 
 // Queue defines the interface for task queues
@@ -39,11 +54,11 @@ type Queue interface {
 	Pop(ctx context.Context) (*Task, error)
 
 	// Update updates an existing task in the queue
-	Update(ctx context.Context, task *Task) error
+	Update(ctx context.Context, meta *TaskMetadata) error
 
 	// Close closes the queue and releases any resources
 	Close() error
 
 	// List returns all tasks in the queue, optionally filtered by status
-	List(ctx context.Context, status TaskStatus) ([]*Task, error)
+	List(ctx context.Context, status TaskStatus) ([]*TaskMetadata, error)
 }

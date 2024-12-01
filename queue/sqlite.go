@@ -46,15 +46,15 @@ func NewSQLiteQueue(path string) (*SQLiteQueue, error) {
 }
 
 func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
-	if task.ID == "" {
-		task.ID = uuid.New().String()
+	if task.Meta.ID == "" {
+		task.Meta.ID = uuid.New().String()
 	}
-	if task.CreatedAt.IsZero() {
-		task.CreatedAt = time.Now()
+	if task.Meta.CreatedAt.IsZero() {
+		task.Meta.CreatedAt = time.Now()
 	}
-	task.UpdatedAt = time.Now()
+	task.Meta.UpdatedAt = time.Now()
 
-	config, err := json.Marshal(task.Config)
+	config, err := json.Marshal(task.Meta.Config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
@@ -70,14 +70,14 @@ func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
 		INSERT INTO tasks (id, plugin_id, config, data, status, error, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		task.ID,
-		task.PluginID,
+		task.Meta.ID,
+		task.Meta.PluginID,
 		string(config),
 		data,
-		string(task.Status),
-		task.Error,
-		task.CreatedAt,
-		task.UpdatedAt,
+		string(task.Meta.Status),
+		task.Meta.Error,
+		task.Meta.CreatedAt,
+		task.Meta.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert task: %w", err)
@@ -105,14 +105,14 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 	var configStr string
 	var data []byte
 	err = row.Scan(
-		&task.ID,
-		&task.PluginID,
+		&task.Meta.ID,
+		&task.Meta.PluginID,
 		&configStr,
 		&data,
-		&task.Status,
-		&task.Error,
-		&task.CreatedAt,
-		&task.UpdatedAt,
+		&task.Meta.Status,
+		&task.Meta.Error,
+		&task.Meta.CreatedAt,
+		&task.Meta.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -121,7 +121,7 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 		return nil, fmt.Errorf("failed to scan task: %w", err)
 	}
 
-	err = json.Unmarshal([]byte(configStr), &task.Config)
+	err = json.Unmarshal([]byte(configStr), &task.Meta.Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
@@ -137,7 +137,7 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 	_, err = tx.ExecContext(ctx, `
 		DELETE FROM tasks
 		WHERE id = ?
-	`, task.ID)
+	`, task.Meta.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete task: %w", err)
 	}
@@ -174,20 +174,20 @@ func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*Task, err
 		var configStr string
 		var data []byte
 		err = rows.Scan(
-			&task.ID,
-			&task.PluginID,
+			&task.Meta.ID,
+			&task.Meta.PluginID,
 			&configStr,
 			&data,
-			&task.Status,
-			&task.Error,
-			&task.CreatedAt,
-			&task.UpdatedAt,
+			&task.Meta.Status,
+			&task.Meta.Error,
+			&task.Meta.CreatedAt,
+			&task.Meta.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
 
-		err = json.Unmarshal([]byte(configStr), &task.Config)
+		err = json.Unmarshal([]byte(configStr), &task.Meta.Config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 		}
@@ -207,9 +207,9 @@ func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*Task, err
 }
 
 func (q *SQLiteQueue) Update(ctx context.Context, task *Task) error {
-	task.UpdatedAt = time.Now()
+	task.Meta.UpdatedAt = time.Now()
 
-	config, err := json.Marshal(task.Config)
+	config, err := json.Marshal(task.Meta.Config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
@@ -231,13 +231,13 @@ func (q *SQLiteQueue) Update(ctx context.Context, task *Task) error {
 			updated_at = ?
 		WHERE id = ?
 	`,
-		task.PluginID,
+		task.Meta.PluginID,
 		string(config),
 		data,
-		string(task.Status),
-		task.Error,
-		task.UpdatedAt,
-		task.ID,
+		string(task.Meta.Status),
+		task.Meta.Error,
+		task.Meta.UpdatedAt,
+		task.Meta.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update task: %w", err)

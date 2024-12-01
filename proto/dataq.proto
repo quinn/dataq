@@ -5,21 +5,24 @@ option go_package = "go.quinn.io/dataq/proto";
 
 // Plugin represents a data extraction plugin
 message Plugin {
-  string id = 1;
-  string name = 2;
-  string description = 3;
+  string              id = 1;
+  string              name = 2;
+  string              description = 3;
   map<string, string> config = 4;
+}
+
+message DataItemMetadata {
+  string plugin_id = 1;
+  string id = 2;
+  string kind = 3;
+  int64  timestamp = 4;
+  string content_type = 5;
 }
 
 // DataItem represents a single piece of data extracted by a plugin
 message DataItem {
-  string plugin_id = 1;
-  string id = 2;
-  string kind = 3;
-  int64 timestamp = 4;
-  string content_type = 5;
-  bytes raw_data = 6;
-  map<string, string> metadata = 7;
+  DataItemMetadata meta = 1;
+  bytes            raw_data = 6;
 }
 
 // PluginConfig represents the configuration for all plugins
@@ -29,15 +32,15 @@ message PluginConfig {
 
 // PluginRequest represents a request to a plugin
 message PluginRequest {
-  string plugin_id = 1;
+  string              plugin_id = 1;
   map<string, string> config = 2;
-  DataItem item = 3;
-  string operation = 4;  // e.g., "extract", "configure"
+  DataItem            item = 3;
+  string              operation = 4;  // e.g., "extract", "configure"
 }
 
 // PluginResponse represents a response from a plugin
 message PluginResponse {
-  string plugin_id = 1;
+  string            plugin_id = 1;
   repeated DataItem items = 2;
-  string error = 3;  // empty if no error
+  string            error = 3;  // empty if no error
 }

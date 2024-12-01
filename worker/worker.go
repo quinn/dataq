@@ -92,44 +92,36 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*TaskResult, error) {
 		Task: task,
 	}
 
-	plugin, ok := w.plugins[task.PluginID]
+	plugin, ok := w.plugins[task.Data.Meta.PluginId]
 	if !ok {
-		task.Status = queue.TaskStatusFailed
-		task.Error = fmt.Sprintf("plugin %s not found", task.PluginID)
-		result.Error = fmt.Errorf("plugin not found: %s", task.PluginID)
-		w.queue.Update(ctx, task)
+		task.Meta.Status = queue.TaskStatusFailed
+		task.Meta.Error = fmt.Sprintf("plugin %s not found", task.Data.Meta.PluginId)
+		result.Error = fmt.Errorf("plugin not found: %s", task.Data.Meta.PluginId)
+		w.queue.Update(ctx, &task.Meta)
 		return result, nil
 	}
 
 	// Execute plugin
 	pluginResp, err := w.executePlugin(ctx, plugin, task)
 	if err != nil {
-		task.Status = queue.TaskStatusFailed
-		task.Error = err.Error()
+		task.Meta.Status = queue.TaskStatusFailed
+		task.Meta.Error = err.Error()
 		result.Error = err
 	} else {
-		task.Status = queue.TaskStatusComplete
+		task.Meta.Status = queue.TaskStatusComplete
 	}
 
-	task.UpdatedAt = time.Now()
-	if err := w.queue.Update(ctx, task); err != nil {
+	task.Meta.UpdatedAt = time.Now()
+	if err := w.queue.Update(ctx, &task.Meta); err != nil {
 		result.Error = fmt.Errorf("failed to update task: %w", err)
 		return result, nil
 	}
 
 	// Only create tasks if we have items in the response
-	if task.Status == queue.TaskStatusComplete && len(pluginResp.Items) > 0 {
+	if task.Meta.Status == queue.TaskStatusComplete && len(pluginResp.Items) > 0 {
 		// Create a task for each item in the response
 		for _, item := range pluginResp.Items {
-			newTask := &queue.Task{
-				ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
-				PluginID:  task.PluginID,
-				Status:    queue.TaskStatusPending,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-				Config:    task.Config,
-				Data:      item,
-			}
+			newTask := queue.NewTask(item)
 
 			if err := w.queue.Push(ctx, newTask); err != nil {
 				log.Printf("Failed to create task for item: %v", err)
