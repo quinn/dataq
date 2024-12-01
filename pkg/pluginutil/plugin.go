@@ -91,50 +91,57 @@ func ExecutePlugin(ctx context.Context, plugin *plugin.PluginConfig, data *pb.Da
 }
 
 // HandlePlugin handles plugin execution and writes responses to stdout
-func HandlePlugin(p Plugin) error {
+func HandlePlugin(p Plugin) {
 	// Read request from stdin
 	input, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading stdin: %v\n", err)
-		os.Exit(1)
+		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+			PluginId: p.ID(),
+			Error:    fmt.Sprintf("failed to read request: %v", err),
+		})
+		return
 	}
 
-	// Parse request
+	// Parse request using protobuf
 	var req pb.PluginRequest
 	if err := proto.Unmarshal(input, &req); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing request: %v\n", err)
-		os.Exit(1)
+		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+			PluginId: p.ID(),
+			Error:    fmt.Sprintf("failed to unmarshal request: %v", err),
+		})
+		return
 	}
 
-	// Process request
-	var resp pb.PluginResponse
-	resp.PluginId = p.ID()
+	// Create context for plugin execution
+	ctx := context.Background()
 
 	// Always configure the plugin first
 	if err := p.Configure(req.Config); err != nil {
-		resp.Error = err.Error()
+		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+			PluginId: p.ID(),
+			Error:    fmt.Sprintf("failed to configure plugin: %v", err),
+		})
+		return
 	} else if req.Operation == "extract" {
-		items, err := p.Extract(context.Background(), &req)
+		items, err := p.Extract(ctx, &req)
 		if err != nil {
-			resp.Error = err.Error()
+			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+				PluginId: p.ID(),
+				Error:    fmt.Sprintf("failed to extract data: %v", err),
+			})
+			return
 		} else {
 			for item := range items {
-				resp.Items = append(resp.Items, item)
+				stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+					PluginId: item.Meta.PluginId,
+					Item:     item,
+				})
 			}
 		}
-	} else if req.Operation != "configure" {
-		resp.Error = fmt.Sprintf("unknown operation: %s", req.Operation)
 	}
 
-	// Write response using protobuf
-	output, err := proto.Marshal(&resp)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error marshaling response: %v\n", err)
-		os.Exit(1)
-	}
-
-	if _, err := os.Stdout.Write(output); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing response: %v\n", err)
-		os.Exit(1)
-	}
+	stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+		PluginId: p.ID(),
+		Error:    fmt.Sprintf("unknown operation: %s", req.Operation),
+	})
 }

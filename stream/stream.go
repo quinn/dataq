@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"google.golang.org/protobuf/proto"
 	pb "go.quinn.io/dataq/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 const LengthSize = 8 // 8-byte length header
