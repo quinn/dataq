@@ -151,7 +151,9 @@ func HandlePlugin(p Plugin) {
 		}
 
 		for item := range items {
-			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+			item.Meta.Hash = GenerateHash(item.RawData)
+
+			stream.WriteResponse(os.Stdout, &plugin.PluginResponse{
 				PluginId: item.Meta.PluginId,
 				Item:     item,
 			})
