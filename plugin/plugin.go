@@ -27,13 +27,6 @@ type binaryPlugin struct {
 	config *PluginConfig
 }
 
-// NewPlugin creates a new plugin instance from config
-func NewPlugin(config *PluginConfig) (Plugin, error) {
-	return &binaryPlugin{
-		config: config,
-	}, nil
-}
-
 func (p *binaryPlugin) ID() string {
 	return p.config.ID
 }
@@ -41,37 +34,4 @@ func (p *binaryPlugin) ID() string {
 func (p *binaryPlugin) Configure(config map[string]string) error {
 	p.config.Config = config
 	return nil
-}
-
-// Extract implements Plugin interface
-func (p *binaryPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (*pb.PluginResponse, error) {
-	// Set plugin ID and operation in request
-	req.PluginId = p.config.ID
-	req.Operation = "extract"
-
-	// Serialize request using protobuf
-	reqData, err := proto.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %v", err)
-	}
-
-	// Start plugin process
-	cmd := exec.CommandContext(ctx, p.config.BinaryPath)
-	cmd.Stdin = bytes.NewReader(reqData)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	// Run plugin
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to run plugin: %v\nstderr: %s", err, stderr.String())
-	}
-
-	// Parse response using protobuf
-	resp := &pb.PluginResponse{}
-	if err := proto.Unmarshal(stdout.Bytes(), resp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
-	}
-
-	return resp, nil
 }
