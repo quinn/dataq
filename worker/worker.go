@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"go.quinn.io/dataq/dq"
@@ -95,11 +96,18 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
+	var pluginID string
+	if data == nil {
+		pluginID = strings.Split(task.ID, "_")[0]
+	} else {
+		pluginID = data.Meta.PluginId
+	}
+
 	// Find the plugin for this task
-	plugin, ok := w.plugins[data.Meta.PluginId]
+	plugin, ok := w.plugins[pluginID]
 	if !ok {
 		task.Status = queue.TaskStatusFailed
-		task.Error = fmt.Sprintf("plugin %s not found", data.Meta.PluginId)
+		task.Error = fmt.Sprintf("plugin %s not found", pluginID)
 		w.queue.Update(ctx, task)
 		return task, nil
 	}
@@ -178,6 +186,9 @@ func (q *Worker) storeData(data *pb.DataItem) (string, error) {
 }
 
 func (w *Worker) loadData(hash string) (*pb.DataItem, error) {
+	if hash == "" {
+		return nil, nil
+	}
 	filename := filepath.Join(w.dataDir, hash+".dq")
 
 	f, err := os.Open(filename)

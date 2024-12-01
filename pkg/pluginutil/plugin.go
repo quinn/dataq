@@ -130,14 +130,16 @@ func HandlePlugin(p Plugin) {
 				Error:    fmt.Sprintf("failed to extract data: %v", err),
 			})
 			return
-		} else {
-			for item := range items {
-				stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-					PluginId: item.Meta.PluginId,
-					Item:     item,
-				})
-			}
 		}
+
+		for item := range items {
+			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+				PluginId: item.Meta.PluginId,
+				Item:     item,
+			})
+		}
+
+		return
 	}
 
 	stream.WriteResponse(os.Stdout, &pb.PluginResponse{

@@ -179,19 +179,19 @@ func (m Model) viewMenu() string {
 func (m Model) viewStep() string {
 	s := titleStyle.Render("Step Through Tasks") + "\n\n"
 
-	if m.lastTask == nil {
-		s += "Press ENTER to process the next task\n"
-		s += "Press ESC to return to menu\n"
-		return s
+	if m.lastTask != nil {
+		s += fmt.Sprintf("Task ID: %s\n", m.lastTask.ID)
+		s += fmt.Sprintf("Status: %s\n", m.lastTask.Status)
+
+		if m.lastTask.Error != "" {
+			s += errorStyle.Render(fmt.Sprintf("Error: %v\n", m.lastTask.Error))
+		} else {
+			s += successStyle.Render("Task completed successfully\n")
+		}
 	}
 
-	s += fmt.Sprintf("Task ID: %s\n", m.lastTask.ID)
-	s += fmt.Sprintf("Status: %s\n", m.lastTask.Status)
-
-	if m.lastTask.Error != "" {
-		s += errorStyle.Render(fmt.Sprintf("Error: %v\n", m.lastTask.Error))
-	} else {
-		s += successStyle.Render("Task completed successfully\n")
+	if m.err != nil {
+		s += errorStyle.Render(fmt.Sprintf("Error: %v\n", m.err))
 	}
 
 	s += "\nPress ENTER to process next task\n"

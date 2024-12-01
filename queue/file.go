@@ -35,11 +35,16 @@ func newFileQueue(dir string) (*FileQueue, error) {
 }
 
 func (q *FileQueue) loadState() error {
-	f, err := os.Open(filepath.Join(q.dir, "state.json"))
+	f, err := os.OpenFile(filepath.Join(q.dir, "state.json"), os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open state file: %w", err)
 	}
 	defer f.Close()
+
+	if info, err := f.Stat(); err == nil && info.Size() == 0 {
+		q.state = make(QueueState)
+		return nil
+	}
 
 	var state QueueState
 	if err := json.NewDecoder(f).Decode(&state); err != nil {
