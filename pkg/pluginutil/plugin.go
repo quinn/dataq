@@ -9,12 +9,16 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"go.quinn.io/dataq/plugin"
 	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/stream"
 	"google.golang.org/protobuf/proto"
 )
+
+// debuggerAttached is used as a breakpoint for debugger attachment
+var debuggerAttached bool
 
 // Plugin is the interface that all plugins must implement
 type Plugin interface {
@@ -151,6 +155,11 @@ func HandlePlugin(p Plugin) {
 		}
 
 		for item := range items {
+			// Infinite loop to allow debugger attachment
+			debuggerAttached = false // Will be set to true via debugger
+			for !debuggerAttached {
+				time.Sleep(time.Millisecond) // Sleep briefly to prevent CPU spinning
+			}
 			item.Meta.Hash = GenerateHash(item.RawData)
 			if req.Item != nil {
 				item.Meta.ParentHash = req.Item.Meta.Hash
