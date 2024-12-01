@@ -14,11 +14,12 @@ message Plugin {
 // DataItem represents a single piece of data extracted by a plugin
 message DataItem {
   string plugin_id = 1;
-  string source_id = 2;
-  int64 timestamp = 3;
-  string content_type = 4;
-  bytes raw_data = 5;
-  map<string, string> metadata = 6;
+  string id = 2;
+  string kind = 3;
+  int64 timestamp = 4;
+  string content_type = 5;
+  bytes raw_data = 6;
+  map<string, string> metadata = 7;
 }
 
 // PluginConfig represents the configuration for all plugins

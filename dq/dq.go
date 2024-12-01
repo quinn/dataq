@@ -13,7 +13,8 @@ var Delimiter = []byte{0x00, 0x1F, 0x00}
 // DataItemWrapper is used for JSON serialization of DataItem without the raw_data field
 type DataItemWrapper struct {
 	PluginID    string            `json:"plugin_id"`
-	SourceID    string            `json:"source_id"`
+	ID          string            `json:"id"`
+	Kind        string            `json:"kind"`
 	Timestamp   int64             `json:"timestamp"`
 	ContentType string            `json:"content_type"`
 	Metadata    map[string]string `json:"metadata"`
@@ -47,7 +48,8 @@ func WriteDataItem(w io.Writer, item *proto.DataItem) error {
 	// Create wrapper without raw_data
 	wrapper := DataItemWrapper{
 		PluginID:    item.PluginId,
-		SourceID:    item.SourceId,
+		ID:          item.Id,
+		Kind:        item.Kind,
 		Timestamp:   item.Timestamp,
 		ContentType: item.ContentType,
 		Metadata:    item.Metadata,
@@ -93,7 +95,8 @@ func Read(r io.Reader) (*proto.DataItem, error) {
 	// Create DataItem
 	item := &proto.DataItem{
 		PluginId:    wrapper.PluginID,
-		SourceId:    wrapper.SourceID,
+		Id:          wrapper.ID,
+		Kind:        wrapper.Kind,
 		Timestamp:   wrapper.Timestamp,
 		ContentType: wrapper.ContentType,
 		Metadata:    wrapper.Metadata,

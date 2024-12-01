@@ -67,7 +67,8 @@ func (p *FileScanPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, erro
 
 			item := &pb.DataItem{
 				PluginId:    p.ID(),
-				SourceId:    path,
+				Id:          path,
+				Kind:        "file",
 				Timestamp:   info.ModTime().Unix(),
 				ContentType: "application/octet-stream",
 				Metadata: map[string]string{

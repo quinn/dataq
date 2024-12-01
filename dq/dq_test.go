@@ -13,7 +13,8 @@ func TestWriteReadWithDelimiterInMetadata(t *testing.T) {
 	// Create a DataItem with the delimiter sequence in its metadata
 	item := &proto.DataItem{
 		PluginId:    "test-plugin",
-		SourceId:    "test-source",
+		Id:          "test-source",
+		Kind:        "test",
 		Timestamp:   123456789,
 		ContentType: "text/plain",
 		Metadata: map[string]string{
@@ -40,8 +41,11 @@ func TestWriteReadWithDelimiterInMetadata(t *testing.T) {
 	if item.PluginId != readItem.PluginId {
 		t.Errorf("PluginId mismatch: got %v, want %v", readItem.PluginId, item.PluginId)
 	}
-	if item.SourceId != readItem.SourceId {
-		t.Errorf("SourceId mismatch: got %v, want %v", readItem.SourceId, item.SourceId)
+	if item.Id != readItem.Id {
+		t.Errorf("Id mismatch: got %v, want %v", readItem.Id, item.Id)
+	}
+	if item.Kind != readItem.Kind {
+		t.Errorf("Kind mismatch: got %v, want %v", readItem.Kind, item.Kind)
 	}
 	if item.Timestamp != readItem.Timestamp {
 		t.Errorf("Timestamp mismatch: got %v, want %v", readItem.Timestamp, item.Timestamp)
@@ -76,7 +80,8 @@ func TestWriteReadWithDelimiterInRawData(t *testing.T) {
 
 	item := &proto.DataItem{
 		PluginId:    "test-plugin",
-		SourceId:    "test-source",
+		Id:          "test-source",
+		Kind:        "test",
 		Timestamp:   123456789,
 		ContentType: "application/octet-stream",
 		Metadata: map[string]string{
@@ -108,7 +113,8 @@ func TestWriteReadEmpty(t *testing.T) {
 	// Test with empty raw data and metadata
 	item := &proto.DataItem{
 		PluginId:    "test-plugin",
-		SourceId:    "test-source",
+		Id:          "test-source",
+		Kind:        "test",
 		Timestamp:   123456789,
 		ContentType: "text/plain",
 		Metadata:    map[string]string{},
@@ -128,6 +134,12 @@ func TestWriteReadEmpty(t *testing.T) {
 
 	if item.PluginId != readItem.PluginId {
 		t.Errorf("PluginId mismatch: got %v, want %v", readItem.PluginId, item.PluginId)
+	}
+	if item.Id != readItem.Id {
+		t.Errorf("Id mismatch: got %v, want %v", readItem.Id, item.Id)
+	}
+	if item.Kind != readItem.Kind {
+		t.Errorf("Kind mismatch: got %v, want %v", readItem.Kind, item.Kind)
 	}
 	if !bytes.Equal(item.RawData, readItem.RawData) {
 		t.Errorf("RawData mismatch: got %v, want %v", readItem.RawData, item.RawData)
