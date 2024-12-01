@@ -7,22 +7,28 @@ import (
 	"os/exec"
 
 	pb "go.quinn.io/dataq/proto"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // PluginConfig contains configuration for a plugin
 type PluginConfig struct {
 	ID         string            `yaml:"id"`
-	Enabled    bool              `yaml:"enabled"`
+	Name       string            `yaml:"name"`
 	BinaryPath string            `yaml:"binary_path"`
 	Config     map[string]string `yaml:"config"`
+	Enabled    bool             `yaml:"enabled"`
 }
 
 // Plugin defines the interface that all data extraction plugins must implement
 type Plugin interface {
-	// Extract performs the data extraction and returns a plugin response
-	Extract(ctx context.Context, req *pb.PluginRequest) (*pb.PluginResponse, error)
 	ID() string
+	Configure(map[string]string) error
+	Extract(context.Context, *pb.PluginRequest) (*pb.PluginResponse, error)
+}
+
+// binaryPlugin implements Plugin using a binary executable
+type binaryPlugin struct {
+	config *PluginConfig
 }
 
 // NewPlugin creates a new plugin instance from config
@@ -32,9 +38,13 @@ func NewPlugin(config *PluginConfig) (Plugin, error) {
 	}, nil
 }
 
-// binaryPlugin implements Plugin interface for binary plugins
-type binaryPlugin struct {
-	config *PluginConfig
+func (p *binaryPlugin) ID() string {
+	return p.config.ID
+}
+
+func (p *binaryPlugin) Configure(config map[string]string) error {
+	p.config.Config = config
+	return nil
 }
 
 // Extract implements Plugin interface
@@ -43,15 +53,15 @@ func (p *binaryPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (*pb.
 	req.PluginId = p.config.ID
 	req.Operation = "extract"
 
-	// Serialize request to JSON
-	reqJson, err := protojson.Marshal(req)
+	// Serialize request using protobuf
+	reqData, err := proto.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %v", err)
 	}
 
 	// Start plugin process
 	cmd := exec.CommandContext(ctx, p.config.BinaryPath)
-	cmd.Stdin = bytes.NewReader(reqJson)
+	cmd.Stdin = bytes.NewReader(reqData)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -61,16 +71,11 @@ func (p *binaryPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (*pb.
 		return nil, fmt.Errorf("failed to run plugin: %v\nstderr: %s", err, stderr.String())
 	}
 
-	// Parse response
+	// Parse response using protobuf
 	resp := &pb.PluginResponse{}
-	if err := protojson.Unmarshal(stdout.Bytes(), resp); err != nil {
+	if err := proto.Unmarshal(stdout.Bytes(), resp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
 	}
 
 	return resp, nil
-
-}
-
-func (p *binaryPlugin) ID() string {
-	return p.config.ID
 }

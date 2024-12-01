@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"go.quinn.io/dataq/plugin"
-	"go.quinn.io/dataq/proto"
+	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/queue"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // TaskResult represents the result of processing a single task
@@ -143,21 +143,21 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*TaskResult, error) {
 	return result, nil
 }
 
-func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig, task *queue.Task) (*proto.PluginResponse, error) {
+func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig, task *queue.Task) (*pb.PluginResponse, error) {
 	if _, err := os.Stat(plugin.BinaryPath); err != nil {
 		return nil, fmt.Errorf("plugin binary not found: %s", plugin.BinaryPath)
 	}
 
 	// Create plugin request
-	req := &proto.PluginRequest{
+	req := &pb.PluginRequest{
 		PluginId:  plugin.ID,
 		Operation: "extract",
 		Config:    plugin.Config,
 		Item:      task.Data,
 	}
 
-	// Marshal request to JSON using protojson
-	reqData, err := protojson.Marshal(req)
+	// Marshal request using protobuf
+	reqData, err := proto.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
@@ -196,9 +196,9 @@ func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig,
 		return nil, fmt.Errorf("plugin execution failed: %w: %s", err, stderr.String())
 	}
 
-	// Parse response using protojson
-	var resp proto.PluginResponse
-	if err := protojson.Unmarshal(stdout.Bytes(), &resp); err != nil {
+	// Parse response using protobuf
+	var resp pb.PluginResponse
+	if err := proto.Unmarshal(stdout.Bytes(), &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 

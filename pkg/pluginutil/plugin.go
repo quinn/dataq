@@ -7,7 +7,7 @@ import (
 	"os"
 
 	pb "go.quinn.io/dataq/proto"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // Plugin is the interface that all plugins must implement
@@ -29,7 +29,7 @@ func HandlePlugin(p Plugin) {
 
 	// Parse request
 	var req pb.PluginRequest
-	if err := protojson.Unmarshal(input, &req); err != nil {
+	if err := proto.Unmarshal(input, &req); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing request: %v\n", err)
 		os.Exit(1)
 	}
@@ -54,8 +54,8 @@ func HandlePlugin(p Plugin) {
 		resp.Error = fmt.Sprintf("unknown operation: %s", req.Operation)
 	}
 
-	// Write response to stdout
-	output, err := protojson.Marshal(&resp)
+	// Write response using protobuf
+	output, err := proto.Marshal(&resp)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error marshaling response: %v\n", err)
 		os.Exit(1)
