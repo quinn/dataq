@@ -2,6 +2,8 @@ package queue
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,6 +21,11 @@ type FileQueue struct {
 	metadata map[string]*Task // in-memory index of tasks
 }
 
+// QueueState represents the current state of tasks in the queue
+type QueueState struct {
+	Tasks map[string]TaskStatus `json:"tasks"` // map of task ID to status
+}
+
 // NewFileQueue creates a new file-based queue
 func NewFileQueue(dir string) (*FileQueue, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -30,22 +37,33 @@ func NewFileQueue(dir string) (*FileQueue, error) {
 		metadata: make(map[string]*Task),
 	}
 
-	// Load existing tasks
-	if err := q.loadExistingTasks(); err != nil {
-		return nil, fmt.Errorf("failed to load existing tasks: %w", err)
+	// Load existing tasks and state
+	if err := q.loadState(); err != nil {
+		return nil, fmt.Errorf("failed to load queue state: %w", err)
 	}
 
 	return q, nil
 }
 
-func (q *FileQueue) loadExistingTasks() error {
+func (q *FileQueue) loadState() error {
+	// Read state file
+	state, err := q.readState()
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if state == nil {
+		state = &QueueState{Tasks: make(map[string]TaskStatus)}
+	}
+
+	// Load tasks from state
 	entries, err := os.ReadDir(q.dir)
 	if err != nil {
 		return err
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".task" {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".dq" {
 			continue
 		}
 
@@ -54,10 +72,61 @@ func (q *FileQueue) loadExistingTasks() error {
 			return fmt.Errorf("failed to read task %s: %w", entry.Name(), err)
 		}
 
+		// Update task status from state
+		if status, ok := state.Tasks[task.ID]; ok {
+			task.Status = status
+		}
+
 		q.metadata[task.ID] = task
 	}
 
 	return nil
+}
+
+func (q *FileQueue) readState() (*QueueState, error) {
+	f, err := os.Open(filepath.Join(q.dir, "state.json"))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var state QueueState
+	if err := json.NewDecoder(f).Decode(&state); err != nil {
+		return nil, err
+	}
+
+	return &state, nil
+}
+
+func (q *FileQueue) writeState() error {
+	state := QueueState{
+		Tasks: make(map[string]TaskStatus),
+	}
+
+	for id, task := range q.metadata {
+		state.Tasks[id] = task.Status
+	}
+
+	f, err := os.Create(filepath.Join(q.dir, "state.json"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return json.NewEncoder(f).Encode(state)
+}
+
+func (q *FileQueue) generateFilename(task *Task) string {
+	// Create hash of task data
+	h := sha256.New()
+	if task.Data != nil {
+		h.Write(task.Data.RawData)
+	} else {
+		// For tasks without data, hash the task ID and plugin ID
+		h.Write([]byte(task.ID))
+		h.Write([]byte(task.PluginID))
+	}
+	return hex.EncodeToString(h.Sum(nil)) + ".dq"
 }
 
 func (q *FileQueue) readTaskFile(filename string) (*Task, error) {
@@ -68,79 +137,48 @@ func (q *FileQueue) readTaskFile(filename string) (*Task, error) {
 	defer f.Close()
 
 	var task Task
-	if err := json.NewDecoder(f).Decode(&task); err != nil {
+	data, err := dq.Read(f)
+	if err != nil {
 		return nil, err
 	}
 
-	// If task has data, read it using dq format
-	if task.Data != nil {
-		dataFile := filepath.Join(q.dir, task.ID+".data")
-		df, err := os.Open(dataFile)
-		if err != nil && !os.IsNotExist(err) {
-			return nil, err
-		}
-		if err == nil {
-			task.Data, err = dq.Read(df)
-			df.Close()
-			if err != nil {
-				return nil, fmt.Errorf("failed to read data: %w", err)
-			}
-		}
-	}
-
+	task.Data = data
 	return &task, nil
 }
 
 func (q *FileQueue) writeTaskFile(task *Task) error {
-	// Write task metadata
-	f, err := os.Create(filepath.Join(q.dir, task.ID+".task"))
+	filename := q.generateFilename(task)
+	f, err := os.Create(filepath.Join(q.dir, filename))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	if err := json.NewEncoder(f).Encode(task); err != nil {
-		return err
-	}
-
-	// If task has data, write it using dq format
+	var data []byte
 	if task.Data != nil {
-		df, err := os.Create(filepath.Join(q.dir, task.ID+".data"))
-		if err != nil {
-			return err
-		}
-		defer df.Close()
-
-		if err := dq.WriteDataItem(df, task.Data); err != nil {
-			return fmt.Errorf("failed to write data: %w", err)
-		}
+		data = task.Data.RawData
 	}
 
-	return nil
+	return dq.Write(f, task, data)
 }
 
 func (q *FileQueue) Push(ctx context.Context, task *Task) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if task.ID == "" {
-		return fmt.Errorf("task ID is required")
-	}
-
-	if _, exists := q.metadata[task.ID]; exists {
-		return fmt.Errorf("task %s already exists", task.ID)
-	}
-
-	if task.CreatedAt.IsZero() {
-		task.CreatedAt = time.Now()
-	}
-	task.UpdatedAt = task.CreatedAt
-
+	// Write task file
 	if err := q.writeTaskFile(task); err != nil {
-		return fmt.Errorf("failed to write task: %w", err)
+		return fmt.Errorf("failed to write task file: %w", err)
 	}
 
+	// Update metadata
 	q.metadata[task.ID] = task
+
+	// Update state
+	if err := q.writeState(); err != nil {
+		return fmt.Errorf("failed to write state: %w", err)
+	}
+
 	return nil
 }
 
@@ -148,30 +186,27 @@ func (q *FileQueue) Pop(ctx context.Context) (*Task, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	var oldestID string
-	var oldestTime time.Time
-
-	// Find the oldest pending task
-	for id, task := range q.metadata {
-		if task.Status != TaskStatusPending {
-			continue
-		}
-		if oldestID == "" || task.CreatedAt.Before(oldestTime) {
-			oldestID = id
-			oldestTime = task.CreatedAt
+	// Find first pending task
+	var task *Task
+	for _, t := range q.metadata {
+		if t.Status == TaskStatusPending {
+			task = t
+			break
 		}
 	}
 
-	if oldestID == "" {
-		return nil, fmt.Errorf("no pending tasks")
+	if task == nil {
+		return nil, nil
 	}
 
-	task := q.metadata[oldestID]
-	delete(q.metadata, oldestID)
+	// Update task status
+	task.Status = TaskStatusProcessing
+	task.UpdatedAt = time.Now()
 
-	// Remove task files
-	os.Remove(filepath.Join(q.dir, task.ID+".task"))
-	os.Remove(filepath.Join(q.dir, task.ID+".data"))
+	// Update state
+	if err := q.writeState(); err != nil {
+		return nil, fmt.Errorf("failed to write state: %w", err)
+	}
 
 	return task, nil
 }
@@ -180,17 +215,19 @@ func (q *FileQueue) Update(ctx context.Context, task *Task) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if _, exists := q.metadata[task.ID]; !exists {
+	// Check if task exists
+	if _, ok := q.metadata[task.ID]; !ok {
 		return fmt.Errorf("task %s not found", task.ID)
 	}
 
-	task.UpdatedAt = time.Now()
+	// Update metadata
+	q.metadata[task.ID] = task
 
-	if err := q.writeTaskFile(task); err != nil {
-		return fmt.Errorf("failed to update task: %w", err)
+	// Update state
+	if err := q.writeState(); err != nil {
+		return fmt.Errorf("failed to write state: %w", err)
 	}
 
-	q.metadata[task.ID] = task
 	return nil
 }
 
@@ -209,10 +246,5 @@ func (q *FileQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error
 }
 
 func (q *FileQueue) Close() error {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
-	// Clear the metadata map
-	q.metadata = nil
-	return nil
+	return q.writeState()
 }
