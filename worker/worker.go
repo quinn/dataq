@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -9,15 +8,14 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
 	"go.quinn.io/dataq/dq"
+	"go.quinn.io/dataq/pkg/pluginutil"
 	"go.quinn.io/dataq/plugin"
 	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/queue"
-	"google.golang.org/protobuf/proto"
 )
 
 // Worker handles task processing and plugin execution
@@ -87,16 +85,17 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to pop task: %w", err)
 	}
-
 	if task == nil {
 		return nil, fmt.Errorf("no pending tasks")
 	}
 
+	// Load the data for this task
 	data, err := w.loadData(task.DataHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
+	// Find the plugin for this task
 	plugin, ok := w.plugins[data.Meta.PluginId]
 	if !ok {
 		task.Status = queue.TaskStatusFailed
@@ -105,31 +104,33 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 		return task, nil
 	}
 
-	// Execute plugin
-	pluginResp, err := w.executePlugin(ctx, plugin, data)
+	// Execute plugin and get response stream
+	responses, err := pluginutil.ExecutePlugin(ctx, plugin, data)
 	if err != nil {
 		task.Status = queue.TaskStatusFailed
 		task.Error = err.Error()
-	} else {
-		task.Status = queue.TaskStatusComplete
+		task.UpdatedAt = time.Now()
+		w.queue.Update(ctx, task)
+		return task, nil
 	}
 
-	task.UpdatedAt = time.Now()
-	if err := w.queue.Update(ctx, task); err != nil {
-		return task, fmt.Errorf("failed to update task: %w", err)
-	}
-
-	// Only create tasks if we have items in the response
-	if task.Status == queue.TaskStatusComplete && len(pluginResp.Items) > 0 {
-		// Create a task for each item in the response
-		for _, item := range pluginResp.Items {
-			hash, err := w.storeData(item)
+	// Process responses
+	var lastError string
+	for resp := range responses {
+		if resp.Error != "" {
+			lastError = resp.Error
+			break
+		}
+		if resp.Item != nil {
+			// Store the data item
+			hash, err := w.storeData(resp.Item)
 			if err != nil {
-				log.Printf("Failed to store data: %v", err)
+				// log.Printf("Failed to store data: %v", err)
 				continue
 			}
-			newTask := queue.NewTask(item.Meta.PluginId, item.Meta.Id, hash)
 
+			// Create a new task for this item
+			newTask := queue.NewTask(resp.PluginId, resp.Item.Meta.Id, hash)
 			if err := w.queue.Push(ctx, newTask); err != nil {
 				log.Printf("Failed to create task for item: %v", err)
 				continue
@@ -137,47 +138,21 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 		}
 	}
 
+	// Update task status based on results
+	if lastError != "" {
+		task.Status = queue.TaskStatusFailed
+		task.Error = lastError
+	} else {
+		task.Status = queue.TaskStatusComplete
+	}
+
+	// Update task status
+	task.UpdatedAt = time.Now()
+	if err := w.queue.Update(ctx, task); err != nil {
+		return task, fmt.Errorf("failed to update task: %w", err)
+	}
+
 	return task, nil
-}
-
-func (w *Worker) executePlugin(ctx context.Context, plugin *plugin.PluginConfig, data *pb.DataItem) (*pb.PluginResponse, error) {
-	if _, err := os.Stat(plugin.BinaryPath); err != nil {
-		return nil, fmt.Errorf("plugin binary not found: %s", plugin.BinaryPath)
-	}
-
-	// Create plugin request
-	req := &pb.PluginRequest{
-		PluginId:  plugin.ID,
-		Operation: "extract",
-		Config:    plugin.Config,
-		Item:      data,
-	}
-
-	// Serialize request using protobuf
-	reqData, err := proto.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Start plugin process
-	cmd := exec.CommandContext(ctx, plugin.BinaryPath)
-	cmd.Stdin = bytes.NewReader(reqData)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	// Run plugin
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("plugin execution failed: %w\nstderr: %s", err, stderr.String())
-	}
-
-	// Parse response using protobuf
-	var resp pb.PluginResponse
-	if err := proto.Unmarshal(stdout.Bytes(), &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &resp, nil
 }
 
 func (q *Worker) generateHash(data *pb.DataItem) string {

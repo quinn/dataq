@@ -40,7 +40,7 @@ message PluginRequest {
 
 // PluginResponse represents a response from a plugin
 message PluginResponse {
-  string            plugin_id = 1;
-  repeated DataItem items = 2;
-  string            error = 3;  // empty if no error
+  string   plugin_id = 1;
+  DataItem item = 2;
+  string   error = 3;  // empty if no error
 }
