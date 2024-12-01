@@ -68,6 +68,16 @@ func ExecutePlugin(ctx context.Context, pc *plugin.PluginConfig, data *pb.DataIt
 		// Stream responses until error or EOF
 		stream, errc := stream.StreamResponses(stdout)
 		for resp := range stream {
+			if resp.Item != nil {
+				if resp.Item.Meta.Hash != GenerateHash(resp.Item.RawData) {
+					responses <- &plugin.PluginResponse{
+						PluginId: pc.ID,
+						Error:    "hash mismatch",
+					}
+					return
+				}
+			}
+
 			responses <- resp
 		}
 
