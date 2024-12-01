@@ -71,55 +71,11 @@ func (w *Worker) Stop() {
 }
 
 func (w *Worker) processSingleTask(ctx context.Context) error {
-	task, err := w.queue.Pop(ctx)
+	result, err := w.ProcessSingleTask(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to pop task: %w", err)
+		return err
 	}
-
-	plugin, ok := w.plugins[task.PluginID]
-	if !ok {
-		task.Status = queue.TaskStatusFailed
-		task.Error = fmt.Sprintf("plugin %s not found", task.PluginID)
-		return w.queue.Update(ctx, task)
-	}
-
-	// Execute plugin
-	result, err := w.executePlugin(ctx, plugin, task)
-	if err != nil {
-		task.Status = queue.TaskStatusFailed
-		task.Error = err.Error()
-	} else {
-		task.Status = queue.TaskStatusComplete
-		task.Result = result
-	}
-
-	task.UpdatedAt = time.Now()
-	if err := w.queue.Update(ctx, task); err != nil {
-		return fmt.Errorf("failed to update task: %w", err)
-	}
-
-	// Only create tasks if we have items in the response
-	if task.Status == queue.TaskStatusComplete && len(result.Items) > 0 {
-		// Create a task for each item in the response
-		for _, item := range result.Items {
-			newTask := &queue.Task{
-				ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
-				PluginID:  task.PluginID,
-				Status:    queue.TaskStatusPending,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-				Config:    task.Config,
-				Data:      item,
-			}
-
-			if err := w.queue.Push(ctx, newTask); err != nil {
-				log.Printf("Failed to create task for item: %v", err)
-				continue
-			}
-		}
-	}
-
-	return nil
+	return result.Error
 }
 
 // ProcessSingleTask processes a single task and returns the result

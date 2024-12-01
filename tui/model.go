@@ -169,6 +169,7 @@ func (m Model) viewStep() string {
 	}
 
 	s += fmt.Sprintf("Task ID: %s\n", m.lastResult.Task.ID)
+	// s += fmt.Sprintf("Kind: %s\n", m.lastResult.Task.Kind)
 	s += fmt.Sprintf("Plugin: %s\n", m.lastResult.Task.PluginID)
 	s += fmt.Sprintf("Status: %s\n", m.lastResult.Task.Status)
 
