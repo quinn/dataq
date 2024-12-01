@@ -84,7 +84,7 @@ func ExecutePlugin(ctx context.Context, pc *plugin.PluginConfig, data *pb.DataIt
 		// Check for stream error
 		if err := <-errc; err != nil {
 			responses <- &pb.PluginResponse{
-				PluginId: plugin.ID,
+				PluginId: pc.ID,
 				Error:    fmt.Sprintf("stream error: %v", err),
 			}
 			return
