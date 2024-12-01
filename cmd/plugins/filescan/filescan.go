@@ -39,7 +39,7 @@ func (p *FileScanPlugin) Configure(config map[string]string) error {
 	return nil
 }
 
-func (p *FileScanPlugin) Extract(ctx context.Context) (<-chan *pb.DataItem, error) {
+func (p *FileScanPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-chan *pb.DataItem, error) {
 	items := make(chan *pb.DataItem)
 
 	go func() {
