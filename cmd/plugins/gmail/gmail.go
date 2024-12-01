@@ -78,48 +78,20 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 func (p *GmailPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-chan *pb.DataItem, error) {
 	items := make(chan *pb.DataItem)
 
+	srv, err := p.getClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	go func() {
 		defer close(items)
-
-		// Read credentials file
-		b, err := os.ReadFile(p.credentialsPath)
-		if err != nil {
-			log.Printf("Error reading credentials: %v", err)
-			return
-		}
-
-		config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
-		if err != nil {
-			log.Printf("Error parsing credentials (%s): %v", p.credentialsPath, err)
-			return
-		}
-
-		// Read token file
-		tokenBytes, err := os.ReadFile(p.tokenPath)
-		if err != nil {
-			log.Printf("Error reading token file (%s): %v", p.tokenPath, err)
-			return
-		}
-
-		var token oauth2.Token
-		if err := json.Unmarshal(tokenBytes, &token); err != nil {
-			log.Printf("Error parsing token (%s): %v", p.tokenPath, err)
-			return
-		}
-
-		client := config.Client(ctx, &token)
-		srv, err := gmail.NewService(ctx, option.WithHTTPClient(client))
-		if err != nil {
-			log.Printf("Error creating Gmail client: %v", err)
-			return
-		}
 
 		var pageToken string
 
 		// If we have previous response data, extract the next page token
-		if prevData := p.config["response_data"]; prevData != "" {
+		if prevData := req.Item; prevData != nil {
 			var prevResp gmail.ListMessagesResponse
-			if err := json.Unmarshal([]byte(prevData), &prevResp); err != nil {
+			if err := json.Unmarshal([]byte(prevData.RawData), &prevResp); err != nil {
 				log.Printf("Error parsing previous response: %v", err)
 				return
 			}
@@ -166,4 +138,38 @@ func (p *GmailPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-cha
 	}()
 
 	return items, nil
+}
+
+func (p *GmailPlugin) getClient(ctx context.Context) (*gmail.Service, error) {
+	// Read credentials file
+	b, err := os.ReadFile(p.credentialsPath)
+	if err != nil {
+		log.Printf("Error reading credentials: %v", err)
+		return nil, err
+	}
+
+	config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
+	if err != nil {
+		log.Printf("Error parsing credentials (%s): %v", p.credentialsPath, err)
+		return nil, err
+	}
+
+	// Read token file
+	tokenBytes, err := os.ReadFile(p.tokenPath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading token file (%s): %v", p.tokenPath, err)
+	}
+
+	var token oauth2.Token
+	if err := json.Unmarshal(tokenBytes, &token); err != nil {
+		return nil, fmt.Errorf("error parsing token (%s): %v", p.tokenPath, err)
+	}
+
+	client := config.Client(ctx, &token)
+	srv, err := gmail.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		log.Printf("Error creating Gmail client: %v", err)
+		return nil, err
+	}
+	return srv, nil
 }
