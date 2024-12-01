@@ -14,7 +14,7 @@ import (
 type Plugin interface {
 	ID() string
 	Configure(map[string]string) error
-	Extract(context.Context) (<-chan *pb.DataItem, error)
+	Extract(context.Context, *pb.PluginRequest) (<-chan *pb.DataItem, error)
 }
 
 // HandlePlugin reads the plugin request from stdin, processes it using the given plugin,
@@ -42,7 +42,7 @@ func HandlePlugin(p Plugin) {
 	if err := p.Configure(req.Config); err != nil {
 		resp.Error = err.Error()
 	} else if req.Operation == "extract" {
-		items, err := p.Extract(context.Background())
+		items, err := p.Extract(context.Background(), &req)
 		if err != nil {
 			resp.Error = err.Error()
 		} else {
