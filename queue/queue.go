@@ -24,7 +24,7 @@ type Task struct {
 	Error     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DataHash  string // SHA-256 hash of the data, used to reference the actual data
+	Hash      string // SHA-256 hash of the data, used to reference the actual data
 }
 
 // NewTask creates a new TaskMetadata instance
@@ -34,7 +34,7 @@ func NewTask(pluginID, itemID string, hash string) *Task {
 		Status:    TaskStatusPending,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
-		DataHash:  hash,
+		Hash:      hash,
 	}
 }
 

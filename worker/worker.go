@@ -2,8 +2,6 @@ package worker
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
@@ -91,7 +89,7 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 	}
 
 	// Load the data for this task
-	data, err := w.loadData(task.DataHash)
+	data, err := w.loadData(task.Hash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
@@ -163,15 +161,8 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 	return task, nil
 }
 
-func (q *Worker) generateHash(data *pb.DataItem) string {
-	// DataItem must exist since this is only called for plugin response items
-	h := sha256.New()
-	h.Write(data.RawData)
-	return hex.EncodeToString(h.Sum(nil))
-}
-
 func (q *Worker) storeData(data *pb.DataItem) (string, error) {
-	hash := q.generateHash(data)
+	hash := data.Meta.Hash
 	f, err := os.Create(filepath.Join(q.dataDir, hash+".dq"))
 	if err != nil {
 		return "", err

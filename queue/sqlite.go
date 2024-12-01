@@ -52,7 +52,7 @@ func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
 	_, err := q.db.ExecContext(ctx, `
 		INSERT INTO tasks (id, status, error, data_hash, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, task.ID, task.Status, task.Error, task.DataHash, task.CreatedAt, task.UpdatedAt)
+	`, task.ID, task.Status, task.Error, task.Hash, task.CreatedAt, task.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to insert task: %w", err)
 	}
@@ -79,7 +79,7 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 		&task.ID,
 		&task.Status,
 		&task.Error,
-		&task.DataHash,
+		&task.Hash,
 		&task.CreatedAt,
 		&task.UpdatedAt,
 	)
@@ -113,7 +113,7 @@ func (q *SQLiteQueue) Update(ctx context.Context, meta *Task) error {
 		UPDATE tasks
 		SET status = ?, error = ?, data_hash = ?, updated_at = ?
 		WHERE id = ?
-	`, meta.Status, meta.Error, meta.DataHash, meta.UpdatedAt, meta.ID)
+	`, meta.Status, meta.Error, meta.Hash, meta.UpdatedAt, meta.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update task: %w", err)
 	}
@@ -151,7 +151,7 @@ func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*Task, err
 			&task.ID,
 			&task.Status,
 			&task.Error,
-			&task.DataHash,
+			&task.Hash,
 			&task.CreatedAt,
 			&task.UpdatedAt,
 		)
