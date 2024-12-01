@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -18,7 +17,7 @@ type SQLiteQueue struct {
 }
 
 // NewSQLiteQueue creates a new SQLite-backed queue
-func NewSQLiteQueue(path string) (*SQLiteQueue, error) {
+func newSQLiteQueue(path string) (*SQLiteQueue, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -29,10 +28,8 @@ func NewSQLiteQueue(path string) (*SQLiteQueue, error) {
 		CREATE TABLE IF NOT EXISTS tasks (
 			id TEXT PRIMARY KEY,
 			plugin_id TEXT NOT NULL,
-			config TEXT NOT NULL,
-			data BLOB,
 			status TEXT NOT NULL,
-			error TEXT,
+			data BLOB,
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
 		)
@@ -54,11 +51,6 @@ func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
 	}
 	task.Meta.UpdatedAt = time.Now()
 
-	config, err := json.Marshal(task.Meta.Config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
 	// Serialize data using dq package
 	var buf bytes.Buffer
 	if err := dq.WriteDataItem(&buf, task.Data); err != nil {
@@ -66,19 +58,10 @@ func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
 	}
 	data := buf.Bytes()
 
-	_, err = q.db.ExecContext(ctx, `
-		INSERT INTO tasks (id, plugin_id, config, data, status, error, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`,
-		task.Meta.ID,
-		task.Meta.PluginID,
-		string(config),
-		data,
-		string(task.Meta.Status),
-		task.Meta.Error,
-		task.Meta.CreatedAt,
-		task.Meta.UpdatedAt,
-	)
+	_, err := q.db.ExecContext(ctx, `
+		INSERT INTO tasks (id, plugin_id, status, created_at, updated_at, data)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, task.Meta.ID, task.Data.Meta.PluginId, task.Meta.Status, task.Meta.CreatedAt, task.Meta.UpdatedAt, data)
 	if err != nil {
 		return fmt.Errorf("failed to insert task: %w", err)
 	}
@@ -95,22 +78,19 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 
 	var task Task
 	row := tx.QueryRowContext(ctx, `
-		SELECT id, plugin_id, config, data, status, error, created_at, updated_at
+		SELECT id, plugin_id, status, data, created_at, updated_at
 		FROM tasks
 		WHERE status = ?
 		ORDER BY created_at ASC
 		LIMIT 1
 	`, TaskStatusPending)
 
-	var configStr string
 	var data []byte
 	err = row.Scan(
 		&task.Meta.ID,
-		&task.Meta.PluginID,
-		&configStr,
-		&data,
+		&task.Data.Meta.PluginId,
 		&task.Meta.Status,
-		&task.Meta.Error,
+		&data,
 		&task.Meta.CreatedAt,
 		&task.Meta.UpdatedAt,
 	)
@@ -119,11 +99,6 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan task: %w", err)
-	}
-
-	err = json.Unmarshal([]byte(configStr), &task.Meta.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
 	// Deserialize data using dq package
@@ -150,94 +125,43 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 	return &task, nil
 }
 
-func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error) {
-	query := `
-		SELECT id, plugin_id, config, data, status, error, created_at, updated_at
+func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetadata, error) {
+	rows, err := q.db.QueryContext(ctx, `
+		SELECT id, plugin_id, status, created_at, updated_at
 		FROM tasks
-	`
-	args := []interface{}{}
-	if status != "" {
-		query += " WHERE status = ?"
-		args = append(args, string(status))
-	}
-	query += " ORDER BY created_at ASC"
-
-	rows, err := q.db.QueryContext(ctx, query, args...)
+		WHERE status = ? OR ? = ''
+	`, status, status)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tasks: %w", err)
 	}
 	defer rows.Close()
 
-	var tasks []*Task
+	var tasks []*TaskMetadata
 	for rows.Next() {
-		var task Task
-		var configStr string
-		var data []byte
-		err = rows.Scan(
-			&task.Meta.ID,
-			&task.Meta.PluginID,
-			&configStr,
-			&data,
-			&task.Meta.Status,
-			&task.Meta.Error,
-			&task.Meta.CreatedAt,
-			&task.Meta.UpdatedAt,
-		)
+		var task TaskMetadata
+		var pluginID string
+		err := rows.Scan(&task.ID, &pluginID, &task.Status, &task.CreatedAt, &task.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
 		}
-
-		err = json.Unmarshal([]byte(configStr), &task.Meta.Config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal config: %w", err)
-		}
-
-		// Deserialize data using dq package
-		if len(data) > 0 {
-			task.Data, err = dq.Read(bytes.NewReader(data))
-			if err != nil {
-				return nil, fmt.Errorf("failed to deserialize data: %w", err)
-			}
-		}
-
 		tasks = append(tasks, &task)
 	}
 
 	return tasks, nil
 }
 
-func (q *SQLiteQueue) Update(ctx context.Context, task *Task) error {
-	task.Meta.UpdatedAt = time.Now()
+func (q *SQLiteQueue) Update(ctx context.Context, meta *TaskMetadata) error {
+	meta.UpdatedAt = time.Now()
 
-	config, err := json.Marshal(task.Meta.Config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	// Serialize data using dq package
-	var buf bytes.Buffer
-	if err := dq.WriteDataItem(&buf, task.Data); err != nil {
-		return fmt.Errorf("failed to serialize data: %w", err)
-	}
-	data := buf.Bytes()
-
-	_, err = q.db.ExecContext(ctx, `
+	_, err := q.db.ExecContext(ctx, `
 		UPDATE tasks
-		SET plugin_id = ?,
-			config = ?,
-			data = ?,
-			status = ?,
-			error = ?,
+		SET status = ?,
 			updated_at = ?
 		WHERE id = ?
 	`,
-		task.Meta.PluginID,
-		string(config),
-		data,
-		string(task.Meta.Status),
-		task.Meta.Error,
-		task.Meta.UpdatedAt,
-		task.Meta.ID,
+		meta.Status,
+		meta.UpdatedAt,
+		meta.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update task: %w", err)

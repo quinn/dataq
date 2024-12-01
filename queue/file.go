@@ -28,7 +28,7 @@ type QueueState struct {
 }
 
 // NewFileQueue creates a new file-based queue
-func NewFileQueue(dir string) (*FileQueue, error) {
+func newFileQueue(dir string) (*FileQueue, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create queue directory: %w", err)
 	}
@@ -224,14 +224,14 @@ func (q *FileQueue) Update(ctx context.Context, meta *TaskMetadata) error {
 	return nil
 }
 
-func (q *FileQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error) {
+func (q *FileQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetadata, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	var tasks []*Task
+	var tasks []*TaskMetadata
 	for _, task := range q.metadata {
 		if status == "" || task.Meta.Status == status {
-			tasks = append(tasks, task)
+			tasks = append(tasks, &task.Meta)
 		}
 	}
 

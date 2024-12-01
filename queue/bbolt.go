@@ -5,22 +5,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
-	"github.com/google/uuid"
 	"go.etcd.io/bbolt"
 	"go.quinn.io/dataq/dq"
 )
 
 var (
 	tasksBucket = []byte("tasks")
+	Delimiter   = []byte("\n")
 )
 
 type BoltQueue struct {
 	db *bbolt.DB
 }
 
-func NewBoltQueue(path string) (*BoltQueue, error) {
+func newBoltQueue(path string) (*BoltQueue, error) {
 	db, err := bbolt.Open(path, 0600, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -39,39 +38,28 @@ func NewBoltQueue(path string) (*BoltQueue, error) {
 }
 
 func (q *BoltQueue) Push(ctx context.Context, task *Task) error {
-	if task.Meta.ID == "" {
-		task.Meta.ID = uuid.New().String()
-	}
-	if task.Meta.CreatedAt.IsZero() {
-		task.Meta.CreatedAt = time.Now()
-	}
-	task.Meta.UpdatedAt = time.Now()
-
-	// Serialize task metadata
-	metadataJSON, err := json.Marshal(task.Meta)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
-	}
-
-	// Serialize data using dq package
-	var buf bytes.Buffer
-	if err := dq.WriteDataItem(&buf, task.Data); err != nil {
-		return fmt.Errorf("failed to serialize data: %w", err)
-	}
-	data := buf.Bytes()
-
-	// Combine metadata and data
-	value := append(metadataJSON, data...)
-
-	err = q.db.Update(func(tx *bbolt.Tx) error {
+	return q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
+
+		// Serialize metadata
+		meta, err := json.Marshal(task.Meta)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metadata: %w", err)
+		}
+
+		// Serialize data using dq package
+		var buf bytes.Buffer
+		if err := dq.WriteDataItem(&buf, task.Data); err != nil {
+			return fmt.Errorf("failed to serialize data: %w", err)
+		}
+		data := buf.Bytes()
+
+		// Combine metadata and data with delimiter
+		value := append(meta, Delimiter...)
+		value = append(value, data...)
+
 		return b.Put([]byte(task.Meta.ID), value)
 	})
-	if err != nil {
-		return fmt.Errorf("failed to insert task: %w", err)
-	}
-
-	return nil
 }
 
 func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
@@ -107,18 +95,15 @@ func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
 			return fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
 
-		// Parse data
+		// Deserialize data using dq package
 		data := v[i:]
-		var buf bytes.Buffer
-		if _, err := buf.Write(data); err != nil {
-			return fmt.Errorf("failed to write data to buffer: %w", err)
+		var err error
+		if len(data) > 0 {
+			task.Data, err = dq.Read(bytes.NewReader(data))
+			if err != nil {
+				return fmt.Errorf("failed to deserialize data: %w", err)
+			}
 		}
-
-		dataItem, err := dq.ReadDataItem(&buf)
-		if err != nil {
-			return fmt.Errorf("failed to deserialize data: %w", err)
-		}
-		task.Data = dataItem
 
 		// Delete task from queue
 		return b.Delete(k)
@@ -135,55 +120,33 @@ func (q *BoltQueue) Pop(ctx context.Context) (*Task, error) {
 	return task, nil
 }
 
-func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error) {
-	var tasks []*Task
+func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*TaskMetadata, error) {
+	var tasks []*TaskMetadata
 
 	err := q.db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
-		c := b.Cursor()
 
-		for k, v := c.First(); k != nil; k, v = c.Next() {
-			task := &Task{
-				Meta: TaskMetadata{},
+		return b.ForEach(func(k, v []byte) error {
+			// Find delimiter between metadata and data
+			i := bytes.Index(v, Delimiter)
+			if i == -1 {
+				return fmt.Errorf("invalid task format: no delimiter found")
 			}
-
-			// Find metadata JSON end
-			var i int
-			for i = 0; i < len(v); i++ {
-				if v[i] == '{' {
-					break
-				}
-			}
-			metadataJSON := v[:i]
 
 			// Parse metadata
-			if err := json.Unmarshal(metadataJSON, &task.Meta); err != nil {
+			var meta TaskMetadata
+			if err := json.Unmarshal(v[:i], &meta); err != nil {
 				return fmt.Errorf("failed to unmarshal metadata: %w", err)
 			}
 
-			if status != "" && task.Meta.Status != status {
-				continue
+			// Only include tasks matching the requested status
+			if status == "" || meta.Status == status {
+				tasks = append(tasks, &meta)
 			}
 
-			// Parse data
-			data := v[i:]
-			var buf bytes.Buffer
-			if _, err := buf.Write(data); err != nil {
-				return fmt.Errorf("failed to write data to buffer: %w", err)
-			}
-
-			dataItem, err := dq.ReadDataItem(&buf)
-			if err != nil {
-				return fmt.Errorf("failed to deserialize data: %w", err)
-			}
-			task.Data = dataItem
-
-			tasks = append(tasks, task)
-		}
-
-		return nil
+			return nil
+		})
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tasks: %w", err)
 	}
@@ -191,34 +154,34 @@ func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error
 	return tasks, nil
 }
 
-func (q *BoltQueue) Update(ctx context.Context, task *Task) error {
-	task.Meta.UpdatedAt = time.Now()
-
-	// Serialize task metadata
-	metadataJSON, err := json.Marshal(task.Meta)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
-	}
-
-	// Serialize data using dq package
-	var buf bytes.Buffer
-	if err := dq.WriteDataItem(&buf, task.Data); err != nil {
-		return fmt.Errorf("failed to serialize data: %w", err)
-	}
-	data := buf.Bytes()
-
-	// Combine metadata and data
-	value := append(metadataJSON, data...)
-
-	err = q.db.Update(func(tx *bbolt.Tx) error {
+func (q *BoltQueue) Update(ctx context.Context, meta *TaskMetadata) error {
+	return q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
-		return b.Put([]byte(task.Meta.ID), value)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update task: %w", err)
-	}
 
-	return nil
+		// Get existing value
+		v := b.Get([]byte(meta.ID))
+		if v == nil {
+			return fmt.Errorf("task not found: %s", meta.ID)
+		}
+
+		// Find delimiter between metadata and data
+		i := bytes.Index(v, Delimiter)
+		if i == -1 {
+			return fmt.Errorf("invalid task format: no delimiter found")
+		}
+
+		// Serialize new metadata
+		metadataJSON, err := json.Marshal(meta)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metadata: %w", err)
+		}
+
+		// Combine new metadata with existing data
+		value := append(metadataJSON, Delimiter...)
+		value = append(value, v[i+len(Delimiter):]...)
+
+		return b.Put([]byte(meta.ID), value)
+	})
 }
 
 func (q *BoltQueue) Close() error {

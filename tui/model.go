@@ -26,10 +26,11 @@ type Model struct {
 	menuCursor  int
 	queue       queue.Queue
 	worker      *worker.Worker
-	status      []*queue.Task
+	status      []*queue.TaskMetadata
 	lastResult  *worker.TaskResult
 	lastUpdated time.Time
 	err         error
+	cancel      context.CancelFunc
 }
 
 var (
@@ -67,6 +68,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
+			if m.cancel != nil {
+				m.cancel()
+				m.cancel = nil
+			}
 			return m, tea.Quit
 		case "esc":
 			if m.state != stateMenu {
@@ -93,7 +98,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case 1:
 					m.state = stateWorker
 					// Start the worker in a goroutine
-					ctx, _ := context.WithCancel(context.Background())
+					ctx, cancel := context.WithCancel(context.Background())
+					m.cancel = cancel
 					go func() {
 						if err := m.worker.Start(ctx); err != nil && err != context.Canceled {
 							log.Printf("Worker error: %v", err)
@@ -109,6 +115,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "enter", "space":
 				return m, m.processNextTask
+			case "q", "esc":
+				m.state = stateMenu
+			}
+		} else if m.state == stateWorker {
+			switch msg.String() {
+			case "q", "esc":
+				if m.cancel != nil {
+					m.cancel()
+					m.cancel = nil
+				}
+				m.state = stateMenu
 			}
 		}
 	case statusMsg:
@@ -168,10 +185,10 @@ func (m Model) viewStep() string {
 		return s
 	}
 
-	s += fmt.Sprintf("Task ID: %s\n", m.lastResult.Task.ID)
+	s += fmt.Sprintf("Task ID: %s\n", m.lastResult.Task.Meta.ID)
 	// s += fmt.Sprintf("Kind: %s\n", m.lastResult.Task.Kind)
-	s += fmt.Sprintf("Plugin: %s\n", m.lastResult.Task.PluginID)
-	s += fmt.Sprintf("Status: %s\n", m.lastResult.Task.Status)
+	s += fmt.Sprintf("Plugin: %s\n", m.lastResult.Task.Data.Meta.PluginId)
+	s += fmt.Sprintf("Status: %s\n", m.lastResult.Task.Meta.Status)
 
 	if m.lastResult.Error != nil {
 		s += errorStyle.Render(fmt.Sprintf("Error: %v\n", m.lastResult.Error))
@@ -196,12 +213,11 @@ func (m Model) viewStatus() string {
 		return s + "No tasks in queue"
 	}
 
-	for _, task := range m.status {
-		s += fmt.Sprintf("Task ID: %s\n", task.ID)
-		s += fmt.Sprintf("Plugin: %s\n", task.PluginID)
-		s += fmt.Sprintf("Status: %s\n", task.Status)
-		if task.Error != "" {
-			s += fmt.Sprintf("Error: %s\n", task.Error)
+	for _, meta := range m.status {
+		s += fmt.Sprintf("Task ID: %s\n", meta.ID)
+		s += fmt.Sprintf("Status: %s\n", meta.Status)
+		if meta.Error != "" {
+			s += fmt.Sprintf("Error: %s\n", meta.Error)
 		}
 		s += "\n"
 	}
@@ -218,7 +234,7 @@ func (m Model) viewWorker() string {
 }
 
 type statusMsg struct {
-	tasks []*queue.Task
+	tasks []*queue.TaskMetadata
 	err   error
 }
 

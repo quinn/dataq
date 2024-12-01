@@ -36,7 +36,7 @@ type Task struct {
 func NewTask(data *pb.DataItem) *Task {
 	return &Task{
 		Meta: TaskMetadata{
-			ID:        fmt.Sprintf("%s_%d", data.Meta.PluginId, data.Meta.Id),
+			ID:        fmt.Sprintf("%s_%s", data.Meta.PluginId, data.Meta.Id),
 			Status:    TaskStatusPending,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -53,6 +53,19 @@ func InitialTask(pluginID string) *Task {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		},
+	}
+}
+
+func NewQueue(queueType, path string) (Queue, error) {
+	switch queueType {
+	case "sqlite":
+		return newSQLiteQueue(path)
+	case "bbolt":
+		return newBoltQueue(path)
+	case "file":
+		return newFileQueue(path)
+	default:
+		return nil, fmt.Errorf("unknown queue type: %s", queueType)
 	}
 }
 

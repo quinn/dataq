@@ -37,7 +37,7 @@ func main() {
 	}
 
 	// Initialize queue
-	q, err := queue.NewFileQueue(config.QueuePath)
+	q, err := queue.NewQueue("file", config.QueuePath)
 	if err != nil {
 		log.Fatalf("Failed to create queue: %v", err)
 	}

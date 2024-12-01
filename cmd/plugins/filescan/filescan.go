@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"path/filepath"
-	"time"
 
 	pb "go.quinn.io/dataq/proto"
 )
