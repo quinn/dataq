@@ -117,15 +117,9 @@ func (q *FileQueue) writeState() error {
 }
 
 func (q *FileQueue) generateFilename(task *Task) string {
-	// Create hash of task data
+	// DataItem must exist since this is only called for plugin response items
 	h := sha256.New()
-	if task.Data != nil {
-		h.Write(task.Data.RawData)
-	} else {
-		// For tasks without data, hash the task ID and plugin ID
-		h.Write([]byte(task.ID))
-		h.Write([]byte(task.PluginID))
-	}
+	h.Write(task.Data.RawData)
 	return hex.EncodeToString(h.Sum(nil)) + ".dq"
 }
 
@@ -154,21 +148,18 @@ func (q *FileQueue) writeTaskFile(task *Task) error {
 	}
 	defer f.Close()
 
-	var data []byte
-	if task.Data != nil {
-		data = task.Data.RawData
-	}
-
-	return dq.Write(f, task, data)
+	return dq.Write(f, task, task.Data.RawData)
 }
 
 func (q *FileQueue) Push(ctx context.Context, task *Task) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	// Write task file
-	if err := q.writeTaskFile(task); err != nil {
-		return fmt.Errorf("failed to write task file: %w", err)
+	// Only write file for tasks with data (from plugin responses)
+	if task.Data != nil {
+		if err := q.writeTaskFile(task); err != nil {
+			return fmt.Errorf("failed to write task file: %w", err)
+		}
 	}
 
 	// Update metadata

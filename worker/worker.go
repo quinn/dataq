@@ -98,19 +98,24 @@ func (w *Worker) processSingleTask(ctx context.Context) error {
 		return fmt.Errorf("failed to update task: %w", err)
 	}
 
-	// Create next task if completed successfully
-	if task.Status == queue.TaskStatusComplete {
-		nextTask := &queue.Task{
-			ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
-			PluginID:  task.PluginID,
-			Config:    task.Config,
-			Status:    queue.TaskStatusPending,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
+	// Only create tasks if we have items in the response
+	if task.Status == queue.TaskStatusComplete && len(result.Items) > 0 {
+		// Create a task for each item in the response
+		for _, item := range result.Items {
+			newTask := &queue.Task{
+				ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
+				PluginID:  task.PluginID,
+				Status:    queue.TaskStatusPending,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+				Config:    task.Config,
+				Data:      item,
+			}
 
-		if err := w.queue.Push(ctx, nextTask); err != nil {
-			log.Printf("Failed to create next task: %v", err)
+			if err := w.queue.Push(ctx, newTask); err != nil {
+				log.Printf("Failed to create task for item: %v", err)
+				continue
+			}
 		}
 	}
 
@@ -158,19 +163,24 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*TaskResult, error) {
 		return result, nil
 	}
 
-	// Create next task if completed successfully
-	if task.Status == queue.TaskStatusComplete {
-		nextTask := &queue.Task{
-			ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
-			PluginID:  task.PluginID,
-			Config:    task.Config,
-			Status:    queue.TaskStatusPending,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
+	// Only create tasks if we have items in the response
+	if task.Status == queue.TaskStatusComplete && len(pluginResp.Items) > 0 {
+		// Create a task for each item in the response
+		for _, item := range pluginResp.Items {
+			newTask := &queue.Task{
+				ID:        fmt.Sprintf("%s_%d", task.PluginID, time.Now().UnixNano()),
+				PluginID:  task.PluginID,
+				Status:    queue.TaskStatusPending,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+				Config:    task.Config,
+				Data:      item,
+			}
 
-		if err := w.queue.Push(ctx, nextTask); err != nil {
-			log.Printf("Failed to create next task: %v", err)
+			if err := w.queue.Push(ctx, newTask); err != nil {
+				log.Printf("Failed to create task for item: %v", err)
+				continue
+			}
 		}
 	}
 
