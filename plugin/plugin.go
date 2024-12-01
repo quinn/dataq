@@ -1,13 +1,9 @@
 package plugin
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"os/exec"
 
 	pb "go.quinn.io/dataq/proto"
-	"google.golang.org/protobuf/proto"
 )
 
 // PluginConfig contains configuration for a plugin
@@ -16,7 +12,7 @@ type PluginConfig struct {
 	Name       string            `yaml:"name"`
 	BinaryPath string            `yaml:"binary_path"`
 	Config     map[string]string `yaml:"config"`
-	Enabled    bool             `yaml:"enabled"`
+	Enabled    bool              `yaml:"enabled"`
 }
 
 // Plugin defines the interface that all data extraction plugins must implement
