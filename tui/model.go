@@ -31,6 +31,14 @@ type Model struct {
 	lastUpdated time.Time
 	err         error
 	cancel      context.CancelFunc
+	messages    []worker.Message
+	sub         chan worker.Message
+}
+
+func waitForActivity(sub chan worker.Message) tea.Cmd {
+	return func() tea.Msg {
+		return <-sub
+	}
 }
 
 var (
@@ -49,6 +57,9 @@ var (
 
 	successStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#00FF00"))
+
+	infoStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00FFFF"))
 )
 
 func NewModel(q queue.Queue, w *worker.Worker) Model {
@@ -56,15 +67,22 @@ func NewModel(q queue.Queue, w *worker.Worker) Model {
 		queue:       q,
 		worker:      w,
 		lastUpdated: time.Now(),
+		sub:         make(chan worker.Message),
 	}
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return tea.Batch(
+		waitForActivity(m.sub),
+		m.updateStatus,
+	)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case worker.Message:
+		m.messages = append(m.messages, msg)
+		return m, waitForActivity(m.sub)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -101,7 +119,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					ctx, cancel := context.WithCancel(context.Background())
 					m.cancel = cancel
 					go func() {
-						if err := m.worker.Start(ctx); err != nil && err != context.Canceled {
+						if err := m.worker.Start(ctx, m.sub); err != nil && err != context.Canceled {
 							log.Printf("Worker error: %v", err)
 						}
 					}()
@@ -143,23 +161,44 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
+	s := titleStyle.Render("DataQ") + "\n\n"
+
 	switch m.state {
 	case stateMenu:
-		return m.viewMenu()
+		s += m.viewMenu()
 	case stateStatus:
-		return m.viewStatus()
+		s += m.viewStatus()
 	case stateWorker:
-		return m.viewWorker()
+		s += m.viewWorker()
 	case stateStep:
-		return m.viewStep()
+		s += m.viewStep()
 	default:
 		return "Unknown state"
 	}
+
+	s += titleStyle.Render("Messages") + "\n\n"
+	// get last 5 messages
+	messages := m.messages
+	if len(m.messages) > 5 {
+		messages = m.messages[len(m.messages)-5:]
+	}
+	for _, msg := range messages {
+		switch msg.Type {
+		case "info":
+			s += infoStyle.Render(msg.Data)
+		case "error":
+			s += errorStyle.Render(msg.Data)
+		default:
+			s += fmt.Sprintf("[MSG] %s", msg.Data)
+		}
+		s += "\n"
+	}
+
+	return s
 }
 
 func (m Model) viewMenu() string {
-	s := titleStyle.Render("DataQ") + "\n\n"
-	s += "What would you like to do?\n\n"
+	s := "What would you like to do?\n\n"
 
 	choices := []string{"View Status", "Start Worker", "Step Through Tasks"}
 
@@ -173,6 +212,7 @@ func (m Model) viewMenu() string {
 	}
 
 	s += "\n(press q to quit)\n"
+
 	return s
 }
 
@@ -247,6 +287,6 @@ func (m Model) updateStatus() tea.Msg {
 }
 
 func (m Model) processNextTask() tea.Msg {
-	task, err := m.worker.ProcessSingleTask(context.Background())
+	task, err := m.worker.ProcessSingleTask(context.Background(), m.sub)
 	return taskResultMsg{task: task, err: err}
 }

@@ -25,6 +25,11 @@ type Worker struct {
 	done    chan struct{}
 }
 
+type Message struct {
+	Type string `json:"type"`
+	Data string `json:"data"`
+}
+
 // New creates a new Worker
 func New(q queue.Queue, plugins []*plugin.PluginConfig, dataDir string) *Worker {
 	pluginMap := make(map[string]*plugin.PluginConfig)
@@ -47,7 +52,7 @@ func New(q queue.Queue, plugins []*plugin.PluginConfig, dataDir string) *Worker 
 }
 
 // Start begins processing tasks
-func (w *Worker) Start(ctx context.Context) error {
+func (w *Worker) Start(ctx context.Context, messages chan Message) error {
 	log.Println("Starting task processing loop")
 	for {
 		select {
@@ -58,7 +63,7 @@ func (w *Worker) Start(ctx context.Context) error {
 			log.Println("Worker stopped, exiting task processing")
 			return nil
 		default:
-			if err := w.processSingleTask(ctx); err != nil {
+			if err := w.processSingleTask(ctx, messages); err != nil {
 				log.Printf("Error processing task: %v", err)
 			}
 		}
@@ -70,8 +75,8 @@ func (w *Worker) Stop() {
 	close(w.done)
 }
 
-func (w *Worker) processSingleTask(ctx context.Context) error {
-	result, err := w.ProcessSingleTask(ctx)
+func (w *Worker) processSingleTask(ctx context.Context, messages chan Message) error {
+	result, err := w.ProcessSingleTask(ctx, messages)
 	if err != nil {
 		return err
 	}
@@ -79,7 +84,11 @@ func (w *Worker) processSingleTask(ctx context.Context) error {
 }
 
 // ProcessSingleTask processes a single task and returns the result
-func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
+func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) (*queue.Task, error) {
+	messages <- Message{
+		Type: "info",
+		Data: "Processing task",
+	}
 	task, err := w.queue.Pop(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pop task: %w", err)
@@ -92,6 +101,11 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 	data, err := w.loadData(task.Hash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
+	}
+
+	messages <- Message{
+		Type: "info",
+		Data: "Processing task: " + task.ID,
 	}
 
 	var pluginID string
@@ -110,6 +124,22 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 		return task, nil
 	}
 
+	if data == nil {
+		messages <- Message{
+			Type: "info",
+			Data: "[plugin: " + pluginID + "] [input: nil]",
+		}
+	} else {
+		messages <- Message{
+			Type: "info",
+			Data: "[plugin: " + pluginID + "] [input: " + data.Meta.Id + "] [hash: " + data.Meta.Hash + "]",
+		}
+
+		messages <- Message{
+			Type: "protobuf",
+			Data: data.Meta.String(),
+		}
+	}
 	// Execute plugin and get response stream
 	responses, err := pluginutil.ExecutePlugin(ctx, plugin, data)
 	if err != nil {
@@ -125,21 +155,36 @@ func (w *Worker) ProcessSingleTask(ctx context.Context) (*queue.Task, error) {
 	for resp := range responses {
 		if resp.Error != "" {
 			lastError = resp.Error
+			messages <- Message{
+				Type: "error",
+				Data: resp.Error,
+			}
 			break
 		}
 		if resp.Item != nil {
 			// Store the data item
 			hash, err := w.storeData(resp.Item)
 			if err != nil {
-				// log.Printf("Failed to store data: %v", err)
+				messages <- Message{
+					Type: "error",
+					Data: err.Error(),
+				}
 				continue
 			}
 
 			// Create a new task for this item
 			newTask := queue.NewTask(resp.PluginId, resp.Item.Meta.Id, hash)
 			if err := w.queue.Push(ctx, newTask); err != nil {
-				log.Printf("Failed to create task for item: %v", err)
+				messages <- Message{
+					Type: "error",
+					Data: err.Error(),
+				}
 				continue
+			}
+
+			messages <- Message{
+				Type: "info",
+				Data: "[task: " + newTask.ID + "] [hash: " + resp.Item.Meta.Hash + "] [parent: " + resp.Item.Meta.ParentHash + "]",
 			}
 		}
 	}
