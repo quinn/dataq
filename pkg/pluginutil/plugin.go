@@ -17,8 +17,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// debuggerAttached is used as a breakpoint for debugger attachment
-var debuggerAttached bool
+// waitForDebugger is used as a breakpoint for debugger attachment
+var waitForDebugger bool = false
 
 // Plugin is the interface that all plugins must implement
 type Plugin interface {
@@ -156,8 +156,7 @@ func HandlePlugin(p Plugin) {
 
 		for item := range items {
 			// Infinite loop to allow debugger attachment
-			debuggerAttached = false // Will be set to true via debugger
-			for !debuggerAttached {
+			for waitForDebugger {
 				time.Sleep(time.Millisecond) // Sleep briefly to prevent CPU spinning
 			}
 			item.Meta.Hash = GenerateHash(item.RawData)
