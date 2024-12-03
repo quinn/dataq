@@ -32,14 +32,17 @@ func GenerateHash(data []byte) string {
 // Run is a harness that a plugin written in Go can use to receive and respond to requests
 // plugins can be written in any language, as long as they implement the wire protocol
 func Run(p Plugin) {
-	requests, err := stream.StreamRequests(os.Stdin)
-	if err != nil {
-		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-			PluginId: p.ID(),
-			Error:    fmt.Sprintf("failed to stream requests: %v", err),
-		})
-		return
-	}
+	requests, errc := stream.StreamRequests(os.Stdin)
+
+	// Handle stream errors in a separate goroutine
+	go func() {
+		if err := <-errc; err != nil {
+			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+				PluginId: p.ID(),
+				Error:    fmt.Sprintf("stream error: %v", err),
+			})
+		}
+	}()
 
 	for req := range requests {
 		// Create context for plugin execution
@@ -51,15 +54,17 @@ func Run(p Plugin) {
 				PluginId: p.ID(),
 				Error:    fmt.Sprintf("failed to configure plugin: %v", err),
 			})
-			return
-		} else if req.Operation == "extract" {
+			continue
+		}
+
+		if req.Operation == "extract" {
 			items, err := p.Extract(ctx, req)
 			if err != nil {
 				stream.WriteResponse(os.Stdout, &pb.PluginResponse{
 					PluginId: p.ID(),
 					Error:    fmt.Sprintf("failed to extract data: %v", err),
 				})
-				return
+				continue
 			}
 
 			for item := range items {
@@ -78,7 +83,12 @@ func Run(p Plugin) {
 				})
 			}
 
-			return
+			// Signal end of this extract operation
+			// stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+			// 	PluginId: p.ID(),
+			// 	Done:    true,
+			// })
+			continue
 		}
 
 		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
