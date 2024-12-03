@@ -41,12 +41,12 @@ func Read[T protoreflect.ProtoMessage](r io.Reader, msg T) error {
 	return nil
 }
 
-// WriteRequest writes a PluginRequest to the writer using length-prefixed framing
+// Write writes a protobuf message to the writer using length-prefixed framing
 func Write[T protoreflect.ProtoMessage](w io.Writer, msg T) error {
-	// Marshal the PluginRequest
+	// Marshal the message
 	data, err := proto.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("failed to marshal PluginRequest: %w", err)
+		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
 	// Write length header (8 bytes, big endian)
