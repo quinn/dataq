@@ -5,12 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
 	"go.quinn.io/dataq/stream"
-	"google.golang.org/protobuf/proto"
 
 	pb "go.quinn.io/dataq/proto"
 )
@@ -34,67 +32,58 @@ func GenerateHash(data []byte) string {
 // Run is a harness that a plugin written in Go can use to receive and respond to requests
 // plugins can be written in any language, as long as they implement the wire protocol
 func Run(p Plugin) {
-	// Read request from stdin
-	input, err := io.ReadAll(os.Stdin)
+	requests, err := stream.StreamRequests(os.Stdin)
 	if err != nil {
 		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
 			PluginId: p.ID(),
-			Error:    fmt.Sprintf("failed to read request: %v", err),
+			Error:    fmt.Sprintf("failed to stream requests: %v", err),
 		})
 		return
 	}
 
-	// Parse request using protobuf
-	var req pb.PluginRequest
-	if err := proto.Unmarshal(input, &req); err != nil {
-		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-			PluginId: p.ID(),
-			Error:    fmt.Sprintf("failed to unmarshal request: %v", err),
-		})
-		return
-	}
+	for req := range requests {
+		// Create context for plugin execution
+		ctx := context.Background()
 
-	// Create context for plugin execution
-	ctx := context.Background()
-
-	// Always configure the plugin first
-	if err := p.Configure(req.Config); err != nil {
-		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-			PluginId: p.ID(),
-			Error:    fmt.Sprintf("failed to configure plugin: %v", err),
-		})
-		return
-	} else if req.Operation == "extract" {
-		items, err := p.Extract(ctx, &req)
-		if err != nil {
+		// Always configure the plugin first
+		if err := p.Configure(req.Config); err != nil {
 			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
 				PluginId: p.ID(),
-				Error:    fmt.Sprintf("failed to extract data: %v", err),
+				Error:    fmt.Sprintf("failed to configure plugin: %v", err),
 			})
+			return
+		} else if req.Operation == "extract" {
+			items, err := p.Extract(ctx, req)
+			if err != nil {
+				stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+					PluginId: p.ID(),
+					Error:    fmt.Sprintf("failed to extract data: %v", err),
+				})
+				return
+			}
+
+			for item := range items {
+				// Infinite loop to allow debugger attachment
+				for waitForDebugger {
+					time.Sleep(time.Millisecond) // Sleep briefly to prevent CPU spinning
+				}
+				item.Meta.Hash = GenerateHash(item.RawData)
+				if req.Item != nil {
+					item.Meta.ParentHash = req.Item.Meta.Hash
+				}
+
+				stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+					PluginId: item.Meta.PluginId,
+					Item:     item,
+				})
+			}
+
 			return
 		}
 
-		for item := range items {
-			// Infinite loop to allow debugger attachment
-			for waitForDebugger {
-				time.Sleep(time.Millisecond) // Sleep briefly to prevent CPU spinning
-			}
-			item.Meta.Hash = GenerateHash(item.RawData)
-			if req.Item != nil {
-				item.Meta.ParentHash = req.Item.Meta.Hash
-			}
-
-			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-				PluginId: item.Meta.PluginId,
-				Item:     item,
-			})
-		}
-
-		return
+		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+			PluginId: p.ID(),
+			Error:    fmt.Sprintf("unknown operation: %s", req.Operation),
+		})
 	}
-
-	stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-		PluginId: p.ID(),
-		Error:    fmt.Sprintf("unknown operation: %s", req.Operation),
-	})
 }
