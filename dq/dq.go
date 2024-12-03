@@ -10,8 +10,8 @@ import (
 // Delimiter used to separate metadata from raw data
 var Delimiter = []byte{0x00, 0x1F, 0x00}
 
-// Write writes any JSON-serializable object followed by raw data to the provided writer
-func Write(w io.Writer, metadata interface{}, rawData []byte) error {
+// write writes any JSON-serializable object followed by raw data to the provided writer
+func write(w io.Writer, metadata interface{}, rawData []byte) error {
 	// Marshal metadata to JSON
 	jsonData, err := json.Marshal(metadata)
 	if err != nil {
@@ -33,9 +33,9 @@ func Write(w io.Writer, metadata interface{}, rawData []byte) error {
 	return err
 }
 
-// WriteDataItem writes a DataItem to the provided writer in the custom format
-func WriteDataItem(w io.Writer, item *proto.DataItem) error {
-	return Write(w, item.Meta, item.RawData)
+// Write writes a DataItem to the provided writer in the custom format
+func Write(w io.Writer, item *proto.DataItem) error {
+	return write(w, item.Meta, item.RawData)
 }
 
 // Read reads a DataItem from the provided reader in the custom format

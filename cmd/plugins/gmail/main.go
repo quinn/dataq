@@ -1,10 +1,10 @@
 package main
 
 import (
-	"go.quinn.io/dataq/pkg/pluginutil"
+	"go.quinn.io/dataq/plugin"
 )
 
 func main() {
-	plugin := New()
-	pluginutil.HandlePlugin(plugin)
+	p := New()
+	plugin.Run(p)
 }

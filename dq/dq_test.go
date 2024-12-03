@@ -24,7 +24,7 @@ func TestWriteReadWithDelimiterInMetadata(t *testing.T) {
 
 	// Write the item to a buffer
 	var buf bytes.Buffer
-	err := WriteDataItem(&buf, item)
+	err := Write(&buf, item)
 	if err != nil {
 		t.Fatalf("WriteDataItem failed: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestWriteReadWithDelimiterInRawData(t *testing.T) {
 
 	// Write the item to a buffer
 	var buf bytes.Buffer
-	err := WriteDataItem(&buf, item)
+	err := Write(&buf, item)
 	if err != nil {
 		t.Fatalf("WriteDataItem failed: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestWriteReadEmpty(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := WriteDataItem(&buf, item)
+	err := Write(&buf, item)
 	if err != nil {
 		t.Fatalf("WriteDataItem failed: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestGenericWrite(t *testing.T) {
 	rawData := []byte("custom raw data")
 
 	var buf bytes.Buffer
-	err := Write(&buf, metadata, rawData)
+	err := write(&buf, metadata, rawData)
 	if err != nil {
 		t.Fatalf("Write failed: %v", err)
 	}

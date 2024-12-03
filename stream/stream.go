@@ -12,6 +12,8 @@ import (
 const LengthSize = 8 // 8-byte length header
 
 // WriteResponse writes a PluginResponse to the writer using length-prefixed framing
+// currently, this is ONLY USED by the plugin harness. Which means this code is not
+// necessary for the implementation of dataq, if no plugins are written in Go
 func WriteResponse(w io.Writer, resp *pb.PluginResponse) error {
 	// Marshal the PluginResponse
 	data, err := proto.Marshal(resp)

@@ -3,7 +3,6 @@ package tui
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -74,7 +73,6 @@ func NewModel(q queue.Queue, w *worker.Worker) Model {
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		waitForActivity(m.sub),
-		m.updateStatus,
 	)
 }
 
@@ -114,16 +112,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = stateStatus
 					return m, m.updateStatus
 				case 1:
-					m.state = stateWorker
-					// Start the worker in a goroutine
-					ctx, cancel := context.WithCancel(context.Background())
-					m.cancel = cancel
-					go func() {
-						if err := m.worker.Start(ctx, m.sub); err != nil && err != context.Canceled {
-							log.Printf("Worker error: %v", err)
-						}
-					}()
-					return m, nil
+					panic("not implemented")
+					// m.state = stateWorker
+					// // Start the worker in a goroutine
+					// ctx, cancel := context.WithCancel(context.Background())
+					// m.cancel = cancel
+					// go func() {
+					// 	if err := m.worker.Start(ctx, m.sub); err != nil && err != context.Canceled {
+					// 		log.Printf("Worker error: %v", err)
+					// 	}
+					// }()
+					// return m, nil
 				case 2:
 					m.state = stateStep
 					return m, m.processNextTask
@@ -146,6 +145,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = stateMenu
 			}
 		}
+
+		return m, nil
 	case statusMsg:
 		m.status = msg.tasks
 		m.err = msg.err
@@ -155,9 +156,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastTask = msg.task
 		m.err = msg.err
 		return m, nil
+	case tea.WindowSizeMsg:
+		return m, nil
+	case tea.MouseMsg:
+		return m, nil
 	}
-
-	return m, nil
+	panic(fmt.Sprintf("unknown message: type=%T value=%#v", msg, msg))
 }
 
 func (m Model) View() string {

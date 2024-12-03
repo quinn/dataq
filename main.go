@@ -7,17 +7,12 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"go.quinn.io/dataq/plugin"
+	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/queue"
 	"go.quinn.io/dataq/tui"
 	"go.quinn.io/dataq/worker"
 	"gopkg.in/yaml.v3"
 )
-
-type Config struct {
-	DataDir string                 `yaml:"data_dir"`
-	Plugins []*plugin.PluginConfig `yaml:"plugins"`
-}
 
 func main() {
 	// Load config
@@ -31,13 +26,13 @@ func main() {
 		log.Fatalf("Failed to read config file: %v", err)
 	}
 
-	var config Config
-	if err := yaml.Unmarshal(configData, &config); err != nil {
+	var cfg config.Config
+	if err := yaml.Unmarshal(configData, &cfg); err != nil {
 		log.Fatalf("Failed to parse config: %v", err)
 	}
 
 	// Initialize queue
-	q, err := queue.NewQueue("file", config.DataDir)
+	q, err := queue.NewQueue("file", cfg.DataDir)
 	if err != nil {
 		log.Fatalf("Failed to create queue: %v", err)
 	}
@@ -49,7 +44,7 @@ func main() {
 	}
 
 	// Create worker
-	w := worker.New(q, config.Plugins, config.DataDir)
+	w := worker.New(q, cfg.Plugins, cfg.DataDir)
 
 	// Create and start the TUI
 	p := tea.NewProgram(tui.NewModel(q, w))

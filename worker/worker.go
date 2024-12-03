@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/dq"
-	"go.quinn.io/dataq/pkg/pluginutil"
-	"go.quinn.io/dataq/plugin"
+	"go.quinn.io/dataq/pluginutil"
 	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/queue"
 )
@@ -20,7 +20,7 @@ import (
 // Worker handles task processing and plugin execution
 type Worker struct {
 	queue   queue.Queue
-	plugins map[string]*plugin.PluginConfig
+	plugins map[string]*config.Plugin
 	dataDir string
 	done    chan struct{}
 }
@@ -31,8 +31,8 @@ type Message struct {
 }
 
 // New creates a new Worker
-func New(q queue.Queue, plugins []*plugin.PluginConfig, dataDir string) *Worker {
-	pluginMap := make(map[string]*plugin.PluginConfig)
+func New(q queue.Queue, plugins []*config.Plugin, dataDir string) *Worker {
+	pluginMap := make(map[string]*config.Plugin)
 	for _, p := range plugins {
 		if p.Enabled {
 			pluginMap[p.ID] = p
@@ -141,7 +141,7 @@ func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) (
 		}
 	}
 	// Execute plugin and get response stream
-	responses, err := pluginutil.ExecutePlugin(ctx, plugin, data)
+	responses, err := pluginutil.Execute(ctx, plugin, data)
 	if err != nil {
 		task.Status = queue.TaskStatusFailed
 		task.Error = err.Error()
@@ -214,7 +214,7 @@ func (q *Worker) storeData(data *pb.DataItem) (string, error) {
 	}
 	defer f.Close()
 
-	if err := dq.WriteDataItem(f, data); err != nil {
+	if err := dq.Write(f, data); err != nil {
 		return "", err
 	}
 
