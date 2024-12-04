@@ -4,15 +4,23 @@ import (
 	"io"
 
 	pb "go.quinn.io/dataq/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // ReadRequest reads a PluginRequest from the reader using length-prefixed framing
 // currently, this is ONLY USED by the plugin harness. Which means this code is not
 // necessary for the implementation of dataq, if no plugins are written in Go
 func ReadRequest(r io.Reader) (*pb.PluginRequest, error) {
-	var req pb.PluginRequest
+	data, err := Read(r)
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		return nil, nil
+	}
 
-	if err := Read(r, &req); err != nil {
+	var req pb.PluginRequest
+	if err := proto.Unmarshal(data, &req); err != nil {
 		return nil, err
 	}
 
@@ -23,12 +31,37 @@ func ReadRequest(r io.Reader) (*pb.PluginRequest, error) {
 // currently, this is ONLY USED by the plugin harness. Which means this code is not
 // necessary for the implementation of dataq, if no plugins are written in Go
 func StreamRequests(r io.Reader) (<-chan *pb.PluginRequest, <-chan error) {
-	return Stream[*pb.PluginRequest](r)
+	msgs := make(chan StreamMessage)
+	reqs := make(chan *pb.PluginRequest)
+	
+	unmarshal := func(data []byte) (StreamMessage, error) {
+		var req pb.PluginRequest
+		if err := proto.Unmarshal(data, &req); err != nil {
+			return nil, err
+		}
+		return &req, nil
+	}
+	
+	errc := Stream(r, msgs, unmarshal)
+	
+	go func() {
+		defer close(reqs)
+		for msg := range msgs {
+			reqs <- msg.(*pb.PluginRequest)
+		}
+	}()
+	
+	return reqs, errc
 }
 
 // WriteResponse writes a PluginResponse to the writer using length-prefixed framing
 // currently, this is ONLY USED by the plugin harness. Which means this code is not
 // necessary for the implementation of dataq, if no plugins are written in Go
 func WriteResponse(w io.Writer, resp *pb.PluginResponse) error {
-	return Write(w, resp)
+	data, err := proto.Marshal(resp)
+	if err != nil {
+		return err
+	}
+
+	return Write(w, data)
 }

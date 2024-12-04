@@ -10,50 +10,38 @@ import (
 
 const LengthSize = 8 // 8-byte length header
 
-type StreamMessage[T any] interface {
+// StreamMessage is a generic interface for protobuf messages that can be closed
+type StreamMessage interface {
 	proto.Message
 	GetClosed() bool
-	*T
 }
 
 // Read reads a message from the reader using length-prefixed framing
-func Read[T StreamMessage[T]](r io.Reader, msg T) error {
+func Read(r io.Reader) ([]byte, error) {
 	// Read length header (8 bytes, big endian)
 	var length uint64
 	err := binary.Read(r, binary.BigEndian, &length)
 	if err != nil {
 		if err == io.EOF {
-			return nil
+			return nil, nil
 		}
-		return fmt.Errorf("failed to read length header: %w", err)
+		return nil, fmt.Errorf("failed to read length header: %w", err)
 	}
 
 	// Read data
 	data := make([]byte, length)
 	_, err = io.ReadFull(r, data)
 	if err != nil {
-		return fmt.Errorf("failed to read data: %w", err)
+		return nil, fmt.Errorf("failed to read data: %w", err)
 	}
 
-	// Unmarshal the message
-	err = proto.Unmarshal(data, msg)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal message: %w", err)
-	}
-
-	return nil
+	return data, nil
 }
 
 // Write writes a protobuf message to the writer using length-prefixed framing
-func Write[T StreamMessage[T]](w io.Writer, msg T) error {
-	// Marshal the message
-	data, err := proto.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("failed to marshal message: %w", err)
-	}
-
+func Write(w io.Writer, data []byte) error {
 	// Write length header (8 bytes, big endian)
-	err = binary.Write(w, binary.BigEndian, uint64(len(data)))
+	err := binary.Write(w, binary.BigEndian, uint64(len(data)))
 	if err != nil {
 		return fmt.Errorf("failed to write length header: %w", err)
 	}
@@ -68,8 +56,7 @@ func Write[T StreamMessage[T]](w io.Writer, msg T) error {
 }
 
 // Stream reads messages from the reader until EOF
-func Stream[T StreamMessage[T]](r io.Reader) (<-chan T, <-chan error) {
-	msgs := make(chan T)
+func Stream(r io.Reader, msgs chan StreamMessage, unmarshal func(data []byte) (StreamMessage, error)) <-chan error {
 	errc := make(chan error, 1)
 
 	go func() {
@@ -77,13 +64,19 @@ func Stream[T StreamMessage[T]](r io.Reader) (<-chan T, <-chan error) {
 		defer close(errc)
 
 		for {
-			var msg T
-			err := Read(r, &msg)
+			data, err := Read(r)
+
 			if err != nil {
 				if err == io.EOF {
 					return
 				}
 				errc <- fmt.Errorf("error reading message: %w", err)
+				return
+			}
+
+			msg, err := unmarshal(data)
+			if err != nil {
+				errc <- fmt.Errorf("error unmarshaling message: %w", err)
 				return
 			}
 
@@ -96,5 +89,5 @@ func Stream[T StreamMessage[T]](r io.Reader) (<-chan T, <-chan error) {
 		}
 	}()
 
-	return msgs, errc
+	return errc
 }
