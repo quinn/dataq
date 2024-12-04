@@ -147,6 +147,9 @@ func (w *Worker) processRequests(ctx context.Context, tasks chan *queue.Task, me
 		Data: "Processing task",
 	}
 
+	go func() {
+	}()
+
 	for task := range tasks {
 		req, data, cfg, err := w.taskToRequest(ctx, task, messages)
 		if err != nil {
