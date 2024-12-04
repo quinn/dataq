@@ -14,7 +14,7 @@ import (
 )
 
 // waitForDebugger is used as a breakpoint for debugger attachment
-var waitForDebugger bool = true
+var waitForDebugger bool = false
 
 // Plugin is the interface that all plugins must implement
 type Plugin interface {

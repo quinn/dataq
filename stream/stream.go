@@ -6,18 +6,21 @@ import (
 	"io"
 
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 const LengthSize = 8 // 8-byte length header
 
 type StreamMessage interface {
-	protoreflect.ProtoMessage
+	proto.Message
 	GetClosed() bool
 }
 
 // Read reads a message from the reader using length-prefixed framing
-func Read(r io.Reader, msg StreamMessage) error {
+func Read[T StreamMessage](r io.Reader, msg *T) error {
+	if msg == nil {
+		panic("msg must not be nil")
+	}
+
 	// Read length header (8 bytes, big endian)
 	var length uint64
 	err := binary.Read(r, binary.BigEndian, &length)
@@ -35,17 +38,17 @@ func Read(r io.Reader, msg StreamMessage) error {
 		return fmt.Errorf("failed to read data: %w", err)
 	}
 
-	// Unmarshal the PluginRequest
+	// Unmarshal the message
 	err = proto.Unmarshal(data, msg)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal PluginRequest: %w", err)
+		return fmt.Errorf("failed to unmarshal message: %w", err)
 	}
 
 	return nil
 }
 
 // Write writes a protobuf message to the writer using length-prefixed framing
-func Write(w io.Writer, msg StreamMessage) error {
+func Write[T StreamMessage](w io.Writer, msg T) error {
 	// Marshal the message
 	data, err := proto.Marshal(msg)
 	if err != nil {
@@ -53,8 +56,7 @@ func Write(w io.Writer, msg StreamMessage) error {
 	}
 
 	// Write length header (8 bytes, big endian)
-	length := uint64(len(data))
-	err = binary.Write(w, binary.BigEndian, length)
+	err = binary.Write(w, binary.BigEndian, uint64(len(data)))
 	if err != nil {
 		return fmt.Errorf("failed to write length header: %w", err)
 	}
@@ -79,12 +81,12 @@ func Stream[T StreamMessage](r io.Reader) (<-chan T, <-chan error) {
 
 		for {
 			var msg T
-			err := Read(r, msg)
+			err := Read(r, &msg)
 			if err != nil {
 				if err == io.EOF {
 					return
 				}
-				errc <- err
+				errc <- fmt.Errorf("error reading message: %w", err)
 				return
 			}
 
