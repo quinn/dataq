@@ -10,17 +10,14 @@ import (
 
 const LengthSize = 8 // 8-byte length header
 
-type StreamMessage interface {
+type StreamMessage[T any] interface {
 	proto.Message
 	GetClosed() bool
+	*T
 }
 
 // Read reads a message from the reader using length-prefixed framing
-func Read[T StreamMessage](r io.Reader, msg *T) error {
-	if msg == nil {
-		panic("msg must not be nil")
-	}
-
+func Read[T StreamMessage[T]](r io.Reader, msg T) error {
 	// Read length header (8 bytes, big endian)
 	var length uint64
 	err := binary.Read(r, binary.BigEndian, &length)
@@ -48,7 +45,7 @@ func Read[T StreamMessage](r io.Reader, msg *T) error {
 }
 
 // Write writes a protobuf message to the writer using length-prefixed framing
-func Write[T StreamMessage](w io.Writer, msg T) error {
+func Write[T StreamMessage[T]](w io.Writer, msg T) error {
 	// Marshal the message
 	data, err := proto.Marshal(msg)
 	if err != nil {
@@ -71,7 +68,7 @@ func Write[T StreamMessage](w io.Writer, msg T) error {
 }
 
 // Stream reads messages from the reader until EOF
-func Stream[T StreamMessage](r io.Reader) (<-chan T, <-chan error) {
+func Stream[T StreamMessage[T]](r io.Reader) (<-chan T, <-chan error) {
 	msgs := make(chan T)
 	errc := make(chan error, 1)
 
