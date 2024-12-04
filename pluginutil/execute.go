@@ -21,12 +21,6 @@ func Execute(ctx context.Context, cfg *config.Plugin, data *pb.DataItem) (<-chan
 	}
 
 	// Create plugin request
-	req := &pb.PluginRequest{
-		PluginId:  cfg.ID,
-		Operation: "extract",
-		Config:    cfg.Config,
-		Item:      data,
-	}
 
 	// Serialize request using protobuf
 	reqData, err := proto.Marshal(req)
@@ -59,6 +53,11 @@ func Execute(ctx context.Context, cfg *config.Plugin, data *pb.DataItem) (<-chan
 		// Stream responses until error or EOF
 		stream, errc := stream.StreamResponses(stdout)
 		for resp := range stream {
+			if resp == nil {
+				// EOF, probably. Seems ok, check errc
+				continue
+			}
+
 			if resp.Item != nil {
 				if resp.Item.Meta.Hash != plugin.GenerateHash(resp.Item.RawData) {
 					responses <- &pb.PluginResponse{

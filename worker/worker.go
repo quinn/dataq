@@ -51,61 +51,12 @@ func New(q queue.Queue, plugins []*config.Plugin, dataDir string) *Worker {
 	}
 }
 
-// Start begins processing tasks
-func (w *Worker) Start(ctx context.Context, messages chan Message) error {
-	log.Println("Starting task processing loop")
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("Context cancelled, stopping task processing")
-			return ctx.Err()
-		case <-w.done:
-			log.Println("Worker stopped, exiting task processing")
-			return nil
-		default:
-			if err := w.processSingleTask(ctx, messages); err != nil {
-				log.Printf("Error processing task: %v", err)
-			}
-		}
-	}
-}
-
-// Stop gracefully stops the worker
-func (w *Worker) Stop() {
-	close(w.done)
-}
-
-func (w *Worker) processSingleTask(ctx context.Context, messages chan Message) error {
-	result, err := w.ProcessSingleTask(ctx, messages)
-	if err != nil {
-		return err
-	}
-	return errors.New(result.Error)
-}
-
-// ProcessSingleTask processes a single task and returns the result
-func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) (*queue.Task, error) {
-	messages <- Message{
-		Type: "info",
-		Data: "Processing task",
-	}
-	task, err := w.queue.Pop(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to pop task: %w", err)
-	}
-	if task == nil {
-		return nil, fmt.Errorf("no pending tasks")
-	}
+func (w *Worker) taskToRequest(ctx context.Context, task *queue.Task, messages chan Message) (*pb.PluginRequest, *pb.DataItem, *config.Plugin, error) {
 
 	// Load the data for this task
 	data, err := w.loadData(task.Hash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load data: %w", err)
-	}
-
-	messages <- Message{
-		Type: "info",
-		Data: "Processing task: " + task.ID,
+		return nil, nil, nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
 	var pluginID string
@@ -115,24 +66,25 @@ func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) (
 		pluginID = data.Meta.PluginId
 	}
 
-	// Find the plugin for this task
-	plugin, ok := w.plugins[pluginID]
+	cfg, ok := w.plugins[pluginID]
 	if !ok {
-		task.Status = queue.TaskStatusFailed
-		task.Error = fmt.Sprintf("plugin %s not found", pluginID)
-		w.queue.Update(ctx, task)
-		return task, nil
+		return nil, nil, nil, fmt.Errorf("plugin not found: %s", pluginID)
+	}
+
+	messages <- Message{
+		Type: "info",
+		Data: "Processing task: " + task.ID,
 	}
 
 	if data == nil {
 		messages <- Message{
 			Type: "info",
-			Data: "[plugin: " + pluginID + "] [input: nil]",
+			Data: "[input: nil]",
 		}
 	} else {
 		messages <- Message{
 			Type: "info",
-			Data: "[plugin: " + pluginID + "] [input: " + data.Meta.Id + "] [hash: " + data.Meta.Hash + "]",
+			Data: "[input: " + data.Meta.Id + "] [hash: " + data.Meta.Hash + "]",
 		}
 
 		messages <- Message{
@@ -141,69 +93,136 @@ func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) (
 		}
 	}
 	// Execute plugin and get response stream
-	responses, err := pluginutil.Execute(ctx, plugin, data)
-	if err != nil {
-		task.Status = queue.TaskStatusFailed
-		task.Error = err.Error()
-		task.UpdatedAt = time.Now()
-		w.queue.Update(ctx, task)
-		return task, nil
-	}
+	return &pb.PluginRequest{
+		PluginId:  cfg.ID,
+		Operation: "extract",
+		Config:    cfg.Config,
+		Item:      data,
+	}, data, cfg, nil
+}
 
-	// Process responses
-	var lastError string
-	for resp := range responses {
-		if resp.Error != "" {
-			lastError = resp.Error
-			messages <- Message{
-				Type: "error",
-				Data: resp.Error,
-			}
-			break
-		}
-		if resp.Item != nil {
-			// Store the data item
-			hash, err := w.storeData(resp.Item)
+// Start begins processing tasks
+func (w *Worker) Start(ctx context.Context, messages chan Message) error {
+	log.Println("Starting task processing loop")
+
+	tasks := make(chan *queue.Task)
+	go func() {
+		for {
+			task, err := w.queue.Pop(ctx)
 			if err != nil {
 				messages <- Message{
 					Type: "error",
-					Data: err.Error(),
+					Data: fmt.Sprintf("Failed to pop task: %v", err),
 				}
+				return
+			}
+
+			if task == nil {
 				continue
 			}
 
-			// Create a new task for this item
-			newTask := queue.NewTask(resp.PluginId, resp.Item.Meta.Id, hash)
-			if err := w.queue.Push(ctx, newTask); err != nil {
+			tasks <- task
+		}
+	}()
+	w.processRequests(ctx, tasks, messages)
+}
+
+// Stop gracefully stops the worker
+func (w *Worker) Stop() {
+	close(w.done)
+}
+
+func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) error {
+	result, err := w.processSingleTask(ctx, messages)
+	if err != nil {
+		return err
+	}
+	return errors.New(result.Error)
+}
+
+// ProcessSingleTask processes a single task and returns the result
+func (w *Worker) processRequests(ctx context.Context, tasks chan *queue.Task, messages chan Message) error {
+	messages <- Message{
+		Type: "info",
+		Data: "Processing task",
+	}
+
+	for task := range tasks {
+		req, data, cfg, err := w.taskToRequest(ctx, task, messages)
+		if err != nil {
+			task.Status = queue.TaskStatusFailed
+			task.Error = err.Error()
+			task.UpdatedAt = time.Now()
+			w.queue.Update(ctx, task)
+			return nil
+		}
+
+		responses, err := pluginutil.Execute(ctx, cfg, task, task)
+		if err != nil {
+			task.Status = queue.TaskStatusFailed
+			task.Error = err.Error()
+			task.UpdatedAt = time.Now()
+			w.queue.Update(ctx, task)
+			return nil
+		}
+
+		// Process responses
+		var lastError string
+		for resp := range responses {
+			if resp.Error != "" {
+				lastError = resp.Error
 				messages <- Message{
 					Type: "error",
-					Data: err.Error(),
+					Data: resp.Error,
 				}
-				continue
+				break
 			}
+			if resp.Item != nil {
+				// Store the data item
+				hash, err := w.storeData(resp.Item)
+				if err != nil {
+					messages <- Message{
+						Type: "error",
+						Data: err.Error(),
+					}
+					continue
+				}
 
-			messages <- Message{
-				Type: "info",
-				Data: "[task: " + newTask.ID + "] [hash: " + resp.Item.Meta.Hash + "] [parent: " + resp.Item.Meta.ParentHash + "]",
+				// Create a new task for this item
+				newTask := queue.NewTask(resp.PluginId, resp.Item.Meta.Id, hash)
+				if err := w.queue.Push(ctx, newTask); err != nil {
+					messages <- Message{
+						Type: "error",
+						Data: err.Error(),
+					}
+					continue
+				}
+
+				messages <- Message{
+					Type: "info",
+					Data: "[task: " + newTask.ID + "] [hash: " + resp.Item.Meta.Hash + "] [parent: " + resp.Item.Meta.ParentHash + "]",
+				}
 			}
 		}
+
+		// Update task status based on results
+		if lastError != "" {
+			task.Status = queue.TaskStatusFailed
+			task.Error = lastError
+		} else {
+			task.Status = queue.TaskStatusComplete
+		}
+
+		// Update task status
+		task.UpdatedAt = time.Now()
+		if err := w.queue.Update(ctx, task); err != nil {
+			return fmt.Errorf("failed to update task: %w", err)
+		}
+
+		return nil
 	}
 
-	// Update task status based on results
-	if lastError != "" {
-		task.Status = queue.TaskStatusFailed
-		task.Error = lastError
-	} else {
-		task.Status = queue.TaskStatusComplete
-	}
-
-	// Update task status
-	task.UpdatedAt = time.Now()
-	if err := w.queue.Update(ctx, task); err != nil {
-		return task, fmt.Errorf("failed to update task: %w", err)
-	}
-
-	return task, nil
+	return nil
 }
 
 func (q *Worker) storeData(data *pb.DataItem) (string, error) {

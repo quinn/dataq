@@ -26,7 +26,11 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/main.go",
-            "cwd": "${workspaceFolder}/example"
+            "cwd": "${workspaceFolder}/example",
+            "args": [
+                "--mode",
+                "one"
+            ]
         }
     ]
 }

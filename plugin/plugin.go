@@ -83,6 +83,15 @@ func Run(p Plugin) {
 				})
 			}
 
+			if req.GetClosed() {
+				stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+					PluginId: p.ID(),
+					Closed:   true,
+				})
+
+				return
+			}
+
 			// Signal end of this extract operation
 			// stream.WriteResponse(os.Stdout, &pb.PluginResponse{
 			// 	PluginId: p.ID(),

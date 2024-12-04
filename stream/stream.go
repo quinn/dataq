@@ -13,6 +13,7 @@ const LengthSize = 8 // 8-byte length header
 
 type StreamMessage interface {
 	protoreflect.ProtoMessage
+	GetClosed() bool
 }
 
 // Read reads a message from the reader using length-prefixed framing
@@ -69,11 +70,11 @@ func Write(w io.Writer, msg StreamMessage) error {
 
 // Stream reads messages from the reader until EOF
 func Stream[T StreamMessage](r io.Reader) (<-chan T, <-chan error) {
-	responses := make(chan T)
+	msgs := make(chan T)
 	errc := make(chan error, 1)
 
 	go func() {
-		defer close(responses)
+		defer close(msgs)
 		defer close(errc)
 
 		for {
@@ -87,9 +88,14 @@ func Stream[T StreamMessage](r io.Reader) (<-chan T, <-chan error) {
 				return
 			}
 
-			responses <- msg
+			// closing, without sending final msg
+			if msg.GetClosed() {
+				return
+			}
+
+			msgs <- msg
 		}
 	}()
 
-	return responses, errc
+	return msgs, errc
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -17,9 +18,6 @@ import (
 func main() {
 	// Load config
 	configPath := "config.yaml"
-	if len(os.Args) > 1 {
-		configPath = os.Args[1]
-	}
 
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
@@ -38,18 +36,43 @@ func main() {
 	}
 	defer q.Close()
 
-	initialTask := queue.InitialTask("gmail")
-	if err := q.Push(context.Background(), initialTask); err != nil {
-		log.Printf("Warning: Failed to add initial task: %v", err)
+	queueItems, err := q.List(context.Background(), "")
+	if err != nil {
+		log.Fatalf("Failed to list queue items: %v", err)
+	}
+
+	if len(queueItems) == 0 {
+		initialTask := queue.InitialTask("gmail")
+		if err := q.Push(context.Background(), initialTask); err != nil {
+			log.Printf("Warning: Failed to add initial task: %v", err)
+		}
 	}
 
 	// Create worker
 	w := worker.New(q, cfg.Plugins, cfg.DataDir)
 
-	// Create and start the TUI
-	p := tea.NewProgram(tui.NewModel(q, w))
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error running program: %v", err)
-		os.Exit(1)
+	modeFlag := flag.String("mode", "one", "Queue mode (one|worker|tui)")
+
+	switch *modeFlag {
+	case "one":
+		messages := make(chan worker.Message, 10)
+		w.ProcessSingleTask(context.Background(), messages)
+		for msg := range messages {
+			fmt.Printf("%s: %s\n", msg.Type, msg.Data)
+		}
+	case "worker":
+		messages := make(chan worker.Message, 10)
+		w.Start(context.Background(), messages)
+		for msg := range messages {
+			fmt.Printf("%s: %s\n", msg.Type, msg.Data)
+		}
+	case "tui":
+
+		// Create and start the TUI
+		p := tea.NewProgram(tui.NewModel(q, w))
+		if _, err := p.Run(); err != nil {
+			fmt.Printf("Error running program: %v", err)
+			os.Exit(1)
+		}
 	}
 }

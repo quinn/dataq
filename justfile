@@ -62,6 +62,6 @@ lint:
     go vet ./...
 
 # Run example with plugins
-run-example: build
+run-example mode: build
     Write-Host "Running example..." -ForegroundColor Green
-    cd example; ../dataq.exe
+    cd example; ../dataq.exe --mode {{ mode }}
