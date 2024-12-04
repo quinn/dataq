@@ -93,10 +93,10 @@ func Run(p Plugin) {
 			}
 
 			// Signal end of this extract operation
-			// stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-			// 	PluginId: p.ID(),
-			// 	Done:    true,
-			// })
+			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+				PluginId: p.ID(),
+				Done:     true,
+			})
 			continue
 		}
 

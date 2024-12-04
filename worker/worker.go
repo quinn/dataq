@@ -26,8 +26,10 @@ type Worker struct {
 }
 
 type Message struct {
-	Type string `json:"type"`
-	Data string `json:"data"`
+	Type   string `json:"type"`
+	Data   string `json:"data"`
+	Closed bool   `json:"closed"`
+	Done   bool   `json:"done"`
 }
 
 // New creates a new Worker
@@ -51,12 +53,11 @@ func New(q queue.Queue, plugins []*config.Plugin, dataDir string) *Worker {
 	}
 }
 
-func (w *Worker) taskToRequest(ctx context.Context, task *queue.Task, messages chan Message) (*pb.PluginRequest, *pb.DataItem, *config.Plugin, error) {
-
+func (w *Worker) taskToRequest(ctx context.Context, task *queue.Task, messages chan Message) (*pb.PluginRequest, *config.Plugin, error) {
 	// Load the data for this task
 	data, err := w.loadData(task.Hash)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to load data: %w", err)
+		return nil, nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
 	var pluginID string
@@ -68,7 +69,7 @@ func (w *Worker) taskToRequest(ctx context.Context, task *queue.Task, messages c
 
 	cfg, ok := w.plugins[pluginID]
 	if !ok {
-		return nil, nil, nil, fmt.Errorf("plugin not found: %s", pluginID)
+		return nil, nil, fmt.Errorf("plugin not found: %s", pluginID)
 	}
 
 	messages <- Message{
@@ -98,7 +99,7 @@ func (w *Worker) taskToRequest(ctx context.Context, task *queue.Task, messages c
 		Operation: "extract",
 		Config:    cfg.Config,
 		Item:      data,
-	}, data, cfg, nil
+	}, cfg, nil
 }
 
 // Start begins processing tasks
@@ -124,7 +125,8 @@ func (w *Worker) Start(ctx context.Context, messages chan Message) error {
 			tasks <- task
 		}
 	}()
-	w.processRequests(ctx, tasks, messages)
+
+	return w.processRequests(ctx, tasks, messages)
 }
 
 // Stop gracefully stops the worker
@@ -132,46 +134,79 @@ func (w *Worker) Stop() {
 	close(w.done)
 }
 
-func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) error {
-	result, err := w.processSingleTask(ctx, messages)
+func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) (*queue.Task, error) {
+	task, err := w.queue.Pop(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return errors.New(result.Error)
+
+	if task == nil {
+		return nil, errors.New("no tasks available")
+	}
+	tasks := make(chan *queue.Task)
+	tasks <- task
+
+	if err := w.processRequests(ctx, tasks, messages); err != nil {
+		return nil, err
+	}
+
+	for msg := range messages {
+		if msg.Closed {
+			return task, nil
+		}
+
+		if msg.Done {
+			return task, nil
+		}
+	}
+
+	return task, nil
 }
 
 // ProcessSingleTask processes a single task and returns the result
 func (w *Worker) processRequests(ctx context.Context, tasks chan *queue.Task, messages chan Message) error {
 	messages <- Message{
 		Type: "info",
-		Data: "Processing task",
+		Data: "Processing tasks",
 	}
 
-	go func() {
-	}()
+	// Create request channels for each plugin
+	pluginReqs := make(map[string]chan *pb.PluginRequest)
+	pluginResps := make(map[string]<-chan *pb.PluginResponse)
 
+	// Start plugin processes
+	for id, cfg := range w.plugins {
+		reqs := make(chan *pb.PluginRequest)
+		pluginReqs[id] = reqs
+
+		resps, err := pluginutil.Execute(ctx, cfg, reqs)
+		if err != nil {
+			return fmt.Errorf("failed to start plugin %s: %w", id, err)
+		}
+		pluginResps[id] = resps
+	}
+
+	// Process tasks
 	for task := range tasks {
-		req, data, cfg, err := w.taskToRequest(ctx, task, messages)
+		req, cfg, err := w.taskToRequest(ctx, task, messages)
 		if err != nil {
 			task.Status = queue.TaskStatusFailed
 			task.Error = err.Error()
 			task.UpdatedAt = time.Now()
 			w.queue.Update(ctx, task)
-			return nil
+			continue
 		}
 
-		responses, err := pluginutil.Execute(ctx, cfg, task, task)
-		if err != nil {
-			task.Status = queue.TaskStatusFailed
-			task.Error = err.Error()
-			task.UpdatedAt = time.Now()
-			w.queue.Update(ctx, task)
-			return nil
-		}
+		// Send request to appropriate plugin
+		reqs := pluginReqs[cfg.ID]
+		resps := pluginResps[cfg.ID]
+
+		// Send request
+		reqs <- req
 
 		// Process responses
 		var lastError string
-		for resp := range responses {
+		for resp := range resps {
 			if resp.Error != "" {
 				lastError = resp.Error
 				messages <- Message{
@@ -221,8 +256,11 @@ func (w *Worker) processRequests(ctx context.Context, tasks chan *queue.Task, me
 		if err := w.queue.Update(ctx, task); err != nil {
 			return fmt.Errorf("failed to update task: %w", err)
 		}
+	}
 
-		return nil
+	// Close all plugin request channels
+	for _, reqs := range pluginReqs {
+		close(reqs)
 	}
 
 	return nil

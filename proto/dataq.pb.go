@@ -370,7 +370,8 @@ type PluginResponse struct {
 	PluginId string    `protobuf:"bytes,1,opt,name=plugin_id,json=pluginId,proto3" json:"plugin_id,omitempty"`
 	Item     *DataItem `protobuf:"bytes,2,opt,name=item,proto3" json:"item,omitempty"`
 	Error    string    `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`    // empty if no error
-	Closed   bool      `protobuf:"varint,4,opt,name=closed,proto3" json:"closed,omitempty"` // other fields are discarded
+	Closed   bool      `protobuf:"varint,4,opt,name=closed,proto3" json:"closed,omitempty"` // true if plugin is shutting down
+	Done     bool      `protobuf:"varint,5,opt,name=done,proto3" json:"done,omitempty"`     // true if there are no more responses for a given request
 }
 
 func (x *PluginResponse) Reset() {
