@@ -43,7 +43,14 @@ func main() {
 	}
 
 	if len(queueItems) == 0 {
-		initialTask := queue.InitialTask("gmail")
+		var plugin config.Plugin
+		for _, p := range cfg.Plugins {
+			if p.ID == "gmail" {
+				plugin = *p
+				break
+			}
+		}
+		initialTask := queue.InitialTask(plugin)
 		if err := q.Push(context.Background(), initialTask); err != nil {
 			log.Printf("Warning: Failed to add initial task: %v", err)
 		}

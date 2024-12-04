@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/proto"
 )
 
@@ -34,27 +35,29 @@ func (t *Task) ID() string {
 }
 
 // NewTask creates a new TaskMetadata instance
-func NewTask(pluginID, itemID string, hash string) *Task {
+func NewTask(plugin config.Plugin, itemID string, hash string) *Task {
 	return &Task{
 		Status:    TaskStatusPending,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Hash:      hash,
 		Request: &proto.PluginRequest{
-			PluginId: pluginID,
+			Config:   plugin.Config,
+			PluginId: plugin.ID,
 			Id:       itemID,
 		},
 	}
 }
 
 // InitialTask creates an initial task metadata for a plugin
-func InitialTask(pluginID string) *Task {
+func InitialTask(plugin config.Plugin) *Task {
 	return &Task{
 		Status:    TaskStatusPending,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Request: &proto.PluginRequest{
-			PluginId: pluginID,
+			PluginId: plugin.ID,
+			Config:   plugin.Config,
 			Id:       "initial",
 		},
 	}

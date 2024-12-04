@@ -5,7 +5,7 @@ go 1.22.0
 require (
 	github.com/charmbracelet/bubbletea v1.2.4
 	github.com/charmbracelet/lipgloss v1.0.0
-	github.com/google/uuid v1.6.0
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.24
 	go.etcd.io/bbolt v1.3.11
 	golang.org/x/oauth2 v0.24.0

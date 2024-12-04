@@ -177,7 +177,7 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 					}
 
 					// Create a new task for this item
-					newTask := queue.NewTask(resp.PluginId, resp.Item.Meta.Id, hash)
+					newTask := queue.NewTask(*w.plugins[resp.PluginId], resp.Item.Meta.Id, hash)
 					if err := w.queue.Push(ctx, newTask); err != nil {
 						w.taskError(ctx, task, messages, err)
 						continue
