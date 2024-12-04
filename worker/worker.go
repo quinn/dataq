@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"go.quinn.io/dataq/config"
@@ -53,55 +52,6 @@ func New(q queue.Queue, plugins []*config.Plugin, dataDir string) *Worker {
 	}
 }
 
-func (w *Worker) taskToRequest(ctx context.Context, task *queue.Task, messages chan Message) (*pb.PluginRequest, *config.Plugin, error) {
-	// Load the data for this task
-	data, err := w.loadData(task.Hash)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load data: %w", err)
-	}
-
-	var pluginID string
-	if data == nil {
-		pluginID = strings.Split(task.ID, "_")[0]
-	} else {
-		pluginID = data.Meta.PluginId
-	}
-
-	cfg, ok := w.plugins[pluginID]
-	if !ok {
-		return nil, nil, fmt.Errorf("plugin not found: %s", pluginID)
-	}
-
-	messages <- Message{
-		Type: "info",
-		Data: "Processing task: " + task.ID,
-	}
-
-	if data == nil {
-		messages <- Message{
-			Type: "info",
-			Data: "[input: nil]",
-		}
-	} else {
-		messages <- Message{
-			Type: "info",
-			Data: "[input: " + data.Meta.Id + "] [hash: " + data.Meta.Hash + "]",
-		}
-
-		messages <- Message{
-			Type: "protobuf",
-			Data: data.Meta.String(),
-		}
-	}
-	// Execute plugin and get response stream
-	return &pb.PluginRequest{
-		PluginId:  cfg.ID,
-		Operation: "extract",
-		Config:    cfg.Config,
-		Item:      data,
-	}, cfg, nil
-}
-
 // Start begins processing tasks
 func (w *Worker) Start(ctx context.Context, messages chan Message) error {
 	log.Println("Starting task processing loop")
@@ -144,27 +94,42 @@ func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) (
 		return nil, errors.New("no tasks available")
 	}
 	tasks := make(chan *queue.Task)
-	tasks <- task
 
-	if err := w.processRequests(ctx, tasks, messages); err != nil {
-		return nil, err
-	}
-
-	for msg := range messages {
-		if msg.Closed {
-			return task, nil
+	go func() {
+		tasks <- task
+	}()
+	go func() {
+		if err := w.processRequests(ctx, tasks, messages); err != nil {
+			panic(err)
 		}
-
-		if msg.Done {
-			return task, nil
-		}
-	}
+	}()
 
 	return task, nil
 }
 
+func (w *Worker) taskError(ctx context.Context, task *queue.Task, messages chan Message, err error) {
+	messages <- Message{
+		Type: "error",
+		Data: err.Error(),
+	}
+
+	if task == nil {
+		return
+	}
+
+	task.Status = queue.TaskStatusFailed
+	task.Error = err.Error()
+	task.UpdatedAt = time.Now()
+	if err := w.queue.Update(ctx, task); err != nil {
+		messages <- Message{
+			Type: "error",
+			Data: fmt.Sprintf("Failed to update task: %v", err),
+		}
+	}
+}
+
 // ProcessSingleTask processes a single task and returns the result
-func (w *Worker) processRequests(ctx context.Context, tasks chan *queue.Task, messages chan Message) error {
+func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, messages chan Message) error {
 	messages <- Message{
 		Type: "info",
 		Data: "Processing tasks",
@@ -172,90 +137,106 @@ func (w *Worker) processRequests(ctx context.Context, tasks chan *queue.Task, me
 
 	// Create request channels for each plugin
 	pluginReqs := make(map[string]chan *pb.PluginRequest)
-	pluginResps := make(map[string]<-chan *pb.PluginResponse)
+	taskmap := make(map[string]map[string]*queue.Task)
 
 	// Start plugin processes
 	for id, cfg := range w.plugins {
 		reqs := make(chan *pb.PluginRequest)
 		pluginReqs[id] = reqs
+		taskmap[id] = make(map[string]*queue.Task)
 
-		resps, err := pluginutil.Execute(ctx, cfg, reqs)
-		if err != nil {
-			return fmt.Errorf("failed to start plugin %s: %w", id, err)
-		}
-		pluginResps[id] = resps
+		go func() {
+			resps, err := pluginutil.Execute(ctx, cfg, reqs)
+			if err != nil {
+				messages <- Message{
+					Type: "error",
+					Data: fmt.Sprintf("Failed to start plugin %s: %v", id, err),
+				}
+				return
+			}
+
+			// Process responses
+			for resp := range resps {
+				if resp.Closed {
+					close(reqs)
+					return
+				}
+				// TODO: consider removing tasks from map when they are done or failed
+				task := taskmap[resp.PluginId][resp.RequestId]
+				if resp.Error != "" {
+					w.taskError(ctx, task, messages, fmt.Errorf("plugin %s: %s", id, resp.Error))
+					continue
+				}
+
+				if resp.Item != nil {
+					// Store the data item
+					hash, err := w.storeData(resp.Item)
+					if err != nil {
+						w.taskError(ctx, task, messages, err)
+						continue
+					}
+
+					// Create a new task for this item
+					newTask := queue.NewTask(resp.PluginId, resp.Item.Meta.Id, hash)
+					if err := w.queue.Push(ctx, newTask); err != nil {
+						w.taskError(ctx, task, messages, err)
+						continue
+					}
+
+					messages <- Message{
+						Type: "info",
+						Data: "[task: " + newTask.Request.Id + "] [plugin: " + newTask.Request.PluginId + "] [hash: " + resp.Item.Meta.Hash + "] [parent: " + resp.Item.Meta.ParentHash + "]",
+					}
+				}
+
+				if resp.Done {
+					task.Status = queue.TaskStatusComplete
+					task.UpdatedAt = time.Now()
+
+					if err := w.queue.Update(ctx, task); err != nil {
+						messages <- Message{
+							Type: "error",
+							Data: fmt.Sprintf("Failed to update task: %v", err),
+						}
+					}
+				}
+			}
+		}()
 	}
 
 	// Process tasks
 	for task := range tasks {
-		req, cfg, err := w.taskToRequest(ctx, task, messages)
+		taskmap[task.Request.PluginId][task.Request.Id] = task
+		// Load the data for this task
+		data, err := w.loadData(task.Hash)
 		if err != nil {
-			task.Status = queue.TaskStatusFailed
-			task.Error = err.Error()
-			task.UpdatedAt = time.Now()
-			w.queue.Update(ctx, task)
-			continue
+			return fmt.Errorf("failed to load data: %w", err)
 		}
 
-		// Send request to appropriate plugin
-		reqs := pluginReqs[cfg.ID]
-		resps := pluginResps[cfg.ID]
-
-		// Send request
-		reqs <- req
-
-		// Process responses
-		var lastError string
-		for resp := range resps {
-			if resp.Error != "" {
-				lastError = resp.Error
-				messages <- Message{
-					Type: "error",
-					Data: resp.Error,
-				}
-				break
-			}
-			if resp.Item != nil {
-				// Store the data item
-				hash, err := w.storeData(resp.Item)
-				if err != nil {
-					messages <- Message{
-						Type: "error",
-						Data: err.Error(),
-					}
-					continue
-				}
-
-				// Create a new task for this item
-				newTask := queue.NewTask(resp.PluginId, resp.Item.Meta.Id, hash)
-				if err := w.queue.Push(ctx, newTask); err != nil {
-					messages <- Message{
-						Type: "error",
-						Data: err.Error(),
-					}
-					continue
-				}
-
-				messages <- Message{
-					Type: "info",
-					Data: "[task: " + newTask.ID + "] [hash: " + resp.Item.Meta.Hash + "] [parent: " + resp.Item.Meta.ParentHash + "]",
-				}
-			}
+		messages <- Message{
+			Type: "info",
+			Data: "Processing task: " + task.Request.PluginId + " " + task.Request.Id,
 		}
 
-		// Update task status based on results
-		if lastError != "" {
-			task.Status = queue.TaskStatusFailed
-			task.Error = lastError
+		if data == nil {
+			messages <- Message{
+				Type: "info",
+				Data: "[input: nil]",
+			}
 		} else {
-			task.Status = queue.TaskStatusComplete
-		}
+			messages <- Message{
+				Type: "info",
+				Data: "[input: " + data.Meta.Id + "] [hash: " + data.Meta.Hash + "]",
+			}
 
-		// Update task status
-		task.UpdatedAt = time.Now()
-		if err := w.queue.Update(ctx, task); err != nil {
-			return fmt.Errorf("failed to update task: %w", err)
+			messages <- Message{
+				Type: "protobuf",
+				Data: data.Meta.String(),
+			}
 		}
+		task.Request.Item = data
+
+		pluginReqs[task.Request.PluginId] <- task.Request
 	}
 
 	// Close all plugin request channels

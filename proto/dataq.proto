@@ -34,17 +34,18 @@ message PluginConfig {
 
 // PluginRequest represents a request to a plugin
 message PluginRequest {
-  string              plugin_id = 1;
-  map<string, string> config = 2;
-  DataItem            item = 3;
-  string              operation = 4;  // e.g., "extract", "configure"
-  bool                closed = 5;     // other fields are discarded
+  string   plugin_id = 1;
+  string   id = 2;
+  DataItem item = 4;
+  bool     closed = 6; // other fields are discarded
 }
 
 // PluginResponse represents a response from a plugin
 message PluginResponse {
   string   plugin_id = 1;
-  DataItem item = 2;
-  string   error = 3;  // empty if no error
-  bool     closed = 4; // other fields are discarded
+  string   request_id = 2;
+  DataItem item = 3;
+  string   error = 4;  // empty if no error
+  bool     closed = 5; // other fields are discarded
+  bool     done = 6;   // no further responses for this request
 }

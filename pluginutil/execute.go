@@ -1,9 +1,9 @@
 package pluginutil
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 
@@ -14,7 +14,7 @@ import (
 )
 
 // ExecutePlugin executes a plugin binary with the given request and returns a channel of responses
-func Execute(ctx context.Context, cfg *config.Plugin, req chan *pb.PluginRequest) (<-chan *pb.PluginResponse, error) {
+func Execute(ctx context.Context, cfg *config.Plugin, req <-chan *pb.PluginRequest) (<-chan *pb.PluginResponse, error) {
 	if _, err := os.Stat(cfg.BinaryPath); err != nil {
 		return nil, fmt.Errorf("plugin binary not found: %s", cfg.BinaryPath)
 	}
@@ -29,9 +29,10 @@ func Execute(ctx context.Context, cfg *config.Plugin, req chan *pb.PluginRequest
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdin pipe: %w", err)
 	}
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
 	// Start the plugin
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to start plugin: %w", err)
@@ -40,56 +41,84 @@ func Execute(ctx context.Context, cfg *config.Plugin, req chan *pb.PluginRequest
 	// Create response channel
 	responses := make(chan *pb.PluginResponse)
 
-	for req := range req {
-		stream.WriteRequest(stdin, req)
+	go func() {
+		errBytes, _ := io.ReadAll(stderr)
+		responses <- &pb.PluginResponse{
+			PluginId: cfg.ID,
+			Error:    "plugin stderr: " + string(errBytes),
+		}
 
-		// Handle plugin execution in goroutine
-		go func() {
-			// Stream responses until error or EOF
-			stream, errc := stream.StreamResponses(stdout)
-			for resp := range stream {
-				if resp == nil {
-					// EOF, probably. Seems ok, check errc
-					continue
-				}
+		responses <- &pb.PluginResponse{
+			Closed: true,
+		}
+	}()
 
-				if resp.Item != nil {
-					if resp.Item.Meta.Hash != plugin.GenerateHash(resp.Item.RawData) {
-						responses <- &pb.PluginResponse{
-							PluginId: cfg.ID,
-							Error:    "hash mismatch",
-						}
-						return
-					}
-				}
+	go func() {
+		for req := range req {
+			stream.WriteRequest(stdin, req)
+		}
+	}()
 
-				// Closed message body is discarded
-				if resp.GetClosed() {
-					close(responses)
-					return
-				}
+	stream, errc := stream.StreamResponses(stdout)
 
-				responses <- resp
+	// Handle plugin execution in goroutine
+	go func() {
+		// Stream responses until error or EOF
+		for resp := range stream {
+			if resp == nil {
+				// EOF, probably. Seems ok, check errc
+				continue
 			}
 
-			// Check for stream error
-			if err := <-errc; err != nil {
-				responses <- &pb.PluginResponse{
-					PluginId: cfg.ID,
-					Error:    fmt.Sprintf("stream error: %v", err),
+			if resp.Item != nil {
+				if resp.Item.Meta.Hash != plugin.GenerateHash(resp.Item.RawData) {
+					responses <- &pb.PluginResponse{
+						PluginId: cfg.ID,
+						Error:    "hash mismatch",
+					}
+					return
 				}
+			}
+
+			// Closed message body is discarded
+			if resp.GetClosed() {
+				close(responses)
 				return
 			}
 
-			// Wait for plugin to finish
-			if err := cmd.Wait(); err != nil {
-				responses <- &pb.PluginResponse{
-					PluginId: cfg.ID,
-					Error:    fmt.Sprintf("plugin execution failed: %v\nstderr: %s", err, stderr.String()),
-				}
+			responses <- resp
+		}
+	}()
+
+	go func() {
+		// Check for stream error
+		if err := <-errc; err != nil {
+			responses <- &pb.PluginResponse{
+				PluginId: cfg.ID,
+				Error:    fmt.Sprintf("stream error: %v", err),
 			}
-		}()
-	}
+
+			responses <- &pb.PluginResponse{
+				Closed: true,
+			}
+
+			return
+		}
+	}()
+
+	go func() {
+		// Wait for plugin to finish
+		if err := cmd.Wait(); err != nil {
+			responses <- &pb.PluginResponse{
+				PluginId: cfg.ID,
+				Error:    fmt.Sprintf("plugin execution failed: %v\n", err),
+			}
+
+			responses <- &pb.PluginResponse{
+				Closed: true,
+			}
+		}
+	}()
 
 	return responses, nil
 }

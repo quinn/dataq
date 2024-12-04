@@ -14,7 +14,7 @@ import (
 )
 
 // waitForDebugger is used as a breakpoint for debugger attachment
-var waitForDebugger bool = false
+var waitForDebugger bool = true
 
 // Plugin is the interface that all plugins must implement
 type Plugin interface {
@@ -32,6 +32,11 @@ func GenerateHash(data []byte) string {
 // Run is a harness that a plugin written in Go can use to receive and respond to requests
 // plugins can be written in any language, as long as they implement the wire protocol
 func Run(p Plugin) {
+	// Infinite loop to allow debugger attachment
+	for waitForDebugger {
+		time.Sleep(time.Millisecond) // Sleep briefly to prevent CPU spinning
+	}
+
 	requests, errc := stream.StreamRequests(os.Stdin)
 
 	// Handle stream errors in a separate goroutine
@@ -57,52 +62,48 @@ func Run(p Plugin) {
 			continue
 		}
 
-		if req.Operation == "extract" {
-			items, err := p.Extract(ctx, req)
-			if err != nil {
-				stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-					PluginId: p.ID(),
-					Error:    fmt.Sprintf("failed to extract data: %v", err),
-				})
-				continue
-			}
-
-			for item := range items {
-				// Infinite loop to allow debugger attachment
-				for waitForDebugger {
-					time.Sleep(time.Millisecond) // Sleep briefly to prevent CPU spinning
-				}
-				item.Meta.Hash = GenerateHash(item.RawData)
-				if req.Item != nil {
-					item.Meta.ParentHash = req.Item.Meta.Hash
-				}
-
-				stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-					PluginId: item.Meta.PluginId,
-					Item:     item,
-				})
-			}
-
-			if req.GetClosed() {
-				stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-					PluginId: p.ID(),
-					Closed:   true,
-				})
-
-				return
-			}
-
-			// Signal end of this extract operation
+		// if req.Operation == "extract" {
+		items, err := p.Extract(ctx, req)
+		if err != nil {
 			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
 				PluginId: p.ID(),
-				Done:     true,
+				Error:    fmt.Sprintf("failed to extract data: %v", err),
 			})
 			continue
 		}
 
+		for item := range items {
+			item.Meta.Hash = GenerateHash(item.RawData)
+			if req.Item != nil {
+				item.Meta.ParentHash = req.Item.Meta.Hash
+			}
+
+			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+				PluginId: item.Meta.PluginId,
+				Item:     item,
+			})
+		}
+
+		if req.GetClosed() {
+			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+				PluginId: p.ID(),
+				Closed:   true,
+			})
+
+			return
+		}
+
+		// Signal end of this extract operation
 		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
 			PluginId: p.ID(),
-			Error:    fmt.Sprintf("unknown operation: %s", req.Operation),
+			Done:     true,
 		})
+		continue
+		// }
+
+		// stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+		// 	PluginId: p.ID(),
+		// 	Error:    fmt.Sprintf("unknown operation: %s", req.Operation),
+		// })
 	}
 }

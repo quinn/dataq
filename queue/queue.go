@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"go.quinn.io/dataq/proto"
 )
 
 // TaskStatus represents the current state of a task
@@ -19,32 +21,42 @@ const (
 
 // Task represents metadata about a unit of work to be processed
 type Task struct {
-	ID        string
 	Status    TaskStatus
 	Error     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Hash      string // SHA-256 hash of the data, used to reference the actual data
+	Request   *proto.PluginRequest
+}
+
+func (t *Task) ID() string {
+	return t.Request.PluginId + "-" + t.Request.Id
 }
 
 // NewTask creates a new TaskMetadata instance
 func NewTask(pluginID, itemID string, hash string) *Task {
 	return &Task{
-		ID:        fmt.Sprintf("%s_%s", pluginID, itemID),
 		Status:    TaskStatusPending,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Hash:      hash,
+		Request: &proto.PluginRequest{
+			PluginId: pluginID,
+			Id:       itemID,
+		},
 	}
 }
 
 // InitialTask creates an initial task metadata for a plugin
 func InitialTask(pluginID string) *Task {
 	return &Task{
-		ID:        fmt.Sprintf("%s_initial", pluginID),
 		Status:    TaskStatusPending,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
+		Request: &proto.PluginRequest{
+			PluginId: pluginID,
+			Id:       "initial",
+		},
 	}
 }
 

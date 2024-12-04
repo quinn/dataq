@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -58,13 +59,20 @@ func main() {
 		messages := make(chan worker.Message, 10)
 		w.ProcessSingleTask(context.Background(), messages)
 		for msg := range messages {
-			fmt.Printf("%s: %s\n", msg.Type, msg.Data)
+			// fmt.Printf("[MESSAGE] %s: %s\n", msg.Type, msg.Data)
+
+			jsonData, err := json.Marshal(msg)
+			if err != nil {
+				log.Printf("Failed to marshal message: %v", err)
+				continue
+			}
+			fmt.Printf("%s\n", jsonData)
 		}
 	case "worker":
 		messages := make(chan worker.Message, 10)
 		w.Start(context.Background(), messages)
 		for msg := range messages {
-			fmt.Printf("%s: %s\n", msg.Type, msg.Data)
+			fmt.Printf("[MESSAGE] %s: %s\n", msg.Type, msg.Data)
 		}
 	case "tui":
 

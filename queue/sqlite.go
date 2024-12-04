@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -16,6 +15,7 @@ type SQLiteQueue struct {
 
 // NewSQLiteQueue creates a new SQLite-backed queue
 func newSQLiteQueue(path string) (*SQLiteQueue, error) {
+	panic("currently broken. Needs to implement PluginRequest fields.")
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -41,14 +41,6 @@ func newSQLiteQueue(path string) (*SQLiteQueue, error) {
 }
 
 func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
-	if task.ID == "" {
-		task.ID = uuid.New().String()
-	}
-	if task.CreatedAt.IsZero() {
-		task.CreatedAt = time.Now()
-	}
-	task.UpdatedAt = time.Now()
-
 	_, err := q.db.ExecContext(ctx, `
 		INSERT INTO tasks (id, status, error, data_hash, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -76,7 +68,6 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 	`, TaskStatusPending)
 
 	err = row.Scan(
-		&task.ID,
 		&task.Status,
 		&task.Error,
 		&task.Hash,
@@ -123,7 +114,7 @@ func (q *SQLiteQueue) Update(ctx context.Context, meta *Task) error {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("task not found: %s", meta.ID)
+		return fmt.Errorf("task not found: %s", meta.ID())
 	}
 
 	return nil
@@ -148,7 +139,6 @@ func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*Task, err
 	for rows.Next() {
 		var task Task
 		err := rows.Scan(
-			&task.ID,
 			&task.Status,
 			&task.Error,
 			&task.Hash,
