@@ -5,6 +5,7 @@ import (
 
 	pb "go.quinn.io/dataq/proto"
 	"google.golang.org/protobuf/proto"
+	"fmt"
 )
 
 // WriteRequest writes a PluginRequest to the writer using length-prefixed framing
@@ -37,25 +38,39 @@ func ReadResponse(r io.Reader) (*pb.PluginResponse, error) {
 
 // StreamResponses reads PluginResponses from the reader until EOF
 func StreamResponses(r io.Reader) (<-chan *pb.PluginResponse, <-chan error) {
-	msgs := make(chan StreamMessage)
 	resps := make(chan *pb.PluginResponse)
-	
-	unmarshal := func(data []byte) (StreamMessage, error) {
-		var resp pb.PluginResponse
-		if err := proto.Unmarshal(data, &resp); err != nil {
-			return nil, err
-		}
-		return &resp, nil
-	}
-	
-	errc := Stream(r, msgs, unmarshal)
-	
+	errc := make(chan error, 1)
+
 	go func() {
 		defer close(resps)
-		for msg := range msgs {
-			resps <- msg.(*pb.PluginResponse)
+		defer close(errc)
+
+		for {
+			data, err := Read(r)
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+				errc <- fmt.Errorf("error reading message: %w", err)
+				return
+			}
+			if data == nil {
+				return
+			}
+
+			var resp pb.PluginResponse
+			if err := proto.Unmarshal(data, &resp); err != nil {
+				errc <- fmt.Errorf("error unmarshaling message: %w", err)
+				return
+			}
+
+			if resp.GetClosed() {
+				return
+			}
+
+			resps <- &resp
 		}
 	}()
-	
+
 	return resps, errc
 }

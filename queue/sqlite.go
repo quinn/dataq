@@ -97,14 +97,14 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 	return &task, nil
 }
 
-func (q *SQLiteQueue) Update(ctx context.Context, meta *Task) error {
-	meta.UpdatedAt = time.Now()
+func (q *SQLiteQueue) Update(ctx context.Context, task *Task) error {
+	task.UpdatedAt = time.Now()
 
 	result, err := q.db.ExecContext(ctx, `
 		UPDATE tasks
 		SET status = ?, error = ?, data_hash = ?, updated_at = ?
 		WHERE id = ?
-	`, meta.Status, meta.Error, meta.Hash, meta.UpdatedAt, meta.ID)
+	`, task.Status, task.Error, task.Hash, task.UpdatedAt, task.Key())
 	if err != nil {
 		return fmt.Errorf("failed to update task: %w", err)
 	}
@@ -114,7 +114,7 @@ func (q *SQLiteQueue) Update(ctx context.Context, meta *Task) error {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("task not found: %s", meta.ID())
+		return fmt.Errorf("task not found: %s", task.Key())
 	}
 
 	return nil

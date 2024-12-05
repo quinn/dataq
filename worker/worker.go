@@ -84,7 +84,7 @@ func (w *Worker) Stop() {
 	close(w.done)
 }
 
-func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) (*queue.Task, error) {
+func (w *Worker) ProcessSingleTask(ctx context.Context, out chan Message) (*queue.Task, error) {
 	task, err := w.queue.Pop(ctx)
 	if err != nil {
 		return nil, err
@@ -94,6 +94,18 @@ func (w *Worker) ProcessSingleTask(ctx context.Context, messages chan Message) (
 		return nil, errors.New("no tasks available")
 	}
 	tasks := make(chan *queue.Task)
+	messages := make(chan Message)
+	go func() {
+		for msg := range messages {
+			out <- msg
+			if msg.Closed || msg.Done {
+				close(out)
+				close(messages)
+				close(tasks)
+				return
+			}
+		}
+	}()
 
 	go func() {
 		tasks <- task
@@ -185,7 +197,7 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 
 					messages <- Message{
 						Type: "info",
-						Data: "[task: " + newTask.Request.Id + "] [plugin: " + newTask.Request.PluginId + "] [hash: " + resp.Item.Meta.Hash + "] [parent: " + resp.Item.Meta.ParentHash + "]",
+						Data: "[task: " + newTask.ID + "] [plugin: " + newTask.PluginID + "] [hash: " + resp.Item.Meta.Hash + "] [parent: " + resp.Item.Meta.ParentHash + "]",
 					}
 				}
 
@@ -199,6 +211,10 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 							Data: fmt.Sprintf("Failed to update task: %v", err),
 						}
 					}
+
+					messages <- Message{
+						Done: true,
+					}
 				}
 			}
 		}()
@@ -206,7 +222,7 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 
 	// Process tasks
 	for task := range tasks {
-		taskmap[task.Request.PluginId][task.Request.Id] = task
+		taskmap[task.PluginID][task.ID] = task
 		// Load the data for this task
 		data, err := w.loadData(task.Hash)
 		if err != nil {
@@ -215,7 +231,7 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 
 		messages <- Message{
 			Type: "info",
-			Data: "Processing task: " + task.Request.PluginId + " " + task.Request.Id,
+			Data: "Processing task: " + task.Key(),
 		}
 
 		if data == nil {
@@ -234,9 +250,10 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 				Data: data.Meta.String(),
 			}
 		}
-		task.Request.Item = data
+		request := task.Request()
+		request.Item = data
 
-		pluginReqs[task.Request.PluginId] <- task.Request
+		pluginReqs[request.PluginId] <- request
 	}
 
 	// Close all plugin request channels

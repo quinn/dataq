@@ -224,8 +224,8 @@ func (m Model) viewStep() string {
 	s := titleStyle.Render("Step Through Tasks") + "\n\n"
 
 	if m.lastTask != nil {
-		s += fmt.Sprintf("Task ID: %s\n", m.lastTask.Request.Id)
-		s += fmt.Sprintf("Plugin ID: %s\n", m.lastTask.Request.PluginId)
+		s += fmt.Sprintf("Task ID: %s\n", m.lastTask.ID)
+		s += fmt.Sprintf("Plugin ID: %s\n", m.lastTask.PluginID)
 		s += fmt.Sprintf("Status: %s\n", m.lastTask.Status)
 
 		if m.lastTask.Error != "" {
@@ -257,8 +257,8 @@ func (m Model) viewStatus() string {
 	}
 
 	for _, meta := range m.status {
-		s += fmt.Sprintf("Task ID: %s\n", meta.Request.Id)
-		s += fmt.Sprintf("Plugin ID: %s\n", meta.Request.PluginId)
+		s += fmt.Sprintf("Task ID: %s\n", meta.ID)
+		s += fmt.Sprintf("Plugin ID: %s\n", meta.PluginID)
 		s += fmt.Sprintf("Status: %s\n", meta.Status)
 		if meta.Error != "" {
 			s += fmt.Sprintf("Error: %s\n", meta.Error)

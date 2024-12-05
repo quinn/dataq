@@ -75,7 +75,7 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 	return nil
 }
 
-func (p *GmailPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-chan *pb.DataItem, error) {
+func (p *GmailPlugin) Extract(ctx context.Context, preq *pb.PluginRequest) (<-chan *pb.DataItem, error) {
 	items := make(chan *pb.DataItem)
 
 	srv, err := p.getClient(ctx)
@@ -89,7 +89,7 @@ func (p *GmailPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-cha
 		var pageToken string
 
 		// If we have previous response data, extract the next page token
-		if prevData := req.Item; prevData != nil {
+		if prevData := preq.Item; prevData != nil {
 			var prevResp gmail.ListMessagesResponse
 			if err := json.Unmarshal([]byte(prevData.RawData), &prevResp); err != nil {
 				log.Printf("Error parsing previous response: %v", err)
@@ -133,11 +133,7 @@ func (p *GmailPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-cha
 			RawData: rawJSON,
 		}
 
-		select {
-		case items <- item:
-		case <-ctx.Done():
-			return
-		}
+		items <- item
 	}()
 
 	return items, nil

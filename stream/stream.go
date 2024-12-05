@@ -4,17 +4,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-
-	"google.golang.org/protobuf/proto"
 )
 
 const LengthSize = 8 // 8-byte length header
-
-// StreamMessage is a generic interface for protobuf messages that can be closed
-type StreamMessage interface {
-	proto.Message
-	GetClosed() bool
-}
 
 // Read reads a message from the reader using length-prefixed framing
 func Read(r io.Reader) ([]byte, error) {
@@ -53,41 +45,4 @@ func Write(w io.Writer, data []byte) error {
 	}
 
 	return nil
-}
-
-// Stream reads messages from the reader until EOF
-func Stream(r io.Reader, msgs chan StreamMessage, unmarshal func(data []byte) (StreamMessage, error)) <-chan error {
-	errc := make(chan error, 1)
-
-	go func() {
-		defer close(msgs)
-		defer close(errc)
-
-		for {
-			data, err := Read(r)
-
-			if err != nil {
-				if err == io.EOF {
-					return
-				}
-				errc <- fmt.Errorf("error reading message: %w", err)
-				return
-			}
-
-			msg, err := unmarshal(data)
-			if err != nil {
-				errc <- fmt.Errorf("error unmarshaling message: %w", err)
-				return
-			}
-
-			// closing, without sending final msg
-			if msg.GetClosed() {
-				return
-			}
-
-			msgs <- msg
-		}
-	}()
-
-	return errc
 }

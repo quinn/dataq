@@ -5,6 +5,7 @@ import (
 
 	pb "go.quinn.io/dataq/proto"
 	"google.golang.org/protobuf/proto"
+	"fmt"
 )
 
 // ReadRequest reads a PluginRequest from the reader using length-prefixed framing
@@ -31,26 +32,40 @@ func ReadRequest(r io.Reader) (*pb.PluginRequest, error) {
 // currently, this is ONLY USED by the plugin harness. Which means this code is not
 // necessary for the implementation of dataq, if no plugins are written in Go
 func StreamRequests(r io.Reader) (<-chan *pb.PluginRequest, <-chan error) {
-	msgs := make(chan StreamMessage)
 	reqs := make(chan *pb.PluginRequest)
-	
-	unmarshal := func(data []byte) (StreamMessage, error) {
-		var req pb.PluginRequest
-		if err := proto.Unmarshal(data, &req); err != nil {
-			return nil, err
-		}
-		return &req, nil
-	}
-	
-	errc := Stream(r, msgs, unmarshal)
-	
+	errc := make(chan error, 1)
+
 	go func() {
 		defer close(reqs)
-		for msg := range msgs {
-			reqs <- msg.(*pb.PluginRequest)
+		defer close(errc)
+
+		for {
+			data, err := Read(r)
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+				errc <- fmt.Errorf("error reading message: %w", err)
+				return
+			}
+			if data == nil {
+				return
+			}
+
+			var req pb.PluginRequest
+			if err := proto.Unmarshal(data, &req); err != nil {
+				errc <- fmt.Errorf("error unmarshaling message: %w", err)
+				return
+			}
+
+			if req.GetClosed() {
+				return
+			}
+
+			reqs <- &req
 		}
 	}()
-	
+
 	return reqs, errc
 }
 

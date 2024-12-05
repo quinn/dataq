@@ -63,14 +63,14 @@ func (q *FileQueue) loadState() error {
 
 		switch op.Type {
 		case "push":
-			q.state = append(q.state, op.Task.ID())
-			q.taskMap[op.Task.ID()] = op.Task
+			q.state = append(q.state, op.Task.Key())
+			q.taskMap[op.Task.Key()] = op.Task
 		case "update":
-			if existing := q.taskMap[op.Task.ID()]; existing != nil {
+			if existing := q.taskMap[op.Task.Key()]; existing != nil {
 				*existing = *op.Task
 			}
 		case "pop":
-			if len(q.state) > 0 && q.state[0] == op.Task.ID() {
+			if len(q.state) > 0 && q.state[0] == op.Task.Key() {
 				q.state = q.state[1:]
 			}
 		}
@@ -104,8 +104,8 @@ func (q *FileQueue) Push(ctx context.Context, task *Task) error {
 		return fmt.Errorf("failed to write operation: %w", err)
 	}
 
-	q.state = append(q.state, task.ID())
-	q.taskMap[task.ID()] = task
+	q.state = append(q.state, task.Key())
+	q.taskMap[task.Key()] = task
 	return nil
 }
 
@@ -153,9 +153,9 @@ func (q *FileQueue) Update(ctx context.Context, task *Task) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	existing := q.taskMap[task.ID()]
+	existing := q.taskMap[task.Key()]
 	if existing == nil {
-		return fmt.Errorf("task not found: %s", task.ID())
+		return fmt.Errorf("task not found: %s", task.Key())
 	}
 
 	op := operation{

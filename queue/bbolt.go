@@ -46,7 +46,7 @@ func (q *BoltQueue) Push(ctx context.Context, task *Task) error {
 			return fmt.Errorf("failed to marshal metadata: %w", err)
 		}
 
-		return b.Put([]byte(task.ID()), meta)
+		return b.Put([]byte(task.Key()), meta)
 	})
 }
 
@@ -130,14 +130,14 @@ func (q *BoltQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error
 	return tasks, nil
 }
 
-func (q *BoltQueue) Update(ctx context.Context, meta *Task) error {
+func (q *BoltQueue) Update(ctx context.Context, task *Task) error {
 	return q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(tasksBucket)
 
 		// Get existing value
-		v := b.Get([]byte(meta.ID()))
+		v := b.Get([]byte(task.Key()))
 		if v == nil {
-			return fmt.Errorf("task not found: %s", meta.ID())
+			return fmt.Errorf("task not found: %s", task.Key())
 		}
 
 		// Find delimiter between metadata and data
@@ -147,7 +147,7 @@ func (q *BoltQueue) Update(ctx context.Context, meta *Task) error {
 		}
 
 		// Serialize new metadata
-		metadataJSON, err := json.Marshal(meta)
+		metadataJSON, err := json.Marshal(task)
 		if err != nil {
 			return fmt.Errorf("failed to marshal metadata: %w", err)
 		}
@@ -156,7 +156,7 @@ func (q *BoltQueue) Update(ctx context.Context, meta *Task) error {
 		value := append(metadataJSON, Delimiter...)
 		value = append(value, v[i+len(Delimiter):]...)
 
-		return b.Put([]byte(meta.ID()), value)
+		return b.Put([]byte(task.Key()), value)
 	})
 }
 

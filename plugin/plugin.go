@@ -79,15 +79,17 @@ func Run(p Plugin) {
 			}
 
 			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-				PluginId: item.Meta.PluginId,
-				Item:     item,
+				PluginId:  req.PluginId,
+				RequestId: req.Id,
+				Item:      item,
 			})
 		}
 
 		if req.GetClosed() {
 			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-				PluginId: p.ID(),
-				Closed:   true,
+				PluginId:  p.ID(),
+				RequestId: req.Id,
+				Closed:    true,
 			})
 
 			return
@@ -95,8 +97,9 @@ func Run(p Plugin) {
 
 		// Signal end of this extract operation
 		stream.WriteResponse(os.Stdout, &pb.PluginResponse{
-			PluginId: p.ID(),
-			Done:     true,
+			PluginId:  p.ID(),
+			RequestId: req.Id,
+			Done:      true,
 		})
 		continue
 		// }
