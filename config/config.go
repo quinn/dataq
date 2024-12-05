@@ -1,7 +1,20 @@
 package config
 
+import (
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v2"
+)
+
+const (
+	dirname = "dataq"
+	config  = "config.yaml"
+)
+
 type Config struct {
-	DataDir string    `yaml:"data_dir"`
 	Plugins []*Plugin `yaml:"plugins"`
 }
 
@@ -12,4 +25,40 @@ type Plugin struct {
 	BinaryPath string            `yaml:"binary_path"`
 	Config     map[string]string `yaml:"config"`
 	Enabled    bool              `yaml:"enabled"`
+}
+
+func ConfigDir() string {
+	configDir := os.Getenv("XDG_CONFIG_HOME")
+	if configDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalf("failed to get home directory: %v", err)
+		}
+
+		configDir = filepath.Join(home, ".config")
+	}
+
+	return filepath.Join(configDir, dirname)
+}
+
+func ConfigPath() string {
+	return filepath.Join(ConfigDir(), config)
+}
+
+func DataDir() string {
+	return filepath.Join(ConfigDir(), "data")
+}
+
+func Get() (*Config, error) {
+	configData, err := os.ReadFile(ConfigPath())
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(configData, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	return &cfg, nil
 }

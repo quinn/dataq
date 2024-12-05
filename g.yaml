@@ -1,2 +1,2 @@
 include:
-  ccf: gh:quinn/ccf
+  ccf: "gh:quinn/ccf"

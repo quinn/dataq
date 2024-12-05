@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/queue"
 	"go.quinn.io/dataq/worker"
 )
@@ -61,10 +62,10 @@ var (
 			Foreground(lipgloss.Color("#00FFFF"))
 )
 
-func NewModel(q queue.Queue, w *worker.Worker) Model {
+func NewModel(b *boot.Boot) Model {
 	return Model{
-		queue:       q,
-		worker:      w,
+		queue:       b.Queue,
+		worker:      b.Worker,
 		lastUpdated: time.Now(),
 		sub:         make(chan worker.Message),
 	}
