@@ -21,7 +21,8 @@ func main() {
 		log.Fatalf("Failed to boot: %v", err)
 	}
 
-	modeFlag := flag.String("mode", "one", "Queue mode (one|worker|tui|web)")
+	modeFlag := flag.String("mode", "", "Queue mode (one|worker|tui|web)")
+	flag.Parse()
 
 	switch *modeFlag {
 	case "one":
@@ -53,5 +54,7 @@ func main() {
 		}
 	case "web":
 		web.Run(b)
+	default:
+		log.Fatalf("Unknown mode: \"%s\"", *modeFlag)
 	}
 }

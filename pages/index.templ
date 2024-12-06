@@ -4,13 +4,19 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/ccf/assets"
 	"go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/boot"
 )
 
 type IndexData []*proto.DataItemMetadata
 
 func IndexHandler(c echo.Context) (IndexData, error) {
-	// Get items for a specific type
-	return make(IndexData, 0), nil
+	b := c.Get("boot").(*boot.Boot)
+	items, err := b.Tree.Children("")
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
 
 templ Index(posts IndexData) {

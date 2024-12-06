@@ -1,7 +1,8 @@
 version: '3'
 
 vars:
-  BIN_NAME: '{{if eq OS "windows"}}./tmp/main.exe{{else}}./tmp/main{{end}}'
+  RUN_BIN: '{{if eq OS "windows"}}.\tmp\main.exe{{else}}./tmp/main{{end}}'
+  BUILD_BIN: '{{if eq OS "windows"}}tmp/main.exe{{else}}./tmp/main{{end}}'
 
 tasks:
   install-tools:
@@ -19,7 +20,8 @@ tasks:
       - figlet "Running templ..."
       - |
         go run github.com/a-h/templ/cmd/templ@latest generate \
-          --watch --proxy="http://localhost:3000" \
+          --watch \
+          --proxy="http://localhost:3000" \
           --open-browser=false
 
   gen-pages:
@@ -63,15 +65,16 @@ tasks:
 
   build-server:
     cmds:
-      - cmd: go build -o {{.BIN_NAME}} cmd/main.go
+      - cmd: go build -o {{.BUILD_BIN}} cmd/main.go
 
   live:server:
     cmds:
       - figlet "Running server..."
       - |
         go run github.com/cosmtrek/air@v1.51.0 \
-          --build.cmd "task build-server && templ generate --notify-proxy"
-          --build.bin "{{.BIN_NAME}} --mode web" \
+          --build.cmd "task build-server && templ generate --notify-proxy" \
+          --build.full_bin "{{.RUN_BIN}}" \
+          --build.args_bin "-mode=web" \
           --build.delay "100" \
           --build.include_ext "go" \
           --build.stop_on_error "false" \

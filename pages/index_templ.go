@@ -11,14 +11,20 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/ccf/assets"
+	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/proto"
 )
 
 type IndexData []*proto.DataItemMetadata
 
 func IndexHandler(c echo.Context) (IndexData, error) {
-	// Get items for a specific type
-	return make(IndexData, 0), nil
+	b := c.Get("boot").(*boot.Boot)
+	items, err := b.Tree.Children("")
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
 
 func Index(posts IndexData) templ.Component {
@@ -49,7 +55,7 @@ func Index(posts IndexData) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(assets.Path("styles.css"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 22, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 28, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -76,7 +82,7 @@ func Index(posts IndexData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(post.Hash)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 32, Col: 19}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 38, Col: 19}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
