@@ -2,14 +2,18 @@ package tree
 
 import (
 	"database/sql"
+	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
 	"go.quinn.io/dataq/proto"
 )
 
-// OpenDB opens or creates a SQLite database at the given path
-func OpenDB(dbPath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dbPath)
+type SQLite struct {
+	db *sql.DB
+}
+
+func New(dbPath string) (*SQLite, error) {
+	db, err := sql.Open("sqlite3", filepath.Join(dbPath, "tree.db"))
 	if err != nil {
 		return nil, err
 	}
@@ -31,15 +35,15 @@ func OpenDB(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	return db, nil
+	return &SQLite{db: db}, nil
 }
 
-// Store scans a directory and stores all DataItems in a SQLite database
-func Store(root string, db *sql.DB) error {
+// Index scans the root directory and indexes all DataItems
+func (s *SQLite) Index() error {
 	// Walk the directory and store items
-	return Walk(root, func(item *proto.DataItem, path string) error {
+	return walk(func(item *proto.DataItem, path string) error {
 		meta := item.GetMeta()
-		_, err := db.Exec(`
+		_, err := s.db.Exec(`
 			INSERT OR REPLACE INTO data_items (
 				hash, plugin_id, id, kind, timestamp,
 				content_type, parent_hash
@@ -57,9 +61,13 @@ func Store(root string, db *sql.DB) error {
 	})
 }
 
-// Query retrieves metadata from the database that matches the given SQL query
-func Query(db *sql.DB, sqlQuery string) ([]*proto.DataItemMetadata, error) {
-	rows, err := db.Query(sqlQuery)
+// Children returns all DataItems that have the given hash as their parent
+func (s *SQLite) Children(hash string) ([]*proto.DataItemMetadata, error) {
+	rows, err := s.db.Query(`
+		SELECT hash, plugin_id, id, kind, timestamp, content_type, parent_hash
+		FROM data_items
+		WHERE parent_hash = ?
+	`, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +88,6 @@ func Query(db *sql.DB, sqlQuery string) ([]*proto.DataItemMetadata, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		items = append(items, meta)
 	}
 
@@ -91,7 +98,32 @@ func Query(db *sql.DB, sqlQuery string) ([]*proto.DataItemMetadata, error) {
 	return items, nil
 }
 
+// Node returns the DataItem with the given hash
+func (s *SQLite) Node(hash string) (*proto.DataItemMetadata, error) {
+	meta := &proto.DataItemMetadata{}
+	err := s.db.QueryRow(`
+		SELECT hash, plugin_id, id, kind, timestamp, content_type, parent_hash
+		FROM data_items
+		WHERE hash = ?
+	`, hash).Scan(
+		&meta.Hash,
+		&meta.PluginId,
+		&meta.Id,
+		&meta.Kind,
+		&meta.Timestamp,
+		&meta.ContentType,
+		&meta.ParentHash,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
 // Close closes the database connection
-func Close(db *sql.DB) error {
-	return db.Close()
+func (s *SQLite) Close() error {
+	return s.db.Close()
 }

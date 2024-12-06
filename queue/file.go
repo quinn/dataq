@@ -82,12 +82,15 @@ func (q *FileQueue) loadState() error {
 func (q *FileQueue) writeOperation(op operation) error {
 	data, err := json.Marshal(op)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal json: %w", err)
 	}
 	if _, err := q.writer.Write(append(data, '\n')); err != nil {
-		return err
+		return fmt.Errorf("failed to write: %w", err)
 	}
-	return q.writer.Flush()
+	if err := q.writer.Flush(); err != nil {
+		return fmt.Errorf("failed to flush: %w", err)
+	}
+	return nil
 }
 
 func (q *FileQueue) Push(ctx context.Context, task *Task) error {
@@ -101,7 +104,7 @@ func (q *FileQueue) Push(ctx context.Context, task *Task) error {
 	}
 
 	if err := q.writeOperation(op); err != nil {
-		return fmt.Errorf("failed to write operation: %w", err)
+		return fmt.Errorf("failed to write push operation: %w", err)
 	}
 
 	q.state = append(q.state, task.Key())
@@ -140,7 +143,7 @@ func (q *FileQueue) Pop(ctx context.Context) (*Task, error) {
 	}
 
 	if err := q.writeOperation(op); err != nil {
-		return nil, fmt.Errorf("failed to write operation: %w", err)
+		return nil, fmt.Errorf("failed to write pop operation: %w", err)
 	}
 
 	// Remove from state
@@ -165,7 +168,7 @@ func (q *FileQueue) Update(ctx context.Context, task *Task) error {
 	}
 
 	if err := q.writeOperation(op); err != nil {
-		return fmt.Errorf("failed to write operation: %w", err)
+		return fmt.Errorf("failed to write update operation: %w", err)
 	}
 
 	*existing = *task

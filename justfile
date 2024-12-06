@@ -28,8 +28,8 @@ build-plugins:
     Write-Host "Building plugins..." -ForegroundColor Green
     New-Item -ItemType Directory -Force -Path "cmd/plugins/filescan/bin"
     New-Item -ItemType Directory -Force -Path "cmd/plugins/gmail/bin"
-    go build -o cmd/plugins/filescan/bin/filescan.exe cmd/plugins/filescan/main.go cmd/plugins/filescan/filescan.go
-    go build -o cmd/plugins/gmail/bin/gmail.exe cmd/plugins/gmail/main.go cmd/plugins/gmail/gmail.go
+    go build -o $HOME/.config/dataq/state/bin/filescan.exe cmd/plugins/filescan/main.go cmd/plugins/filescan/filescan.go
+    go build -o $HOME/.config/dataq/state/bin/gmail.exe cmd/plugins/gmail/main.go cmd/plugins/gmail/gmail.go
     Write-Host "Plugins built successfully" -ForegroundColor Green
 
 # Clean plugins
@@ -47,7 +47,7 @@ setup: install-tools install-protoc generate-proto
 
 # Build the project and plugins
 build: build-plugins
-    go build -o dataq.exe
+    go build -o dataq.exe cmd/main.go
 
 # Run tests
 test:
@@ -62,6 +62,6 @@ lint:
     go vet ./...
 
 # Run example with plugins
-run-example mode: build
-    Write-Host "Running example..." -ForegroundColor Green
-    cd example; ../dataq.exe --mode {{ mode }}
+run mode: build
+    Write-Host "Running..." -ForegroundColor Green
+    ./dataq.exe --mode {{ mode }}

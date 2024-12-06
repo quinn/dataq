@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -47,6 +47,10 @@ func ConfigPath() string {
 
 func DataDir() string {
 	return filepath.Join(ConfigDir(), "data")
+}
+
+func StateDir() string {
+	return filepath.Join(ConfigDir(), "state")
 }
 
 func Get() (*Config, error) {

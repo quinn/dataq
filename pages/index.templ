@@ -3,15 +3,17 @@ package pages
 import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/ccf/assets"
-	"go.quinn.io/dataq/content"
+	"go.quinn.io/dataq/proto"
 )
 
-func IndexHandler(c echo.Context) ([]content.PostItem, error) {
+type IndexData []*proto.DataItemMetadata
+
+func IndexHandler(c echo.Context) (IndexData, error) {
 	// Get items for a specific type
-	return content.GetPosts()
+	return make(IndexData, 0), nil
 }
 
-templ Index(posts []content.PostItem) {
+templ Index(posts IndexData) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -26,8 +28,8 @@ templ Index(posts []content.PostItem) {
 				<ul>
 					for _, post := range posts {
 						<li>
-							<a href={ templ.URL("/blog/" + post.Slug) }>
-								{ post.Meta.Title }
+							<a href={ templ.URL("/blog/" + post.Id) }>
+								{ post.Hash }
 							</a>
 						</li>
 					}

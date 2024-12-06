@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/plugin"
@@ -15,12 +16,19 @@ import (
 
 // ExecutePlugin executes a plugin binary with the given request and returns a channel of responses
 func Execute(ctx context.Context, cfg *config.Plugin, req <-chan *pb.PluginRequest) (<-chan *pb.PluginResponse, error) {
-	if _, err := os.Stat(cfg.BinaryPath); err != nil {
-		return nil, fmt.Errorf("plugin binary not found: %s", cfg.BinaryPath)
+	binpath := filepath.Join(config.StateDir(), "bin", cfg.BinaryPath)
+	if _, err := os.Stat(binpath); err != nil {
+		return nil, fmt.Errorf("plugin binary not found: %s", binpath)
+	}
+
+	pluginDir := filepath.Join(config.StateDir(), cfg.ID)
+	if err := os.MkdirAll(pluginDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create plugin directory: %w", err)
 	}
 
 	// Start plugin process
-	cmd := exec.CommandContext(ctx, cfg.BinaryPath)
+	cmd := exec.CommandContext(ctx, binpath)
+	cmd.Dir = pluginDir
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
