@@ -3,12 +3,12 @@ package router
 
 import (
 	"github.com/labstack/echo/v4"
-	"go.quinn.io/dataq/pages"
 )
 
 // RegisterRoutes adds all page routes to the Echo instance
 func RegisterRoutes(e *echo.Echo) {
 	e.GET("/", IndexHandler)
+	e.GET("/layout", LayoutHandler)
 }
 
 // IndexHandler handles requests to /
@@ -18,4 +18,13 @@ func IndexHandler(c echo.Context) error {
 		return err
 	}
 	return pages.Index(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// LayoutHandler handles requests to /layout
+func LayoutHandler(c echo.Context) error {
+	result, err := pages.LayoutHandler(c)
+	if err != nil {
+		return err
+	}
+	return pages.Layout(result).Render(c.Request().Context(), c.Response().Writer)
 }

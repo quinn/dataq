@@ -20,14 +20,6 @@ func IndexHandler(c echo.Context) (IndexData, error) {
 }
 
 templ Index(posts IndexData) {
-	<!DOCTYPE html>
-	<html lang="en">
-		<head>
-			<meta charset="UTF-8"/>
-			<title>Go Astro</title>
-			<link rel="stylesheet" href={ assets.Path("styles.css") }/>
-		</head>
-		<body>
 			<h1>Welcome to Go Astro</h1>
 			<p>A Go implementation of Astro-like functionality</p>
 			<nav>

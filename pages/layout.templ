@@ -1,0 +1,17 @@
+package pages
+
+import "go.quinn.io/ccf/assets"
+
+templ Layout() {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<title>Go Astro</title>
+			<link rel="stylesheet" href={ assets.Path("styles.css") }/>
+		</head>
+		<body>
+			{ children... }
+		</body>
+	</html>
+}
