@@ -224,7 +224,7 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 	for task := range tasks {
 		taskmap[task.PluginID][task.ID] = task
 		// Load the data for this task
-		data, err := w.loadData(task.Hash)
+		data, err := w.LoadData(task.Hash)
 		if err != nil {
 			return fmt.Errorf("failed to load data: %w", err)
 		}
@@ -279,7 +279,7 @@ func (q *Worker) storeData(data *pb.DataItem) (string, error) {
 	return hash, nil
 }
 
-func (w *Worker) loadData(hash string) (*pb.DataItem, error) {
+func (w *Worker) LoadData(hash string) (*pb.DataItem, error) {
 	if hash == "" {
 		return nil, nil
 	}
