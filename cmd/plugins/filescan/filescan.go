@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"path/filepath"
 
+	"go.quinn.io/dataq/plugin"
 	pb "go.quinn.io/dataq/proto"
 )
 
@@ -37,7 +38,7 @@ func (p *FileScanPlugin) Configure(config map[string]string) error {
 	return nil
 }
 
-func (p *FileScanPlugin) Extract(ctx context.Context, req *pb.PluginRequest) (<-chan *pb.DataItem, error) {
+func (p *FileScanPlugin) Extract(ctx context.Context, req *pb.PluginRequest, api *plugin.PluginAPI) (<-chan *pb.DataItem, error) {
 	items := make(chan *pb.DataItem)
 
 	go func() {

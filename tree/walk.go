@@ -7,11 +7,11 @@ import (
 
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/dq"
-	"go.quinn.io/dataq/proto"
+	pb "go.quinn.io/dataq/proto"
 )
 
 // walk walks through the directory tree and processes each file
-func walk(callback func(*proto.DataItem, string) error) error {
+func walk(callback func(*pb.DataItem, string) error) error {
 	return filepath.Walk(config.DataDir(), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err

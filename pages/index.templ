@@ -4,10 +4,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/components"
-	"go.quinn.io/dataq/proto"
+	pb "go.quinn.io/dataq/proto"
 )
 
-type IndexData []*proto.DataItemMetadata
+type IndexData []*pb.DataItemMetadata
 
 func IndexHandler(c echo.Context) (IndexData, error) {
 	b := c.Get("boot").(*boot.Boot)

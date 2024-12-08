@@ -5,12 +5,12 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/components"
-	"go.quinn.io/dataq/proto"
+	pb "go.quinn.io/dataq/proto"
 )
 
 type ContentHashData struct {
-	Item     *proto.DataItem
-	Children []*proto.DataItemMetadata
+	Item     *pb.DataItem
+	Children []*pb.DataItemMetadata
 }
 
 func ContentHashHandler(c echo.Context, hash string) (ContentHashData, error) {

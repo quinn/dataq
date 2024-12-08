@@ -76,81 +76,15 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 	return nil
 }
 
-func (p *GmailPlugin) Extract(ctx context.Context, preq *pb.PluginRequest, api plugin.PluginAPI) (<-chan *pb.DataItem, error) {
-	items := make(chan *pb.DataItem)
-
-	srv, err := p.getClient(ctx)
-	if err != nil {
-		return nil, err
+func (p *GmailPlugin) Extract(ctx context.Context, preq *pb.PluginRequest, api *plugin.PluginAPI) error {
+	switch preq.Action.Name {
+	case "initial", "next_page":
+		return p.getPage(ctx, preq, api)
+	case "get_message":
+		return p.getMessage(ctx, preq, api)
+	default:
+		return fmt.Errorf("unknown action: %s", preq.Action.Name)
 	}
-
-	go func() {
-		defer close(items)
-
-		var pageToken string
-
-		// If we have previous response data, extract the next page token
-		if prevData := preq.Item; prevData != nil {
-			var prevResp gmail.ListMessagesResponse
-			if err := json.Unmarshal([]byte(prevData.RawData), &prevResp); err != nil {
-				log.Printf("Error parsing previous response: %v", err)
-				return
-			}
-			pageToken = prevResp.NextPageToken
-		}
-
-		// If no previous response or invalid, start from beginning
-		req := srv.Users.Messages.List("me").MaxResults(100)
-		if pageToken != "" {
-			req.PageToken(pageToken)
-		}
-
-		r, err := req.Do()
-		if err != nil {
-			log.Printf("Error listing messages: %v", err)
-			return
-		}
-
-		if r.Messages == nil {
-			log.Printf("No messages found")
-			return
-		}
-
-		// Marshal the response to JSON
-		rawJSON, err := json.MarshalIndent(r, "", "  ")
-		if err != nil {
-			log.Printf("Error marshaling response: %v", err)
-			return
-		}
-
-		// Create a DataItem for the page
-		item := &pb.DataItem{
-			Meta: &pb.DataItemMetadata{
-				PluginId:    p.ID(),
-				Id:          pageToken,
-				Kind:        "page",
-				ContentType: "application/json",
-			},
-			RawData: rawJSON,
-		}
-
-		items <- item
-
-		for _, msg := range r.Messages {
-			item := &pb.DataItem{
-				Meta: &pb.DataItemMetadata{
-					PluginId:    p.ID(),
-					Id:          msg.Id,
-					Kind:        "message",
-					ContentType: "application/json",
-				},
-			}
-
-			items <- item
-		}
-	}()
-
-	return items, nil
 }
 
 func (p *GmailPlugin) getClient(ctx context.Context) (*gmail.Service, error) {

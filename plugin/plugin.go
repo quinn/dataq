@@ -2,8 +2,6 @@ package plugin
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"time"
@@ -20,7 +18,7 @@ var waitForDebugger bool = false
 type Plugin interface {
 	ID() string
 	Configure(map[string]string) error
-	Extract(context.Context, *pb.PluginRequest, *PluginAPI) (<-chan *pb.DataItem, error)
+	Extract(context.Context, *pb.PluginRequest, *PluginAPI) error
 }
 
 // Run is a harness that a plugin written in Go can use to receive and respond to requests
@@ -49,20 +47,16 @@ func Run(p Plugin) {
 		ctx := context.Background()
 
 		// Always configure the plugin first
-		if err := p.Configure(req.Config); err != nil {
+		if err := p.Configure(req.PluginConfig); err != nil {
 			api.WriteError(fmt.Errorf("failed to configure plugin: %v", err))
 			continue
 		}
 
 		// if req.Operation == "extract" {
-		items, err := p.Extract(ctx, req, api)
+		err := p.Extract(ctx, req, api)
 		if err != nil {
 			api.WriteError(fmt.Errorf("failed to extract data: %v", err))
 			continue
-		}
-
-		for item := range items {
-			api.WriteItem(item)
 		}
 
 		if req.GetClosed() {

@@ -41,13 +41,21 @@ func (p *PluginAPI) WriteClosed() {
 func (p *PluginAPI) WriteItem(item *pb.DataItem) {
 	item.Meta.Hash = hash.Generate(item.RawData)
 
-	if p.request.Item != nil {
-		item.Meta.ParentHash = p.request.Item.Meta.Hash
+	if p.request.Action != nil {
+		item.Meta.ParentHash = p.request.Action.ParentHash
 	}
 
 	stream.WriteResponse(os.Stdout, &pb.PluginResponse{
 		PluginId:  p.plugin.ID(),
 		RequestId: p.request.Id,
 		Item:      item,
+	})
+}
+
+func (p *PluginAPI) WriteAction(action *pb.Action) {
+	stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+		PluginId:  p.plugin.ID(),
+		RequestId: p.request.Id,
+		Action:    action,
 	})
 }

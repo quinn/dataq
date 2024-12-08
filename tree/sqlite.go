@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
-	"go.quinn.io/dataq/proto"
+	pb "go.quinn.io/dataq/proto"
 )
 
 type SQLite struct {
@@ -41,7 +41,7 @@ func New(dbPath string) (*SQLite, error) {
 // Index scans the root directory and indexes all DataItems
 func (s *SQLite) Index() error {
 	// Walk the directory and store items
-	return walk(func(item *proto.DataItem, path string) error {
+	return walk(func(item *pb.DataItem, path string) error {
 		meta := item.GetMeta()
 		_, err := s.db.Exec(`
 			INSERT OR REPLACE INTO data_items (
@@ -62,7 +62,7 @@ func (s *SQLite) Index() error {
 }
 
 // Children returns all DataItems that have the given hash as their parent
-func (s *SQLite) Children(hash string) ([]*proto.DataItemMetadata, error) {
+func (s *SQLite) Children(hash string) ([]*pb.DataItemMetadata, error) {
 	rows, err := s.db.Query(`
 		SELECT hash, plugin_id, id, kind, timestamp, content_type, parent_hash
 		FROM data_items
@@ -73,9 +73,9 @@ func (s *SQLite) Children(hash string) ([]*proto.DataItemMetadata, error) {
 	}
 	defer rows.Close()
 
-	var items []*proto.DataItemMetadata
+	var items []*pb.DataItemMetadata
 	for rows.Next() {
-		meta := &proto.DataItemMetadata{}
+		meta := &pb.DataItemMetadata{}
 		err := rows.Scan(
 			&meta.Hash,
 			&meta.PluginId,
@@ -99,8 +99,8 @@ func (s *SQLite) Children(hash string) ([]*proto.DataItemMetadata, error) {
 }
 
 // Node returns the DataItem with the given hash
-func (s *SQLite) Node(hash string) (*proto.DataItemMetadata, error) {
-	meta := &proto.DataItemMetadata{}
+func (s *SQLite) Node(hash string) (*pb.DataItemMetadata, error) {
+	meta := &pb.DataItemMetadata{}
 	err := s.db.QueryRow(`
 		SELECT hash, plugin_id, id, kind, timestamp, content_type, parent_hash
 		FROM data_items

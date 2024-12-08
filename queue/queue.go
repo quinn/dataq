@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"go.quinn.io/dataq/config"
+	"go.quinn.io/dataq/hash"
 	pb "go.quinn.io/dataq/proto"
 )
 
@@ -42,13 +44,14 @@ func (t *Task) Request() *pb.PluginRequest {
 	return &pb.PluginRequest{
 		PluginId:     t.PluginID,
 		Id:           t.ID,
-		Config:       t.Config,
 		PluginConfig: t.PluginConfig,
+		Action:       t.Action,
 	}
 }
 
 // NewTask creates a new TaskMetadata instance
 func NewTask(plugin config.Plugin, action *pb.Action) *Task {
+	id := [16]byte(uuid.New())
 	return &Task{
 		Status:       TaskStatusPending,
 		CreatedAt:    time.Now(),
@@ -57,21 +60,15 @@ func NewTask(plugin config.Plugin, action *pb.Action) *Task {
 		Action:       action,
 		PluginConfig: plugin.Config,
 		PluginID:     plugin.ID,
-		ID:           hash.Generate(action.ParentHash),
+		ID:           hash.Encode(id[:]),
 	}
 }
 
 // InitialTask creates an initial task metadata for a plugin
-func InitialTask(plugin config.Plugin, cfg map[string]string) *Task {
-	return &Task{
-		Status:       TaskStatusPending,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-		PluginConfig: plugin.Config,
-		Config:       cfg,
-		PluginID:     plugin.ID,
-		ID:           "initial",
-	}
+func InitialTask(plugin config.Plugin) *Task {
+	return NewTask(plugin, &pb.Action{
+		Name: "initial",
+	})
 }
 
 func NewQueue(queueType, path string) (Queue, error) {

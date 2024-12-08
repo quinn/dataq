@@ -23,7 +23,6 @@ message DataItem {
 message PluginRequest {
   string              plugin_id = 1;
   string              id = 2;
-  map<string, string> config = 3;
   Action              action = 4;
   map<string, string> plugin_config = 5;
   bool                closed = 6; // other fields are discarded

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"go.quinn.io/dataq/proto"
+	pb "go.quinn.io/dataq/proto"
 )
 
 // Delimiter used to separate metadata from raw data
@@ -34,12 +34,12 @@ func write(w io.Writer, metadata interface{}, rawData []byte) error {
 }
 
 // Write writes a DataItem to the provided writer in the custom format
-func Write(w io.Writer, item *proto.DataItem) error {
+func Write(w io.Writer, item *pb.DataItem) error {
 	return write(w, item.Meta, item.RawData)
 }
 
 // Read reads a DataItem from the provided reader in the custom format
-func Read(r io.Reader) (*proto.DataItem, error) {
+func Read(r io.Reader) (*pb.DataItem, error) {
 	// Read all data
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -67,13 +67,13 @@ func Read(r io.Reader) (*proto.DataItem, error) {
 	}
 
 	// Parse JSON metadata
-	var wrapper proto.DataItemMetadata
+	var wrapper pb.DataItemMetadata
 	if err := json.Unmarshal(data[:delimiterIndex], &wrapper); err != nil {
 		return nil, err
 	}
 
 	// Create DataItem
-	item := &proto.DataItem{
+	item := &pb.DataItem{
 		Meta:    &wrapper,
 		RawData: data[delimiterIndex+len(Delimiter):],
 	}
