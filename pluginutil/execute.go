@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"go.quinn.io/dataq/config"
-	"go.quinn.io/dataq/plugin"
+	"go.quinn.io/dataq/hash"
 	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/stream"
 )
@@ -79,7 +79,7 @@ func Execute(ctx context.Context, cfg *config.Plugin, req <-chan *pb.PluginReque
 			}
 
 			if resp.Item != nil {
-				if resp.Item.Meta.Hash != plugin.GenerateHash(resp.Item.RawData) {
+				if resp.Item.Meta.Hash != hash.Generate(resp.Item.RawData) {
 					responses <- &pb.PluginResponse{
 						PluginId: cfg.ID,
 						Error:    "hash mismatch",

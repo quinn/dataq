@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.quinn.io/dataq/plugin"
 	pb "go.quinn.io/dataq/proto"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -75,7 +76,7 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 	return nil
 }
 
-func (p *GmailPlugin) Extract(ctx context.Context, preq *pb.PluginRequest) (<-chan *pb.DataItem, error) {
+func (p *GmailPlugin) Extract(ctx context.Context, preq *pb.PluginRequest, api plugin.PluginAPI) (<-chan *pb.DataItem, error) {
 	items := make(chan *pb.DataItem)
 
 	srv, err := p.getClient(ctx)
@@ -134,6 +135,19 @@ func (p *GmailPlugin) Extract(ctx context.Context, preq *pb.PluginRequest) (<-ch
 		}
 
 		items <- item
+
+		for _, msg := range r.Messages {
+			item := &pb.DataItem{
+				Meta: &pb.DataItemMetadata{
+					PluginId:    p.ID(),
+					Id:          msg.Id,
+					Kind:        "message",
+					ContentType: "application/json",
+				},
+			}
+
+			items <- item
+		}
 	}()
 
 	return items, nil

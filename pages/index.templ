@@ -2,9 +2,9 @@ package pages
 
 import (
 	"github.com/labstack/echo/v4"
-	"go.quinn.io/ccf/assets"
-	"go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/components"
+	"go.quinn.io/dataq/proto"
 )
 
 type IndexData []*proto.DataItemMetadata
@@ -20,19 +20,15 @@ func IndexHandler(c echo.Context) (IndexData, error) {
 }
 
 templ Index(posts IndexData) {
-			<h1>Welcome to Go Astro</h1>
-			<p>A Go implementation of Astro-like functionality</p>
-			<nav>
-				<ul>
-					for _, post := range posts {
-						<li>
-							<a href={ templ.URL("/blog/" + post.Id) }>
-								{ post.Hash }
-							</a>
-						</li>
-					}
-				</ul>
-			</nav>
-		</body>
-	</html>
+	@components.Layout() {
+		<ul class="list-disc list-inside">
+			for _, post := range posts {
+				<li class="list-item">
+					<a href={ templ.URL("/content/" + post.Hash) } class="underline">
+						{ post.Hash }
+					</a>
+				</li>
+			}
+		</ul>
+	}
 }

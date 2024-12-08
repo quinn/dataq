@@ -1,0 +1,69 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/components"
+	"go.quinn.io/dataq/proto"
+)
+
+type ContentHashData struct {
+	Item     *proto.DataItem
+	Children []*proto.DataItemMetadata
+}
+
+func ContentHashHandler(c echo.Context, hash string) (ContentHashData, error) {
+	b := c.Get("boot").(*boot.Boot)
+
+	item, err := b.Worker.LoadData(hash)
+	if err != nil {
+		return ContentHashData{}, err
+	}
+
+	children, err := b.Tree.Children(hash)
+
+	return ContentHashData{
+		Item:     item,
+		Children: children,
+	}, nil
+}
+
+templ ContentHash(data ContentHashData) {
+	@components.Layout() {
+		<h1 class="font-bold inline-block mb-3">
+			<dl class="inline-grid grid-cols-[min-content,1fr] gap-x-3">
+				<dt>Plugin ID</dt>
+				<dd>{ data.Item.Meta.PluginId }</dd>
+				<dt>ID</dt>
+				<dd>{ data.Item.Meta.Id }</dd>
+				<dt>Kind</dt>
+				<dd>{ data.Item.Meta.Kind }</dd>
+				<dt>Timestamp</dt>
+				<dd>{ fmt.Sprintf("%d", data.Item.Meta.Timestamp) }</dd>
+				<dt>Content Type</dt>
+				<dd>{ data.Item.Meta.ContentType }</dd>
+				<dt>Hash</dt>
+				<dd>{ data.Item.Meta.Hash }</dd>
+				<dt class="text-nowrap">Parent Hash</dt>
+				<dd>{ data.Item.Meta.ParentHash }</dd>
+			</dl>
+		</h1>
+		<hr class="mb-3"/>
+		<h3 class="font-bold">Children</h3>
+		<ul class="list-disc list-inside mb-3">
+			for _, child := range data.Children {
+				<li class="list-item">
+					<a href={ templ.URL("/content/" + child.Hash) } class="underline">
+						{ child.Hash }
+					</a>
+				</li>
+			}
+		</ul>
+		<hr class="mb-3"/>
+		<h3 class="font-bold">Data</h3>
+		<div class="border p-3 mb-3">
+			@components.JsonBrowser(data.Item.RawData)
+		</div>
+	}
+}
