@@ -33,7 +33,7 @@ func JsonBrowser(data []byte) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templ.WriteWatchModeString(templ_7745c5c3_Buffer, 1)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<script src=\"https://cdn.jsdelivr.net/npm/@textea/json-viewer@3\"></script><div id=\"json-viewer\"></div><script>\n        const data = JSON.parse(JSON.parse(document.getElementById('raw-data').textContent))\n        new JsonViewer({ value: data }).render('#json-viewer')\n    </script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

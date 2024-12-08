@@ -1,1 +1,0 @@
-<script src=\"https://cdn.jsdelivr.net/npm/@textea/json-viewer@3\"></script><div id=\"json-viewer\"></div><script>\n        const data = JSON.parse(JSON.parse(document.getElementById('raw-data').textContent))\n        new JsonViewer({ value: data }).render('#json-viewer')\n    </script>
