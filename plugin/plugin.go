@@ -23,12 +23,6 @@ type Plugin interface {
 	Extract(context.Context, *pb.PluginRequest, *PluginAPI) (<-chan *pb.DataItem, error)
 }
 
-func GenerateHash(data []byte) string {
-	h := sha256.New()
-	h.Write(data)
-	return hex.EncodeToString(h.Sum(nil))
-}
-
 // Run is a harness that a plugin written in Go can use to receive and respond to requests
 // plugins can be written in any language, as long as they implement the wire protocol
 func Run(p Plugin) {

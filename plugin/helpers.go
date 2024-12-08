@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"go.quinn.io/dataq/hash"
 	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/stream"
 )
@@ -38,7 +39,7 @@ func (p *PluginAPI) WriteClosed() {
 }
 
 func (p *PluginAPI) WriteItem(item *pb.DataItem) {
-	item.Meta.Hash = GenerateHash(item.RawData)
+	item.Meta.Hash = hash.Generate(item.RawData)
 
 	if p.request.Item != nil {
 		item.Meta.ParentHash = p.request.Item.Meta.Hash
