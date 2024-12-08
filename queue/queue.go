@@ -27,9 +27,11 @@ type Task struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Hash      string // SHA-256 hash of the data, used to reference the actual data
-	Config    map[string]string
-	PluginID  string
-	ID        string
+	// Config       map[string]string
+	PluginConfig map[string]string
+	PluginID     string
+	ID           string
+	Action       *pb.Action
 }
 
 func (t *Task) Key() string {
@@ -38,34 +40,37 @@ func (t *Task) Key() string {
 
 func (t *Task) Request() *pb.PluginRequest {
 	return &pb.PluginRequest{
-		PluginId: t.PluginID,
-		Id:       t.ID,
-		Config:   t.Config,
+		PluginId:     t.PluginID,
+		Id:           t.ID,
+		Config:       t.Config,
+		PluginConfig: t.PluginConfig,
 	}
 }
 
 // NewTask creates a new TaskMetadata instance
-func NewTask(plugin config.Plugin, itemID string, hash string) *Task {
+func NewTask(plugin config.Plugin, action *pb.Action) *Task {
 	return &Task{
-		Status:    TaskStatusPending,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Hash:      hash,
-		Config:    plugin.Config,
-		PluginID:  plugin.ID,
-		ID:        itemID,
+		Status:       TaskStatusPending,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		Hash:         action.ParentHash,
+		Action:       action,
+		PluginConfig: plugin.Config,
+		PluginID:     plugin.ID,
+		ID:           hash.Generate(action.ParentHash),
 	}
 }
 
 // InitialTask creates an initial task metadata for a plugin
-func InitialTask(plugin config.Plugin) *Task {
+func InitialTask(plugin config.Plugin, cfg map[string]string) *Task {
 	return &Task{
-		Status:    TaskStatusPending,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Config:    plugin.Config,
-		PluginID:  plugin.ID,
-		ID:        "initial",
+		Status:       TaskStatusPending,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		PluginConfig: plugin.Config,
+		Config:       cfg,
+		PluginID:     plugin.ID,
+		ID:           "initial",
 	}
 }
 

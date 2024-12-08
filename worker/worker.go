@@ -182,14 +182,16 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 
 				if resp.Item != nil {
 					// Store the data item
-					hash, err := w.storeData(resp.Item)
+					_, err := w.storeData(resp.Item)
 					if err != nil {
 						w.taskError(ctx, task, messages, err)
 						continue
 					}
+				}
 
+				if resp.Action != nil {
 					// Create a new task for this item
-					newTask := queue.NewTask(*w.plugins[resp.PluginId], resp.Item.Meta.Id, hash)
+					newTask := queue.NewTask(*w.plugins[resp.PluginId], resp.Action)
 					if err := w.queue.Push(ctx, newTask); err != nil {
 						w.taskError(ctx, task, messages, err)
 						continue

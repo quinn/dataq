@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package dataq;
-option go_package = "go.quinn.io/dataq/proto";
+option go_package = "go.quinn.io/dataq/pb";
 
 message DataItemMetadata {
   string plugin_id = 1;
@@ -24,16 +24,46 @@ message PluginRequest {
   string              plugin_id = 1;
   string              id = 2;
   map<string, string> config = 3;
-  DataItem            item = 4;
+  Action              action = 4;
+  map<string, string> plugin_config = 5;
   bool                closed = 6; // other fields are discarded
 }
+
+// Action represents an action to be taken on a DataItem
+message Action {
+  string              name = 1;
+  string              parent_hash = 2;
+  map<string, string> config = 3;
+}
+
+
+/*
+actions = [
+  {
+    name: "next_page",
+    config: {
+      "next_page_token": "..."
+    }
+  },
+  // one action is emitted for each message in the page
+  {
+    name: "get_message",
+    config: {
+      "message_id": "..."
+    }
+  }
+]
+*/
 
 // PluginResponse represents a response from a plugin
 message PluginResponse {
   string   plugin_id = 1;
   string   request_id = 2;
-  DataItem item = 3;
-  string   error = 4;  // empty if no error
-  bool     closed = 5; // other fields are discarded
-  bool     done = 6;   // no further responses for this request
+  string   hash = 3;
+  DataItem item = 4;
+  Action   action = 5;
+  string   error = 6;  // empty if no error
+  bool     closed = 7; // other fields are discarded
+  bool     done = 8;   // no further responses for this request
 }
+
