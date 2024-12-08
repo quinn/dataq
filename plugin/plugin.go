@@ -18,7 +18,8 @@ var waitForDebugger bool = false
 type Plugin interface {
 	ID() string
 	Configure(map[string]string) error
-	Extract(context.Context, *pb.PluginRequest, *PluginAPI) error
+	Extract(context.Context, *pb.Action, *PluginAPI) error
+	Transform(context.Context, *pb.DataItem, *PluginAPI) error
 }
 
 // Run is a harness that a plugin written in Go can use to receive and respond to requests
@@ -52,10 +53,21 @@ func Run(p Plugin) {
 			continue
 		}
 
-		// if req.Operation == "extract" {
-		err := p.Extract(ctx, req, api)
-		if err != nil {
-			api.WriteError(fmt.Errorf("failed to extract data: %v", err))
+		switch req.Operation {
+		case "extract":
+			err := p.Extract(ctx, req.Action, api)
+			if err != nil {
+				api.WriteError(fmt.Errorf("failed to extract data: %v", err))
+				continue
+			}
+		case "transform":
+			err := p.Transform(ctx, req.Item, api)
+			if err != nil {
+				api.WriteError(fmt.Errorf("failed to transform data: %v", err))
+				continue
+			}
+		default:
+			api.WriteError(fmt.Errorf("unknown operation: %s", req.Operation))
 			continue
 		}
 

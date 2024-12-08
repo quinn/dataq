@@ -44,6 +44,7 @@ func (t *Task) Request() *pb.PluginRequest {
 	return &pb.PluginRequest{
 		PluginId:     t.PluginID,
 		Id:           t.ID,
+		Operation:    "extract",
 		PluginConfig: t.PluginConfig,
 		Action:       t.Action,
 	}
@@ -56,10 +57,22 @@ func NewTask(plugin config.Plugin, action *pb.Action) *Task {
 		Status:       TaskStatusPending,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
-		Hash:         action.ParentHash,
 		Action:       action,
 		PluginConfig: plugin.Config,
 		PluginID:     plugin.ID,
+		ID:           hash.Encode(id[:]),
+	}
+}
+
+func NewExtractTask(plugin config.Plugin, item *pb.DataItem) *Task {
+	id := [16]byte(uuid.New())
+	return &Task{
+		Status:       TaskStatusPending,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+		PluginConfig: plugin.Config,
+		PluginID:     plugin.ID,
+		Hash:         item.Meta.Hash,
 		ID:           hash.Encode(id[:]),
 	}
 }

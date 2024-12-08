@@ -76,14 +76,25 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 	return nil
 }
 
-func (p *GmailPlugin) Extract(ctx context.Context, preq *pb.PluginRequest, api *plugin.PluginAPI) error {
-	switch preq.Action.Name {
+func (p *GmailPlugin) Extract(ctx context.Context, action *pb.Action, api *plugin.PluginAPI) error {
+	switch action.Name {
 	case "initial", "next_page":
-		return p.getPage(ctx, preq, api)
+		return p.getPage(ctx, action, api)
 	case "get_message":
-		return p.getMessage(ctx, preq, api)
+		return p.getMessage(ctx, action, api)
 	default:
-		return fmt.Errorf("unknown action: %s", preq.Action.Name)
+		return fmt.Errorf("unknown action: %s", action.Name)
+	}
+}
+
+func (p *GmailPlugin) Transform(ctx context.Context, item *pb.DataItem, api *plugin.PluginAPI) error {
+	switch item.Meta.Kind {
+	case "page":
+		return p.transformPage(ctx, item, api)
+	case "message":
+		return nil
+	default:
+		return fmt.Errorf("unknown kind: %s", item.Meta.Kind)
 	}
 }
 

@@ -23,16 +23,20 @@ message DataItem {
 message PluginRequest {
   string              plugin_id = 1;
   string              id = 2;
-  Action              action = 4;
-  map<string, string> plugin_config = 5;
-  bool                closed = 6; // other fields are discarded
+  string              operation = 3;
+  DataItem            item = 4;
+  Action              action = 5;
+  map<string, string> plugin_config = 6;
+  bool                closed = 7; // other fields are discarded
 }
 
 // Action represents an action to be taken on a DataItem
 message Action {
   string              name = 1;
-  string              parent_hash = 2;
-  map<string, string> config = 3;
+  string              kind = 2;
+  string              id = 3;
+  string              parent_hash = 4;
+  map<string, string> config = 5;
 }
 
 

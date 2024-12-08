@@ -224,19 +224,32 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 
 	// Process tasks
 	for task := range tasks {
-		taskmap[task.PluginID][task.ID] = task
-		// Load the data for this task
-		data, err := w.LoadData(task.Hash)
-		if err != nil {
-			return fmt.Errorf("failed to load data: %w", err)
-		}
-
 		messages <- Message{
 			Type: "info",
 			Data: "Processing task: " + task.Key(),
 		}
 
-		if data == nil {
+		taskmap[task.PluginID][task.ID] = task
+		// Load the data for this task
+
+		var item *pb.DataItem
+		var err error
+		if task.Hash != "" {
+			item, err = w.LoadData(task.Hash)
+			if err != nil {
+				return fmt.Errorf("failed to load data: %w", err)
+			}
+		}
+
+		request := task.Request()
+		if item != nil {
+			request.Item = item
+			request.Operation = "transform"
+		} else {
+			request.Operation = "extract"
+		}
+
+		if item == nil {
 			messages <- Message{
 				Type: "info",
 				Data: "[input: nil]",
@@ -244,16 +257,14 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 		} else {
 			messages <- Message{
 				Type: "info",
-				Data: "[input: " + data.Meta.Id + "] [hash: " + data.Meta.Hash + "]",
+				Data: "[input: " + item.Meta.Id + "] [hash: " + item.Meta.Hash + "]",
 			}
 
 			messages <- Message{
 				Type: "protobuf",
-				Data: data.Meta.String(),
+				Data: item.Meta.String(),
 			}
 		}
-		request := task.Request()
-		request.Item = data
 
 		pluginReqs[request.PluginId] <- request
 	}
@@ -282,9 +293,6 @@ func (q *Worker) storeData(data *pb.DataItem) (string, error) {
 }
 
 func (w *Worker) LoadData(hash string) (*pb.DataItem, error) {
-	if hash == "" {
-		return nil, nil
-	}
 	filename := filepath.Join(w.dataDir, hash+".dq")
 
 	f, err := os.Open(filename)
