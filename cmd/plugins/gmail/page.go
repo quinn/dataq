@@ -72,20 +72,6 @@ func (p *GmailPlugin) transformPage(_ context.Context, item *pb.DataItem, api *p
 		return fmt.Errorf("error unmarshaling response: %v", err)
 	}
 
-	if r.NextPageToken != "" {
-		action := &pb.Action{
-			Name:       "next_page",
-			Kind:       "page",
-			Id:         r.NextPageToken,
-			ParentHash: item.Meta.Hash,
-			Config: map[string]string{
-				"next_page_token": r.NextPageToken,
-			},
-		}
-
-		api.WriteAction(action)
-	}
-
 	for _, msg := range r.Messages {
 		action := &pb.Action{
 			Name:       "get_message",
@@ -94,6 +80,20 @@ func (p *GmailPlugin) transformPage(_ context.Context, item *pb.DataItem, api *p
 			ParentHash: item.Meta.Hash,
 			Config: map[string]string{
 				"message_id": msg.Id,
+			},
+		}
+
+		api.WriteAction(action)
+	}
+
+	if r.NextPageToken != "" {
+		action := &pb.Action{
+			Name:       "next_page",
+			Kind:       "page",
+			Id:         r.NextPageToken,
+			ParentHash: item.Meta.Hash,
+			Config: map[string]string{
+				"next_page_token": r.NextPageToken,
 			},
 		}
 

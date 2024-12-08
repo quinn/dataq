@@ -140,6 +140,23 @@ func (w *Worker) taskError(ctx context.Context, task *queue.Task, messages chan 
 	}
 }
 
+// func taskMessage(task *queue.Task) Message {
+// 	data := make(map[string]string)
+// 	data["task"] = task.ID
+// 	data["plugin"] = task.PluginID
+// 	data["hash"] = task.Hash
+
+// 	msg := ""
+// 	for k, v := range data {
+// 		msg += fmt.Sprintf("[%s: %s]", k, v)
+// 	}
+
+// 	return Message{
+// 		Type: "info",
+// 		Data: msg,
+// 	}
+// }
+
 // ProcessSingleTask processes a single task and returns the result
 func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, messages chan Message) error {
 	messages <- Message{
@@ -187,6 +204,11 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 						w.taskError(ctx, task, messages, err)
 						continue
 					}
+
+					messages <- Message{
+						Type: "info",
+						Data: "[kind: " + resp.Item.Meta.Kind + "] [data: " + resp.Item.Meta.Id + "] [hash: " + resp.Item.Meta.Hash + "]",
+					}
 				}
 
 				if resp.Action != nil {
@@ -199,7 +221,7 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 
 					messages <- Message{
 						Type: "info",
-						Data: "[task: " + newTask.ID + "] [plugin: " + newTask.PluginID + "] [hash: " + resp.Item.Meta.Hash + "] [parent: " + resp.Item.Meta.ParentHash + "]",
+						Data: "[task: " + newTask.ID + "] [plugin: " + newTask.PluginID + "] [action: " + newTask.Action.Name + "]",
 					}
 				}
 

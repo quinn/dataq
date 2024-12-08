@@ -29,7 +29,7 @@ build-plugins:
     New-Item -ItemType Directory -Force -Path "cmd/plugins/filescan/bin"
     New-Item -ItemType Directory -Force -Path "cmd/plugins/gmail/bin"
     go build -o $HOME/.config/dataq/state/bin/filescan.exe cmd/plugins/filescan/main.go cmd/plugins/filescan/filescan.go
-    go build -o $HOME/.config/dataq/state/bin/gmail.exe cmd/plugins/gmail/main.go cmd/plugins/gmail/gmail.go
+    go build -o $HOME/.config/dataq/state/bin/gmail.exe ./cmd/plugins/gmail
     Write-Host "Plugins built successfully" -ForegroundColor Green
 
 # Clean plugins
