@@ -3,7 +3,7 @@ package cas
 import (
 	"io"
 
-	"go.quinn.io/dataq/proto"
+	pb "go.quinn.io/dataq/proto"
 )
 
 type Storage interface {
@@ -13,8 +13,8 @@ type Storage interface {
 	Retrieve(hash string) (data io.ReadCloser, err error)
 
 	// data items
-	StoreItem(item *proto.DataItem) (hash string, err error)
-	RetrieveItem(hash string) (item *proto.DataItem, err error)
+	StoreItem(item *pb.DataItem) (hash string, err error)
+	RetrieveItem(hash string) (item *pb.DataItem, err error)
 
 	Iterate() (hashes <-chan string, err error)
 }

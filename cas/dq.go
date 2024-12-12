@@ -10,14 +10,14 @@ import (
 
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/dq"
-	"go.quinn.io/dataq/proto"
+	pb "go.quinn.io/dataq/proto"
 )
 
 type DQ struct{}
 
 // implement the Storage interface
 
-func (d *DQ) StoreItem(item *proto.DataItem) (string, error) {
+func (d *DQ) StoreItem(item *pb.DataItem) (string, error) {
 	hash := item.Meta.Hash
 	f, err := os.Create(filepath.Join(config.DataDir(), hash+".dq"))
 	if err != nil {
@@ -36,7 +36,7 @@ func (d *DQ) Store(r io.Reader) (hash string, err error) {
 	panic("implement me")
 }
 
-func (d *DQ) RetrieveItem(hash string) (item *proto.DataItem, err error) {
+func (d *DQ) RetrieveItem(hash string) (item *pb.DataItem, err error) {
 	f, err := d.Retrieve(hash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve data: %w", err)

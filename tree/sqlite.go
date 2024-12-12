@@ -4,8 +4,8 @@ import (
 	"database/sql"
 
 	_ "github.com/mattn/go-sqlite3"
-	pb "go.quinn.io/dataq/cas"
-	"go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/cas"
+	pb "go.quinn.io/dataq/proto"
 )
 
 type SQLite struct {

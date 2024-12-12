@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"sql"
 	"time"
 
 	pb "go.quinn.io/dataq/proto"
