@@ -2,9 +2,11 @@ package boot
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 
+	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/queue"
 	"go.quinn.io/dataq/tree"
@@ -16,6 +18,7 @@ type Boot struct {
 	Tree   tree.Tree
 	Config *config.Config
 	Worker *worker.Worker
+	CAS    cas.Storage
 }
 
 func New() (*Boot, error) {
@@ -23,19 +26,25 @@ func New() (*Boot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get config: %w", err)
 	}
+	config.StateDir()
+	db, err := sql.Open("sqlite3", config.StateDir()+"/state.db")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
 
 	// Initialize queue
-	q, err := queue.NewQueue("file", config.StateDir())
+	q, err := queue.NewSQLiteQueue(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create queue: %w", err)
 	}
 
+	casDQ := &cas.DQ{}
+
 	// Create worker
-	wrkr := worker.New(q, cfg.Plugins, config.DataDir())
-	// w.Start(context.Background(), make(chan worker.Message, 10))
+	wrkr := worker.New(q, cfg.Plugins, config.DataDir(), casDQ)
 
 	// init tree
-	t, err := tree.New(config.StateDir())
+	t, err := tree.New(db, casDQ)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tree: %w", err)
 	}
@@ -68,5 +77,6 @@ func New() (*Boot, error) {
 		Queue:  q,
 		Tree:   t,
 		Worker: wrkr,
+		CAS:    casDQ,
 	}, nil
 }

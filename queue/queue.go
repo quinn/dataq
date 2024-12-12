@@ -86,8 +86,6 @@ func InitialTask(plugin config.Plugin) *Task {
 
 func NewQueue(queueType, path string) (Queue, error) {
 	switch queueType {
-	case "sqlite":
-		return newSQLiteQueue(path)
 	case "bbolt":
 		return newBoltQueue(path)
 	case "file":

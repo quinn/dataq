@@ -80,6 +80,13 @@ tasks:
           --build.stop_on_error "false" \
           --misc.clean_on_exit true
 
+  gen-tailwind:
+    cmds:
+      - |
+        tailwindcss \
+          -i ./tailwind.css \
+          -o ./internal/web/public/styles.css
+
   live:tailwind:
     cmds:
       - figlet "Running tailwindcss..."
@@ -106,8 +113,22 @@ tasks:
       - |
         task -p \
           live:templ \
-          live:server \
           live:pages \
           live:content \
           live:tailwind \
-          live:assets
+          live:assets \
+          live:server
+
+  build:
+    cmds:
+      - |
+        task \
+          gen-templ \
+          gen-pages \
+          gen-content \
+          gen-tailwind \
+          build-server
+
+  default:
+    cmds:
+      - "{{.RUN_BIN}} {{ .CLI_ARGS }}"

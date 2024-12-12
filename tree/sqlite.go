@@ -2,24 +2,20 @@ package tree
 
 import (
 	"database/sql"
-	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
-	pb "go.quinn.io/dataq/proto"
+	pb "go.quinn.io/dataq/cas"
+	"go.quinn.io/dataq/proto"
 )
 
 type SQLite struct {
-	db *sql.DB
+	db  *sql.DB
+	cas cas.Storage
 }
 
-func New(dbPath string) (*SQLite, error) {
-	db, err := sql.Open("sqlite3", filepath.Join(dbPath, "tree.db"))
-	if err != nil {
-		return nil, err
-	}
-
+func New(db *sql.DB, c cas.Storage) (*SQLite, error) {
 	// Create table with flattened metadata fields
-	_, err = db.Exec(`
+	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS data_items (
 			hash TEXT PRIMARY KEY,
 			plugin_id TEXT NOT NULL,
@@ -29,21 +25,30 @@ func New(dbPath string) (*SQLite, error) {
 			content_type TEXT,
 			parent_hash TEXT NOT NULL
 		)
-	`)
-	if err != nil {
+	`); err != nil {
 		db.Close()
 		return nil, err
 	}
 
-	return &SQLite{db: db}, nil
+	return &SQLite{db: db, cas: c}, nil
 }
 
 // Index scans the root directory and indexes all DataItems
 func (s *SQLite) Index() error {
 	// Walk the directory and store items
-	return walk(func(item *pb.DataItem, path string) error {
+	hashes, err := s.cas.Iterate()
+	if err != nil {
+		return err
+	}
+
+	for hash := range hashes {
+		item, err := s.cas.RetrieveItem(hash)
+		if err != nil {
+			return err
+		}
 		meta := item.GetMeta()
-		_, err := s.db.Exec(`
+
+		if _, err := s.db.Exec(`
 			INSERT OR REPLACE INTO data_items (
 				hash, plugin_id, id, kind, timestamp,
 				content_type, parent_hash
@@ -56,9 +61,12 @@ func (s *SQLite) Index() error {
 			meta.GetTimestamp(),
 			meta.GetContentType(),
 			meta.GetParentHash(),
-		)
-		return err
-	})
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Children returns all DataItems that have the given hash as their parent

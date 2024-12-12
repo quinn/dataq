@@ -14,15 +14,10 @@ type SQLiteQueue struct {
 }
 
 // NewSQLiteQueue creates a new SQLite-backed queue
-func newSQLiteQueue(path string) (*SQLiteQueue, error) {
-	panic("currently broken. Needs to implement PluginRequest fields.")
-	db, err := sql.Open("sqlite3", path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
-	}
+func NewSQLiteQueue(db *sql.DB) (*SQLiteQueue, error) {
 
 	// Create tasks table
-	_, err = db.Exec(`
+	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS tasks (
 			id TEXT PRIMARY KEY,
 			status TEXT NOT NULL,
@@ -31,8 +26,7 @@ func newSQLiteQueue(path string) (*SQLiteQueue, error) {
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
 		)
-	`)
-	if err != nil {
+	`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to create tasks table: %w", err)
 	}

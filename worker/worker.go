@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 
+	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/config"
-	"go.quinn.io/dataq/dq"
 	"go.quinn.io/dataq/pluginutil"
 	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/queue"
@@ -19,6 +18,7 @@ import (
 // Worker handles task processing and plugin execution
 type Worker struct {
 	queue   queue.Queue
+	cas     cas.Storage
 	plugins map[string]*config.Plugin
 	dataDir string
 	done    chan struct{}
@@ -32,7 +32,7 @@ type Message struct {
 }
 
 // New creates a new Worker
-func New(q queue.Queue, plugins []*config.Plugin, dataDir string) *Worker {
+func New(q queue.Queue, plugins []*config.Plugin, dataDir string, c cas.Storage) *Worker {
 	pluginMap := make(map[string]*config.Plugin)
 	for _, p := range plugins {
 		if p.Enabled {
@@ -49,6 +49,7 @@ func New(q queue.Queue, plugins []*config.Plugin, dataDir string) *Worker {
 		plugins: pluginMap,
 		dataDir: dataDir,
 		done:    make(chan struct{}),
+		cas:     c,
 	}
 }
 
@@ -199,7 +200,7 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 
 				if resp.Item != nil {
 					// Store the data item
-					_, err := w.storeData(resp.Item)
+					_, err := w.cas.StoreItem(resp.Item)
 					if err != nil {
 						w.taskError(ctx, task, messages, err)
 						continue
@@ -257,7 +258,7 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 		var item *pb.DataItem
 		var err error
 		if task.Hash != "" {
-			item, err = w.LoadData(task.Hash)
+			item, err = w.cas.RetrieveItem(task.Hash)
 			if err != nil {
 				return fmt.Errorf("failed to load data: %w", err)
 			}
@@ -297,31 +298,4 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 	}
 
 	return nil
-}
-
-func (q *Worker) storeData(data *pb.DataItem) (string, error) {
-	hash := data.Meta.Hash
-	f, err := os.Create(filepath.Join(q.dataDir, hash+".dq"))
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	if err := dq.Write(f, data); err != nil {
-		return "", err
-	}
-
-	return hash, nil
-}
-
-func (w *Worker) LoadData(hash string) (*pb.DataItem, error) {
-	filename := filepath.Join(w.dataDir, hash+".dq")
-
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open data file: %w", err)
-	}
-	defer f.Close()
-
-	return dq.Read(f)
 }

@@ -16,7 +16,7 @@ type ContentHashData struct {
 func ContentHashHandler(c echo.Context, hash string) (ContentHashData, error) {
 	b := c.Get("boot").(*boot.Boot)
 
-	item, err := b.Worker.LoadData(hash)
+	item, err := b.CAS.RetrieveItem(hash)
 	if err != nil {
 		return ContentHashData{}, err
 	}
