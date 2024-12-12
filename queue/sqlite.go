@@ -2,13 +2,15 @@ package queue
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sql"
 	"time"
 
+	pb "go.quinn.io/dataq/proto"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	pb "go.quinn.io/dataq/proto"
 )
 
 // TaskModel represents the database model for tasks
@@ -79,10 +81,11 @@ type SQLiteQueue struct {
 }
 
 // NewSQLiteQueue creates a new SQLite-backed queue
-func NewSQLiteQueue(path string) (*SQLiteQueue, error) {
-	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+func NewSQLiteQueue(conn *sql.DB) (*SQLiteQueue, error) {
+	// Convert sql.DB to gorm.DB
+	db, err := gorm.Open(sqlite.Dialector{Conn: conn})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, fmt.Errorf("failed to create gorm database: %w", err)
 	}
 
 	// Auto-migrate the schema
