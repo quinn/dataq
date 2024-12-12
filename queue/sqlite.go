@@ -118,18 +118,25 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 			return fmt.Errorf("failed to find pending task: %w", err)
 		}
 
-		// Delete the task
-		if err := tx.Delete(&model).Error; err != nil {
-			return fmt.Errorf("failed to delete task: %w", err)
+		// Update task status to processing
+		model.Status = string(TaskStatusProcessing)
+		model.UpdatedAt = time.Now()
+		if err := tx.Save(&model).Error; err != nil {
+			return fmt.Errorf("failed to update task status: %w", err)
 		}
 
 		return nil
 	})
 
-	if err == nil {
-		return model.ToTask()
+	if err != nil {
+		return nil, err
 	}
-	return nil, err
+
+	if model.ID == "" { // No task found
+		return nil, nil
+	}
+
+	return model.ToTask()
 }
 
 func (q *SQLiteQueue) Update(ctx context.Context, task *Task) error {
