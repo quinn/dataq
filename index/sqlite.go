@@ -1,7 +1,10 @@
-package tree
+package index
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
+	"io"
 
 	_ "github.com/mattn/go-sqlite3"
 	"go.quinn.io/dataq/cas"
@@ -34,16 +37,27 @@ func New(db *sql.DB, c cas.Storage) (*SQLite, error) {
 }
 
 // Index scans the root directory and indexes all DataItems
-func (s *SQLite) Index() error {
+func (s *SQLite) Index(ctx context.Context) error {
 	// Walk the directory and store items
-	hashes, err := s.cas.Iterate()
+	hashes, err := s.cas.Iterate(ctx)
 	if err != nil {
 		return err
 	}
 
 	for hash := range hashes {
-		item, err := s.cas.RetrieveItem(hash)
+		data, err := s.cas.Retrieve(ctx, hash)
 		if err != nil {
+			return err
+		}
+		defer data.Close()
+
+		bytes, err := io.ReadAll(data)
+		if err != nil {
+			return err
+		}
+
+		item := &pb.DataItem{}
+		if err := json.Unmarshal(bytes, item); err != nil {
 			return err
 		}
 		meta := item.GetMeta()

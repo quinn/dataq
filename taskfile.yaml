@@ -30,9 +30,10 @@ tasks:
       - |
         go run go.quinn.io/ccf/cmd/generate/pages@latest \
           -pages pages \
-          -output internal/router/router.go \
+          -output internal/router/router.notgo \
           -package router && \
-            goimports -w internal/router/router.go
+        goimports -w internal/router/router.notgo && \
+        mv internal/router/router.notgo internal/router/router.go
 
   live:pages:
     cmds:
@@ -111,7 +112,7 @@ tasks:
 
   gen-proto:
     cmds:
-      - protoc --go_out=. --go_opt=paths=source_relative proto/dataq.proto
+      - protoc --go_out=. --go_opt=paths=source_relative proto/*.proto
 
   build-plugins:
     cmds:

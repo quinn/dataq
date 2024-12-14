@@ -2,6 +2,7 @@ package claims
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"slices"
@@ -14,12 +15,14 @@ import (
 // It includes the entity's unique identifier, a reference to the previous claim,
 // and a reference to the associated data.
 type Claim struct {
-	EntityUID     string `json:"entity_uid"`
-	DataHash      string `json:"data_hash"`       // Hash of the associated data in CAS
-	PrevClaimHash string `json:"prev_claim_hash"` // Hash of the previous claim for this entity
-	Version       int    `json:"version"`         // Increment this when creating new versions
-	Timestamp     int64  `json:"timestamp"`       // Unix timestamp of creation
-	// Additional metadata could be added here: signatures, author, reason for update, etc.
+	UID         string `json:"dataq_entity_uid"`        // unique identifier of the entity. shared across multiple claims, and used to reduce all claims into a single entity.
+	ParentUID   string `json:"dataq_entity_parent_uid"` // parent entity UID. This is linked through plugin requests and responses
+	Timestamp   int64  `json:"dataq_claim_timestamp"`   // Unix timestamp of creation
+	Kind        string `json:"dataq_schema_kind"`       // kind of the entity. Has meaning to DataQ
+	Hash        string `json:"hash,omitempty"`          // reference to blob in CAS
+	PluginID    string `json:"plugin_id,omitempty"`     // ID of plugin
+	PluginKind  string `json:"kind,omitempty"`          // meaningful for the plugin
+	ContentType string `json:"content_type,omitempty"`  // content type. provided by plugin
 }
 
 // ClaimsService provides methods to store and retrieve claims in a CAS.
@@ -37,13 +40,13 @@ func NewClaimsService(s cas.Storage) *ClaimsService {
 // StoreClaim stores a new claim in the CAS.
 // The claim is serialized to JSON and stored.
 // Returns the hash of the stored claim.
-func (cs *ClaimsService) StoreClaim(c *Claim) (string, error) {
+func (cs *ClaimsService) StoreClaim(ctx context.Context, c *Claim) (string, error) {
 	c.Timestamp = time.Now().Unix()
 	data, err := json.Marshal(c)
 	if err != nil {
 		return "", err
 	}
-	hash, err := cs.cas.Store(bytes.NewReader(data))
+	hash, err := cs.cas.Store(ctx, bytes.NewReader(data))
 	if err != nil {
 		return "", err
 	}
@@ -51,8 +54,8 @@ func (cs *ClaimsService) StoreClaim(c *Claim) (string, error) {
 }
 
 // RetrieveClaim fetches and deserializes a claim from the CAS by its hash.
-func (cs *ClaimsService) RetrieveClaim(hash string) (*Claim, error) {
-	r, err := cs.cas.Retrieve(hash)
+func (cs *ClaimsService) RetrieveClaim(ctx context.Context, hash string) (*Claim, error) {
+	r, err := cs.cas.Retrieve(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -66,45 +69,43 @@ func (cs *ClaimsService) RetrieveClaim(hash string) (*Claim, error) {
 
 // CreateInitialClaim creates the first claim for an entity, referencing no previous claim.
 // dataHash is the CAS hash of the associated data. Returns the claim hash.
-func (cs *ClaimsService) CreateInitialClaim(entityUID string, dataHash string) (string, error) {
+func (cs *ClaimsService) CreateInitialClaim(ctx context.Context, UID string, hash string) (string, error) {
 	claim := &Claim{
-		EntityUID:     entityUID,
-		DataHash:      dataHash,
-		PrevClaimHash: "",
-		Version:       1,
+		UID:  UID,
+		Hash: hash,
 	}
-	return cs.StoreClaim(claim)
+	return cs.StoreClaim(ctx, claim)
 }
 
 // CreateNewClaim creates a new claim for an entity that already has at least one version.
 // It references the previous claim and increments the version.
 // prevClaimHash is the hash of the previous claim, dataHash is the CAS hash of the updated data.
-func (cs *ClaimsService) CreateNewClaim(prevClaimHash, dataHash string) (string, error) {
-	prevClaim, err := cs.RetrieveClaim(prevClaimHash)
+func (cs *ClaimsService) CreateNewClaim(ctx context.Context, prevClaimHash, dataHash string) (string, error) {
+	prevClaim, err := cs.RetrieveClaim(ctx, prevClaimHash)
 	if err != nil {
 		return "", err
 	}
+	// TODO: claims are not a linked list, no need for parent
 	claim := &Claim{
-		EntityUID:     prevClaim.EntityUID,
-		DataHash:      dataHash,
-		PrevClaimHash: prevClaimHash,
-		Version:       prevClaim.Version + 1,
+		UID:       prevClaim.UID,
+		Hash:      dataHash,
+		ParentUID: prevClaimHash,
 	}
-	return cs.StoreClaim(claim)
+	return cs.StoreClaim(ctx, claim)
 }
 
 // WalkClaimChain walks through the chain of claims backward starting from the given claim hash,
 // returning a list of all claims up to the initial one (with no PrevClaimHash).
-func (cs *ClaimsService) WalkClaimChain(latestClaimHash string) ([]*Claim, error) {
+func (cs *ClaimsService) WalkClaimChain(ctx context.Context, latestClaimHash string) ([]*Claim, error) {
 	var chain []*Claim
 	currentHash := latestClaimHash
 	for currentHash != "" {
-		c, err := cs.RetrieveClaim(currentHash)
+		c, err := cs.RetrieveClaim(ctx, currentHash)
 		if err != nil {
 			return nil, err
 		}
 		chain = append(chain, c)
-		currentHash = c.PrevClaimHash
+		currentHash = c.ParentUID
 	}
 	// Now chain[0] is the latest claim, chain[len(chain)-1] is the initial claim
 	// If you want them in chronological order, reverse the slice
@@ -124,18 +125,18 @@ func (cs *ClaimsService) WalkClaimChain(latestClaimHash string) ([]*Claim, error
 //
 // If you had a list of claim hashes, you could pick the one with the highest version after retrieval.
 // That would simulate an indexing step, which is outside the scope of this snippet.
-func (cs *ClaimsService) GetLatestClaimForEntity(candidateClaimHashes []string) (*Claim, error) {
+func (cs *ClaimsService) GetLatestClaimForEntity(ctx context.Context, candidateClaimHashes []string) (*Claim, error) {
 	if len(candidateClaimHashes) == 0 {
 		return nil, errors.New("no candidate claims provided")
 	}
 
 	var latest *Claim
 	for _, h := range candidateClaimHashes {
-		c, err := cs.RetrieveClaim(h)
+		c, err := cs.RetrieveClaim(ctx, h)
 		if err != nil {
 			continue
 		}
-		if latest == nil || c.Version > latest.Version {
+		if latest == nil || c.Timestamp > latest.Timestamp {
 			latest = c
 		}
 	}

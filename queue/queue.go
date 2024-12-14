@@ -24,12 +24,11 @@ const (
 
 // Task represents metadata about a unit of work to be processed
 type Task struct {
-	Status    TaskStatus
-	Error     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Hash      string // SHA-256 hash of the data, used to reference the actual data
-	// Config       map[string]string
+	Status       TaskStatus
+	Error        string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	Hash         string // SHA-256 hash of the data, used to reference the actual data
 	PluginConfig map[string]string
 	PluginID     string
 	ID           string

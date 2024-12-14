@@ -75,7 +75,6 @@ func (p *GmailPlugin) transformPage(_ context.Context, item *pb.DataItem, api *p
 	for _, msg := range r.Messages {
 		action := &pb.Action{
 			Name:       "get_message",
-			Kind:       "message",
 			Id:         msg.Id,
 			ParentHash: item.Meta.Hash,
 			Config: map[string]string{
@@ -89,7 +88,6 @@ func (p *GmailPlugin) transformPage(_ context.Context, item *pb.DataItem, api *p
 	if r.NextPageToken != "" {
 		action := &pb.Action{
 			Name:       "next_page",
-			Kind:       "page",
 			Id:         r.NextPageToken,
 			ParentHash: item.Meta.Hash,
 			Config: map[string]string{

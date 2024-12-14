@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package dataq;
+option go_package = "go.quinn.io/dataq/pb";
+
+// PluginRequest represents a request to a plugin
+// Possible states:
+// - item: a DataItem is included
+// - action: an Action is included
+// - closed: the host is shutting down the plugin
+// Operations:
+// - extract: extract data from a source. This will be accompanied by an action
+// - transform: transform a data item. This will be accompanied by an item
+message PluginRequest {
+  string              plugin_id = 1;
+  string              id = 2;
+  string              operation = 3;
+  DataItem            item = 4;
+  Action              action = 5;
+  map<string, string> plugin_config = 6;
+  bool                closed = 7; // other fields are discarded
+}
+
+// PluginResponse represents a response from a plugin.
+// it is an envelope for a DataItem, an Action, or an error message
+// Possible states:
+// - item: a DataItem is included
+// - action: an Action is included
+// - error: an error message is included
+// - closed: the plugin is closed and is attempting to exit
+// - done: the plugin is done processing the request
+// All states are mutually exclusive. If multiple exclusive states are set,
+// which one wins is undefined and is based on the implementation of the host,
+// and could change in the future.
+message PluginResponse {
+  string   plugin_id = 1;
+  string   request_id = 2;
+  string   hash = 3;
+  DataItem item = 4;
+  Action   action = 5;
+  string   error = 6;  // empty if no error
+  bool     closed = 7; // other fields are discarded
+  bool     done = 8;   // no further responses for this request
+}
+
+message DataItemMetadata {
+  string plugin_id = 1;
+  string id = 2;
+  string kind = 3;
+  int64  timestamp = 4;
+  string content_type = 5;
+  string hash = 6;
+  string parent_hash = 7;
+}
+
+// DataItem represents a single piece of data extracted by a plugin
+message DataItem {
+  DataItemMetadata meta = 1;
+  bytes            raw_data = 6;
+}
+
+// Action represents an action to be taken on a DataItem
+message Action {
+  string              name = 1;
+  string              id = 3;
+  string              parent_hash = 4;
+  map<string, string> config = 5;
+}
+
+
+/*
+actions = [
+  {
+    name: "next_page",
+    config: {
+      "next_page_token": "..."
+    }
+  },
+  // one action is emitted for each message in the page
+  {
+    name: "get_message",
+    config: {
+      "message_id": "..."
+    }
+  }
+]
+*/

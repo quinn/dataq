@@ -1,14 +1,18 @@
 package cas
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 
 	"perkeep.org/pkg/blob"
 	"perkeep.org/pkg/cacher"
 	"perkeep.org/pkg/client"
+	"perkeep.org/pkg/cmdmain"
+	"perkeep.org/pkg/constants"
 )
 
 // implements:
@@ -17,37 +21,56 @@ import (
 // 	// generic
 // 	Store(io.Reader) (hash string, err error)
 // 	Retrieve(hash string) (data io.ReadCloser, err error)
-
-// 	// data items
-// 	StoreItem(item *pb.DataItem) (hash string, err error)
-// 	RetrieveItem(hash string) (item *pb.DataItem, err error)
-
 // 	Iterate() (hashes <-chan string, err error)
 // }
 
-type Perkeep struct{}
+type Perkeep struct {
+	cl *client.Client
+}
 
 func NewPerkeep() *Perkeep {
-	return &Perkeep{}
-}
-
-func (p *Perkeep) Store(r io.Reader) (hash string, err error) {
-	return "", nil
-}
-
-func (p *Perkeep) Retrieve(hash string) (data io.ReadCloser, err error) {
-	var cl *client.Client
 	optTransportConfig := client.OptionTransportConfig(&client.TransportConfig{})
+	cl := client.NewOrFail(client.OptionInsecure(false), optTransportConfig)
 
-	ctx := context.Background()
+	return &Perkeep{
+		cl: cl,
+	}
+}
 
-	cl = client.NewOrFail(client.OptionInsecure(false), optTransportConfig)
-	br, ok := blob.Parse(hash)
-	if !ok {
-		return nil, fmt.Errorf("Failed to parse argument %q as a blobref.", hash)
+func (p *Perkeep) Store(ctx context.Context, r io.Reader) (hash string, err error) {
+	var buf bytes.Buffer
+	size, err := io.CopyN(&buf, cmdmain.Stdin, constants.MaxBlobSize+1)
+	if size > constants.MaxBlobSize {
+		return "", fmt.Errorf("blob size cannot be bigger than %d", constants.MaxBlobSize)
+	}
+	if err != nil && err != io.EOF {
+		return "", err
 	}
 
-	src, err := cacher.NewDiskCache(cl)
+	h := blob.NewHash()
+	if _, err := h.Write(buf.Bytes()); err != nil {
+		return "", err
+	}
+
+	put, err := p.cl.Upload(ctx, &client.UploadHandle{
+		BlobRef:  blob.RefFromHash(h),
+		Size:     uint32(buf.Len()),
+		Contents: &buf,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to upload: %s", err)
+	}
+
+	return put.BlobRef.String(), nil
+}
+
+func (p *Perkeep) Retrieve(ctx context.Context, hash string) (data io.ReadCloser, err error) {
+	br, ok := blob.Parse(hash)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse argument %q as a blobref", hash)
+	}
+
+	src, err := cacher.NewDiskCache(p.cl)
 	if err != nil {
 		log.Fatalf("Error setting up local disk cache: %v", err)
 	}
@@ -55,19 +78,30 @@ func (p *Perkeep) Retrieve(hash string) (data io.ReadCloser, err error) {
 
 	rc, _, err := src.Fetch(ctx, br)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to fetch %s: %s", br, err)
+		return nil, fmt.Errorf("failed to fetch %s: %s", br, err)
 	}
 
 	return rc, nil
 }
 
-func fetch(ctx context.Context, src blob.Fetcher, br blob.Ref) (rc io.ReadCloser, err error) {
-	rc, _, err = src.Fetch(ctx, br)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to fetch %s: %s", br, err)
-	}
-	return rc, err
-}
+func (p *Perkeep) Iterate(ctx context.Context) (<-chan string, error) {
+	ch := make(chan blob.SizedRef)
+	hashes := make(chan string)
 
-// A little less than the sniffer will take, so we don't truncate.
-const sniffSize = 900 * 1024
+	go func() {
+		if err := p.cl.SimpleEnumerateBlobs(ctx, ch); err != nil {
+			slog.Error("failed to enumerate blobs", "error", err)
+			return
+		}
+	}()
+
+	go func() {
+		defer close(hashes)
+
+		for sref := range ch {
+			hashes <- sref.Ref.String()
+		}
+	}()
+
+	return hashes, nil
+}

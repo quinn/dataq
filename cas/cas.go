@@ -1,20 +1,20 @@
 package cas
 
 import (
+	"context"
 	"io"
-
-	pb "go.quinn.io/dataq/proto"
 )
 
 type Storage interface {
 
 	// generic
-	Store(io.Reader) (hash string, err error)
-	Retrieve(hash string) (data io.ReadCloser, err error)
+	Store(context.Context, io.Reader) (hash string, err error)
+	Retrieve(ctx context.Context, hash string) (data io.ReadCloser, err error)
 
-	// data items
-	StoreItem(item *pb.DataItem) (hash string, err error)
-	RetrieveItem(hash string) (item *pb.DataItem, err error)
+	// claims
+	// StoreItem(item *pb.DataItem) (hash string, err error)
+	// RetrieveItem(hash string) (item *pb.DataItem, err error)
+	// StoreClaim()
 
-	Iterate() (hashes <-chan string, err error)
+	Iterate(context.Context) (hashes <-chan string, err error)
 }

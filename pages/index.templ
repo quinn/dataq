@@ -4,16 +4,21 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/components"
-	pb "go.quinn.io/dataq/proto"
 )
 
-type IndexData []*pb.DataItemMetadata
+type IndexData []string
 
 func IndexHandler(c echo.Context) (IndexData, error) {
 	b := c.Get("boot").(*boot.Boot)
-	items, err := b.Tree.Children("")
+	hashes, err := b.CAS.Iterate(c.Request().Context())
+	// items, err := b.Tree.Children("")
 	if err != nil {
 		return nil, err
+	}
+
+	var items IndexData
+	for hash := range hashes {
+		items = append(items, hash)
 	}
 
 	return items, nil
@@ -24,8 +29,8 @@ templ Index(posts IndexData) {
 		<ul class="list-disc list-inside">
 			for _, post := range posts {
 				<li class="list-item">
-					<a href={ templ.URL("/content/" + post.Hash) } class="underline">
-						{ post.Hash }
+					<a href={ templ.URL("/content/" + post) } class="underline">
+						{ post }
 					</a>
 				</li>
 			}

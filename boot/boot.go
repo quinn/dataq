@@ -7,9 +7,10 @@ import (
 	"log"
 
 	"go.quinn.io/dataq/cas"
+	"go.quinn.io/dataq/claims"
 	"go.quinn.io/dataq/config"
+	tree "go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/queue"
-	"go.quinn.io/dataq/tree"
 	"go.quinn.io/dataq/worker"
 )
 
@@ -19,6 +20,7 @@ type Boot struct {
 	Config *config.Config
 	Worker *worker.Worker
 	CAS    cas.Storage
+	Claim  *claims.ClaimsService
 }
 
 func New() (*Boot, error) {
@@ -38,22 +40,24 @@ func New() (*Boot, error) {
 		return nil, fmt.Errorf("failed to create queue: %w", err)
 	}
 
-	casDQ := &cas.DQ{}
+	// casDQ := &cas.DQ{}
+
+	pk := cas.NewPerkeep()
 
 	// Create worker
-	wrkr := worker.New(q, cfg.Plugins, config.DataDir(), casDQ)
+	wrkr := worker.New(q, cfg.Plugins, config.DataDir(), pk)
 
 	// init tree
-	t, err := tree.New(db, casDQ)
+	t, err := tree.New(db, pk)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tree: %w", err)
 	}
 
-	// build index
-	err = t.Index()
-	if err != nil {
-		return nil, fmt.Errorf("failed to index tree: %w", err)
-	}
+	// // build index
+	// err = t.Index(ctx)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to index tree: %w", err)
+	// }
 
 	queueItems, err := q.List(context.Background(), "")
 	if err != nil {
@@ -77,6 +81,6 @@ func New() (*Boot, error) {
 		Queue:  q,
 		Tree:   t,
 		Worker: wrkr,
-		CAS:    casDQ,
+		CAS:    pk,
 	}, nil
 }

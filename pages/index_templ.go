@@ -12,16 +12,21 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/components"
-	pb "go.quinn.io/dataq/proto"
 )
 
-type IndexData []*pb.DataItemMetadata
+type IndexData []string
 
 func IndexHandler(c echo.Context) (IndexData, error) {
 	b := c.Get("boot").(*boot.Boot)
-	items, err := b.Tree.Children("")
+	hashes, err := b.CAS.Iterate(c.Request().Context())
+	// items, err := b.Tree.Children("")
 	if err != nil {
 		return nil, err
+	}
+
+	var items IndexData
+	for hash := range hashes {
+		items = append(items, hash)
 	}
 
 	return items, nil
@@ -69,7 +74,7 @@ func Index(posts IndexData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var3 templ.SafeURL = templ.URL("/content/" + post.Hash)
+				var templ_7745c5c3_Var3 templ.SafeURL = templ.URL("/content/" + post)
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var3)))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -79,9 +84,9 @@ func Index(posts IndexData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(post.Hash)
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(post)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 28, Col: 17}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 33, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {

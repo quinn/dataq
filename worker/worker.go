@@ -1,9 +1,12 @@
 package worker
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -20,7 +23,6 @@ type Worker struct {
 	queue   queue.Queue
 	cas     cas.Storage
 	plugins map[string]*config.Plugin
-	dataDir string
 	done    chan struct{}
 }
 
@@ -32,7 +34,7 @@ type Message struct {
 }
 
 // New creates a new Worker
-func New(q queue.Queue, plugins []*config.Plugin, dataDir string, c cas.Storage) *Worker {
+func New(q queue.Queue, plugins []*config.Plugin, c cas.Storage) *Worker {
 	pluginMap := make(map[string]*config.Plugin)
 	for _, p := range plugins {
 		if p.Enabled {
@@ -40,14 +42,9 @@ func New(q queue.Queue, plugins []*config.Plugin, dataDir string, c cas.Storage)
 		}
 	}
 
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		log.Printf("Failed to create data directory: %v", err)
-	}
-
 	return &Worker{
 		queue:   q,
 		plugins: pluginMap,
-		dataDir: dataDir,
 		done:    make(chan struct{}),
 		cas:     c,
 	}
@@ -191,6 +188,7 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 					close(reqs)
 					return
 				}
+
 				// TODO: consider removing tasks from map when they are done or failed
 				task := taskmap[resp.PluginId][resp.RequestId]
 				if resp.Error != "" {
@@ -199,9 +197,15 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 				}
 
 				if resp.Item != nil {
-					// Store the data item
-					_, err := w.cas.StoreItem(resp.Item)
+					// convert the serialized json bytes to a reader
+					jsonBytes, err := json.Marshal(resp.Item)
 					if err != nil {
+						w.taskError(ctx, task, messages, err)
+						continue
+					}
+
+					r := bytes.NewReader(jsonBytes)
+					if _, err := w.cas.Store(ctx, r); err != nil {
 						w.taskError(ctx, task, messages, err)
 						continue
 					}
@@ -253,31 +257,37 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 		}
 
 		taskmap[task.PluginID][task.ID] = task
-		// Load the data for this task
 
-		var item *pb.DataItem
-		var err error
+		request := task.Request()
+
+		// Load the data for this task
+		// Currently there is nothing that would create a task with a hash.
+		// all tasks only contain an action. The use case for this would be
+		// to have a plugin re-index a data item that was previously processed.
 		if task.Hash != "" {
-			item, err = w.cas.RetrieveItem(task.Hash)
+			if task.Action != nil {
+				return errors.New("task has both action and data")
+			}
+			data, err := w.cas.Retrieve(ctx, task.Hash)
 			if err != nil {
 				return fmt.Errorf("failed to load data: %w", err)
 			}
-		}
 
-		request := task.Request()
-		if item != nil {
-			request.Item = item
-			request.Operation = "transform"
-		} else {
-			request.Operation = "extract"
-		}
+			defer data.Close()
 
-		if item == nil {
-			messages <- Message{
-				Type: "info",
-				Data: "[input: nil]",
+			bytes, err := io.ReadAll(data)
+			if err != nil {
+				return err
 			}
-		} else {
+
+			var item pb.DataItem
+			if err := json.Unmarshal(bytes, &item); err != nil {
+				return err
+			}
+
+			request.Item = &item
+			request.Operation = "transform"
+
 			messages <- Message{
 				Type: "info",
 				Data: "[input: " + item.Meta.Id + "] [hash: " + item.Meta.Hash + "]",
@@ -286,6 +296,16 @@ func (w *Worker) processRequests(ctx context.Context, tasks <-chan *queue.Task, 
 			messages <- Message{
 				Type: "protobuf",
 				Data: item.Meta.String(),
+			}
+		} else {
+			if task.Action == nil {
+				return errors.New("task has no action or data")
+			}
+			request.Operation = "extract"
+
+			messages <- Message{
+				Type: "info",
+				Data: "[input: nil]",
 			}
 		}
 

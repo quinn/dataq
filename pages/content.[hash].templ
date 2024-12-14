@@ -1,11 +1,13 @@
 package pages
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/components"
 	pb "go.quinn.io/dataq/proto"
+	"io"
 )
 
 type ContentHashData struct {
@@ -13,23 +15,33 @@ type ContentHashData struct {
 	Children []*pb.DataItemMetadata
 }
 
-func ContentHashHandler(c echo.Context, hash string) (ContentHashData, error) {
+func ContentHashHandler(c echo.Context, hash string) (*ContentHashData, error) {
 	b := c.Get("boot").(*boot.Boot)
 
-	item, err := b.CAS.RetrieveItem(hash)
+	data, err := b.CAS.Retrieve(c.Request().Context(), hash)
 	if err != nil {
-		return ContentHashData{}, err
+		return nil, fmt.Errorf("failed to retrieve data: %w", err)
+	}
+
+	bytes, err := io.ReadAll(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read data: %w", err)
+	}
+
+	item := &pb.DataItem{}
+	if err := json.Unmarshal(bytes, item); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 	}
 
 	children, err := b.Tree.Children(hash)
 
-	return ContentHashData{
+	return &ContentHashData{
 		Item:     item,
 		Children: children,
 	}, nil
 }
 
-templ ContentHash(data ContentHashData) {
+templ ContentHash(data *ContentHashData) {
 	@components.Layout() {
 		<h1 class="font-bold inline-block mb-3">
 			<dl class="inline-grid grid-cols-[min-content,1fr] gap-x-3">

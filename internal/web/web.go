@@ -35,6 +35,7 @@ func Run(b *boot.Boot) {
 		os.Getenv("USE_EMBEDDED_ASSETS") == "true",
 	)
 
+	e.Debug = true
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			c.Set("boot", b)

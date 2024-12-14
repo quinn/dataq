@@ -4,7 +4,6 @@ package dataq;
 option go_package = "go.quinn.io/dataq/pb";
 
 /* Generic entitities inside of dataq */
-
 message Email {
   string from = 1;
   string to = 2;

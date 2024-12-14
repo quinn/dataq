@@ -1,12 +1,14 @@
-package claims
+package index
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 
 	"go.quinn.io/dataq/cas"
+	"go.quinn.io/dataq/claims"
 )
 
 type KV interface {
@@ -18,6 +20,8 @@ type ClaimsIndexer struct {
 	cas cas.Storage
 	kv  KV
 }
+
+var PREFIX = byte('{')
 
 // NewClaimsIndexer returns a ClaimsIndexer that can build and query an index of claims.
 func NewClaimsIndexer(cas cas.Storage, kv KV) *ClaimsIndexer {
@@ -34,32 +38,32 @@ func NewClaimsIndexer(cas cas.Storage, kv KV) *ClaimsIndexer {
 // - For each hash, try to decode as a Claim.
 // - If successful, keep track of the highest version claim per EntityUID.
 // - After iteration, write the latest claim hash per entity to KV.
-func (ci *ClaimsIndexer) RebuildIndex() error {
-	hashes, err := ci.cas.Iterate()
+func (ci *ClaimsIndexer) RebuildIndex(ctx context.Context) error {
+	hashes, err := ci.cas.Iterate(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to iterate cas: %w", err)
 	}
 
 	// temporary map in memory: entityUID -> (version, claimHash)
 	latestClaims := make(map[string]struct {
-		version   int
+		Timestamp int64
 		claimHash string
 	})
 
 	for hash := range hashes {
-		c, err := ci.tryDecodeClaim(hash)
+		c, err := ci.tryDecodeClaim(ctx, hash)
 		if err != nil {
 			// Not a claim or some other error; ignore and continue
 			continue
 		}
 
-		prev, exists := latestClaims[c.EntityUID]
-		if !exists || c.Version > prev.version {
-			latestClaims[c.EntityUID] = struct {
-				version   int
+		prev, exists := latestClaims[c.UID]
+		if !exists || c.Timestamp > prev.Timestamp {
+			latestClaims[c.UID] = struct {
+				Timestamp int64
 				claimHash string
 			}{
-				version:   c.Version,
+				Timestamp: c.Timestamp,
 				claimHash: hash,
 			}
 		}
@@ -77,8 +81,8 @@ func (ci *ClaimsIndexer) RebuildIndex() error {
 
 // tryDecodeClaim attempts to decode the content at the given hash as a Claim.
 // Returns an error if the content is not a valid JSON-encoded Claim.
-func (ci *ClaimsIndexer) tryDecodeClaim(hash string) (*Claim, error) {
-	r, err := ci.cas.Retrieve(hash)
+func (ci *ClaimsIndexer) tryDecodeClaim(ctx context.Context, hash string) (*claims.Claim, error) {
+	r, err := ci.cas.Retrieve(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -88,13 +92,17 @@ func (ci *ClaimsIndexer) tryDecodeClaim(hash string) (*Claim, error) {
 		return nil, err
 	}
 
-	var c Claim
+	if len(data) == 0 || data[0] != PREFIX {
+		return nil, errors.New("not a claim")
+	}
+
+	var c claims.Claim
 	if err := json.Unmarshal(data, &c); err != nil {
 		return nil, err
 	}
 
 	// Validate at least the EntityUID and Version fields to ensure it's a "real" claim.
-	if c.EntityUID == "" || c.Version == 0 {
+	if c.UID == "" || c.Timestamp == 0 {
 		return nil, errors.New("invalid claim structure")
 	}
 
@@ -115,14 +123,14 @@ func (ci *ClaimsIndexer) GetLatestClaimHash(entityUID string) (string, error) {
 
 // RetrieveLatestClaim returns the latest claim object for the given entity.
 // It looks up the entity in KV to find the latest claim hash, then retrieves the claim from Storage.
-func (ci *ClaimsIndexer) RetrieveLatestClaim(entityUID string) (*Claim, error) {
+func (ci *ClaimsIndexer) RetrieveLatestClaim(ctx context.Context, entityUID string) (*claims.Claim, error) {
 	claimHash, err := ci.GetLatestClaimHash(entityUID)
 	if err != nil {
 		return nil, err
 	}
 
-	cs := &ClaimsService{cas: ci.cas}
-	claim, err := cs.RetrieveClaim(claimHash)
+	cs := claims.NewClaimsService(ci.cas)
+	claim, err := cs.RetrieveClaim(ctx, claimHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve latest claim for entity %s: %w", entityUID, err)
 	}
