@@ -3,6 +3,10 @@ syntax = "proto3";
 package dataq;
 option go_package = "go.quinn.io/dataq/pb";
 
+/* Types for Queue */
+
+
+
 /* Generic entitities inside of dataq */
 message Email {
   string from = 1;

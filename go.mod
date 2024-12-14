@@ -18,7 +18,6 @@ require (
 	github.com/a-h/templ v0.2.793
 	github.com/labstack/echo/v4 v4.12.0
 	go.quinn.io/ccf v0.0.0-20241118203441-349e850aca94
-	go4.org v0.0.0-20230225012048-214862532bf5
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.12
 	perkeep.org v0.0.0-20240423032045-bb15e6eb48bc
@@ -85,6 +84,7 @@ require (
 	go.opentelemetry.io/otel v1.29.0 // indirect
 	go.opentelemetry.io/otel/metric v1.29.0 // indirect
 	go.opentelemetry.io/otel/trace v1.29.0 // indirect
+	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	go4.org/mem v0.0.0-20220726221520-4f986261bf13 // indirect
 	go4.org/netipx v0.0.0-20230824141953-6213f710f925 // indirect
 	golang.org/x/crypto v0.29.0 // indirect

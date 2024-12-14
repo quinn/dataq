@@ -54,7 +54,7 @@ func (w *Worker) handlePluginResponses(ctx context.Context, pluginID string, res
 
 		// Handle item responses
 		if resp.Item != nil {
-			if err := w.handlePluginResponseItem(ctx, resp.Item, task, messages); err != nil {
+			if err := w.handlePluginResponseItem(ctx, resp.Item, messages); err != nil {
 				w.taskError(ctx, task, messages, err)
 				continue
 			}
@@ -75,7 +75,7 @@ func (w *Worker) handlePluginResponses(ctx context.Context, pluginID string, res
 	}
 }
 
-func (w *Worker) handlePluginResponseItem(ctx context.Context, item *pb.DataItem, task *queue.Task, messages chan Message) error {
+func (w *Worker) handlePluginResponseItem(ctx context.Context, item *pb.DataItem, messages chan Message) error {
 	jsonBytes, err := json.Marshal(item)
 	if err != nil {
 		return err
