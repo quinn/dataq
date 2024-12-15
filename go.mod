@@ -17,6 +17,7 @@ require (
 require (
 	github.com/a-h/templ v0.2.793
 	github.com/labstack/echo/v4 v4.12.0
+	github.com/srikrsna/protoc-gen-gotag v1.0.2
 	go.quinn.io/ccf v0.0.0-20241118203441-349e850aca94
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.12

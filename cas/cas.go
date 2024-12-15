@@ -12,8 +12,8 @@ type Storage interface {
 	Retrieve(ctx context.Context, hash string) (data io.ReadCloser, err error)
 
 	// claims
-	// StoreItem(item *pb.DataItem) (hash string, err error)
-	// RetrieveItem(hash string) (item *pb.DataItem, err error)
+	// StoreItem(item *schema.DataItem) (hash string, err error)
+	// RetrieveItem(hash string) (item *schema.DataItem, err error)
 	// StoreClaim()
 
 	Iterate(context.Context) (hashes <-chan string, err error)

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"go.quinn.io/dataq/plugin"
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/schema"
 )
 
 type FileScanPlugin struct {
@@ -38,7 +38,7 @@ func (p *FileScanPlugin) Configure(config map[string]string) error {
 	return nil
 }
 
-func (p *FileScanPlugin) Extract(ctx context.Context, action *pb.Action, api *plugin.PluginAPI) error {
+func (p *FileScanPlugin) Extract(ctx context.Context, action *schema.Action, api *plugin.PluginAPI) error {
 	err := filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -59,8 +59,8 @@ func (p *FileScanPlugin) Extract(ctx context.Context, action *pb.Action, api *pl
 			return err
 		}
 
-		item := &pb.DataItem{
-			Meta: &pb.DataItemMetadata{
+		item := &schema.DataItem{
+			Meta: &schema.DataItemMetadata{
 				PluginId:    p.ID(),
 				Id:          path,
 				Kind:        "file",
@@ -83,6 +83,6 @@ func (p *FileScanPlugin) Extract(ctx context.Context, action *pb.Action, api *pl
 	return nil
 }
 
-func (p *FileScanPlugin) Transform(ctx context.Context, item *pb.DataItem, api *plugin.PluginAPI) error {
+func (p *FileScanPlugin) Transform(ctx context.Context, item *schema.DataItem, api *plugin.PluginAPI) error {
 	return nil
 }

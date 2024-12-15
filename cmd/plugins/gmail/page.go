@@ -6,11 +6,11 @@ import (
 	"fmt"
 
 	"go.quinn.io/dataq/plugin"
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/schema"
 	"google.golang.org/api/gmail/v1"
 )
 
-func (p *GmailPlugin) getPage(ctx context.Context, action *pb.Action, api *plugin.PluginAPI) error {
+func (p *GmailPlugin) getPage(ctx context.Context, action *schema.Action, api *plugin.PluginAPI) error {
 	srv, err := p.getClient(ctx)
 	if err != nil {
 		return err
@@ -45,8 +45,8 @@ func (p *GmailPlugin) getPage(ctx context.Context, action *pb.Action, api *plugi
 	}
 
 	// Create a DataItem for the page
-	item := &pb.DataItem{
-		Meta: &pb.DataItemMetadata{
+	item := &schema.DataItem{
+		Meta: &schema.DataItemMetadata{
 			PluginId:    p.ID(),
 			Id:          pageToken,
 			Kind:        "page",
@@ -66,14 +66,14 @@ func (p *GmailPlugin) getPage(ctx context.Context, action *pb.Action, api *plugi
 	return nil
 }
 
-func (p *GmailPlugin) transformPage(_ context.Context, item *pb.DataItem, api *plugin.PluginAPI) error {
+func (p *GmailPlugin) transformPage(_ context.Context, item *schema.DataItem, api *plugin.PluginAPI) error {
 	var r gmail.ListMessagesResponse
 	if err := json.Unmarshal(item.RawData, &r); err != nil {
 		return fmt.Errorf("error unmarshaling response: %v", err)
 	}
 
 	for _, msg := range r.Messages {
-		action := &pb.Action{
+		action := &schema.Action{
 			Name:       "get_message",
 			Id:         msg.Id,
 			ParentHash: item.Meta.Hash,
@@ -86,7 +86,7 @@ func (p *GmailPlugin) transformPage(_ context.Context, item *pb.DataItem, api *p
 	}
 
 	if r.NextPageToken != "" {
-		action := &pb.Action{
+		action := &schema.Action{
 			Name:       "next_page",
 			Id:         r.NextPageToken,
 			ParentHash: item.Meta.Hash,

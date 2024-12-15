@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"go.quinn.io/dataq/plugin"
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/schema"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -76,7 +76,7 @@ func (p *GmailPlugin) Configure(config map[string]string) error {
 	return nil
 }
 
-func (p *GmailPlugin) Extract(ctx context.Context, action *pb.Action, api *plugin.PluginAPI) error {
+func (p *GmailPlugin) Extract(ctx context.Context, action *schema.Action, api *plugin.PluginAPI) error {
 	switch action.Name {
 	case "initial", "next_page":
 		return p.getPage(ctx, action, api)
@@ -87,7 +87,7 @@ func (p *GmailPlugin) Extract(ctx context.Context, action *pb.Action, api *plugi
 	}
 }
 
-func (p *GmailPlugin) Transform(ctx context.Context, item *pb.DataItem, api *plugin.PluginAPI) error {
+func (p *GmailPlugin) Transform(ctx context.Context, item *schema.DataItem, api *plugin.PluginAPI) error {
 	switch item.Meta.Kind {
 	case "page":
 		return p.transformPage(ctx, item, api)

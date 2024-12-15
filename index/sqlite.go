@@ -8,7 +8,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"go.quinn.io/dataq/cas"
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/schema"
 )
 
 type SQLite struct {
@@ -56,7 +56,7 @@ func (s *SQLite) Index(ctx context.Context) error {
 			return err
 		}
 
-		item := &pb.DataItem{}
+		item := &schema.DataItem{}
 		if err := json.Unmarshal(bytes, item); err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func (s *SQLite) Index(ctx context.Context) error {
 }
 
 // Children returns all DataItems that have the given hash as their parent
-func (s *SQLite) Children(hash string) ([]*pb.DataItemMetadata, error) {
+func (s *SQLite) Children(hash string) ([]*schema.DataItemMetadata, error) {
 	rows, err := s.db.Query(`
 		SELECT hash, plugin_id, id, kind, timestamp, content_type, parent_hash
 		FROM data_items
@@ -95,9 +95,9 @@ func (s *SQLite) Children(hash string) ([]*pb.DataItemMetadata, error) {
 	}
 	defer rows.Close()
 
-	var items []*pb.DataItemMetadata
+	var items []*schema.DataItemMetadata
 	for rows.Next() {
-		meta := &pb.DataItemMetadata{}
+		meta := &schema.DataItemMetadata{}
 		err := rows.Scan(
 			&meta.Hash,
 			&meta.PluginId,
@@ -121,8 +121,8 @@ func (s *SQLite) Children(hash string) ([]*pb.DataItemMetadata, error) {
 }
 
 // Node returns the DataItem with the given hash
-func (s *SQLite) Node(hash string) (*pb.DataItemMetadata, error) {
-	meta := &pb.DataItemMetadata{}
+func (s *SQLite) Node(hash string) (*schema.DataItemMetadata, error) {
+	meta := &schema.DataItemMetadata{}
 	err := s.db.QueryRow(`
 		SELECT hash, plugin_id, id, kind, timestamp, content_type, parent_hash
 		FROM data_items

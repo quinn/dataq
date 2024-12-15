@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 
-	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/queue"
+	"go.quinn.io/dataq/schema"
 )
 
 func (w *Worker) runTaskProcessingLoop(ctx context.Context, tasks <-chan *queue.Task, messages chan Message) error {
@@ -38,7 +38,7 @@ func (w *Worker) runTaskProcessingLoop(ctx context.Context, tasks <-chan *queue.
 	}
 }
 
-func (w *Worker) processTask(ctx context.Context, task *queue.Task, pluginReqs map[string]chan *pb.PluginRequest, taskmap map[string]map[string]*queue.Task, messages chan Message) error {
+func (w *Worker) processTask(ctx context.Context, task *queue.Task, pluginReqs map[string]chan *schema.PluginRequest, taskmap map[string]map[string]*queue.Task, messages chan Message) error {
 	sendInfo(messages, "Processing task: "+task.Key())
 	taskmap[task.PluginID][task.ID] = task
 
@@ -53,7 +53,7 @@ func (w *Worker) processTask(ctx context.Context, task *queue.Task, pluginReqs m
 	return nil
 }
 
-func (w *Worker) buildPluginRequest(ctx context.Context, task *queue.Task, messages chan Message) (*pb.PluginRequest, error) {
+func (w *Worker) buildPluginRequest(ctx context.Context, task *queue.Task, messages chan Message) (*schema.PluginRequest, error) {
 	request := task.Request()
 
 	// If task has a hash, we are transforming existing data
@@ -73,7 +73,7 @@ func (w *Worker) buildPluginRequest(ctx context.Context, task *queue.Task, messa
 			return nil, err
 		}
 
-		var item pb.DataItem
+		var item schema.DataItem
 		if err := json.Unmarshal(bytes, &item); err != nil {
 			return nil, err
 		}
@@ -96,7 +96,7 @@ func (w *Worker) buildPluginRequest(ctx context.Context, task *queue.Task, messa
 	return request, nil
 }
 
-func (w *Worker) closeAllPluginRequests(pluginReqs map[string]chan *pb.PluginRequest) {
+func (w *Worker) closeAllPluginRequests(pluginReqs map[string]chan *schema.PluginRequest) {
 	for _, reqs := range pluginReqs {
 		close(reqs)
 	}

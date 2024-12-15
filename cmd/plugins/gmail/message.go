@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"go.quinn.io/dataq/plugin"
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/schema"
 )
 
-func (p *GmailPlugin) getMessage(ctx context.Context, action *pb.Action, api *plugin.PluginAPI) error {
+func (p *GmailPlugin) getMessage(ctx context.Context, action *schema.Action, api *plugin.PluginAPI) error {
 	srv, err := p.getClient(ctx)
 	if err != nil {
 		return err
@@ -32,8 +32,8 @@ func (p *GmailPlugin) getMessage(ctx context.Context, action *pb.Action, api *pl
 	}
 
 	// Create a DataItem for the message
-	item := &pb.DataItem{
-		Meta: &pb.DataItemMetadata{
+	item := &schema.DataItem{
+		Meta: &schema.DataItemMetadata{
 			PluginId:    p.ID(),
 			Id:          messageID,
 			Kind:        "message",

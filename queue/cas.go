@@ -3,7 +3,6 @@ package queue
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -12,75 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// TaskModel represents the database model for tasks
-type TaskModel struct {
-	ID           string `gorm:"primaryKey"`
-	PluginID     string
-	Status       string
-	Error        string
-	Hash         string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	PluginConfig string // JSON encoded map
-	Action       string // JSON encoded schema.Action
-}
-
-// ToTask converts the database model to a
-func (m *TaskModel) ToTask() (*Task, error) {
-	var pluginConfig map[string]string
-	if err := json.Unmarshal([]byte(m.PluginConfig), &pluginConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal plugin config: %w", err)
-	}
-
-	var action schema.Action
-	if err := json.Unmarshal([]byte(m.Action), &action); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal action: %w", err)
-	}
-
-	return &Task{
-		ID:           m.ID,
-		PluginID:     m.PluginID,
-		Status:       TaskStatus(m.Status),
-		Error:        m.Error,
-		Hash:         m.Hash,
-		CreatedAt:    m.CreatedAt,
-		UpdatedAt:    m.UpdatedAt,
-		PluginConfig: pluginConfig,
-		Action:       &action,
-	}, nil
-}
-
-// FromTask converts a Task to a database model
-func TaskModelFromTask(t *Task) (*TaskModel, error) {
-	pluginConfig, err := json.Marshal(t.PluginConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal plugin config: %w", err)
-	}
-
-	action, err := json.Marshal(t.Action)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal action: %w", err)
-	}
-
-	return &TaskModel{
-		ID:           t.ID,
-		PluginID:     t.PluginID,
-		Status:       string(t.Status),
-		Error:        t.Error,
-		Hash:         t.Hash,
-		CreatedAt:    t.CreatedAt,
-		UpdatedAt:    t.UpdatedAt,
-		PluginConfig: string(pluginConfig),
-		Action:       string(action),
-	}, nil
-}
-
-type SQLiteQueue struct {
+type ClaimsQueue struct {
 	db *gorm.DB
 }
 
 // NewSQLiteQueue creates a new SQLite-backed queue
-func NewSQLiteQueue(conn *sql.DB) (*SQLiteQueue, error) {
+func NewClaimsQueue(conn *sql.DB) (*SQLiteQueue, error) {
 	// Convert sql.DB to gorm.DB
 	db, err := gorm.Open(sqlite.Dialector{Conn: conn})
 	if err != nil {
@@ -95,7 +31,7 @@ func NewSQLiteQueue(conn *sql.DB) (*SQLiteQueue, error) {
 	return &SQLiteQueue{db: db}, nil
 }
 
-func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
+func (q *SQLiteQueue) Push(ctx context.Context, task *schema.Task) error {
 	model, err := TaskModelFromTask(task)
 	if err != nil {
 		return fmt.Errorf("failed to convert task to model: %w", err)
@@ -108,7 +44,7 @@ func (q *SQLiteQueue) Push(ctx context.Context, task *Task) error {
 	return nil
 }
 
-func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
+func (q *SQLiteQueue) Pop(ctx context.Context) (*schema.Task, error) {
 	var model TaskModel
 
 	err := q.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -141,7 +77,7 @@ func (q *SQLiteQueue) Pop(ctx context.Context) (*Task, error) {
 	return model.ToTask()
 }
 
-func (q *SQLiteQueue) Update(ctx context.Context, task *Task) error {
+func (q *SQLiteQueue) Update(ctx context.Context, task *schema.Task) error {
 	model, err := TaskModelFromTask(task)
 	if err != nil {
 		return fmt.Errorf("failed to convert task to model: %w", err)
@@ -152,19 +88,19 @@ func (q *SQLiteQueue) Update(ctx context.Context, task *Task) error {
 		return fmt.Errorf("failed to update task: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("task not found: %s", task.ID)
+		return fmt.Errorf("task not found: %s", task.Uid)
 	}
 
 	return nil
 }
 
-func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*Task, error) {
+func (q *SQLiteQueue) List(ctx context.Context, status TaskStatus) ([]*schema.Task, error) {
 	var models []TaskModel
 	if err := q.db.WithContext(ctx).Where("status = ?", status).Find(&models).Error; err != nil {
 		return nil, fmt.Errorf("failed to list tasks: %w", err)
 	}
 
-	tasks := make([]*Task, 0, len(models))
+	tasks := make([]*schema.Task, 0, len(models))
 	for _, model := range models {
 		task, err := model.ToTask()
 		if err != nil {

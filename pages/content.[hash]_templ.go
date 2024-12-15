@@ -14,13 +14,13 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/components"
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/schema"
 	"io"
 )
 
 type ContentHashData struct {
-	Item     *pb.DataItem
-	Children []*pb.DataItemMetadata
+	Item     *schema.DataItem
+	Children []*schema.DataItemMetadata
 }
 
 func ContentHashHandler(c echo.Context, hash string) (*ContentHashData, error) {
@@ -36,7 +36,7 @@ func ContentHashHandler(c echo.Context, hash string) (*ContentHashData, error) {
 		return nil, fmt.Errorf("failed to read data: %w", err)
 	}
 
-	item := &pb.DataItem{}
+	item := &schema.DataItem{}
 	if err := json.Unmarshal(bytes, item); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
 	}

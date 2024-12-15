@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package dataq;
-option go_package = "go.quinn.io/dataq/pb";
+option go_package = "./schema";
 
 // PluginRequest represents a request to a plugin
 // Possible states:

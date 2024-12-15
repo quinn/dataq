@@ -10,12 +10,12 @@ import (
 
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/hash"
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/stream"
 )
 
 // ExecutePlugin executes a plugin binary with the given request and returns a channel of responses
-func Execute(ctx context.Context, cfg *config.Plugin, req <-chan *pb.PluginRequest) (<-chan *pb.PluginResponse, error) {
+func Execute(ctx context.Context, cfg *config.Plugin, req <-chan *schema.PluginRequest) (<-chan *schema.PluginResponse, error) {
 	binpath := filepath.Join(config.StateDir(), "bin", cfg.BinaryPath)
 	if _, err := os.Stat(binpath); err != nil {
 		return nil, fmt.Errorf("plugin binary not found: %s", binpath)
@@ -47,16 +47,16 @@ func Execute(ctx context.Context, cfg *config.Plugin, req <-chan *pb.PluginReque
 	}
 
 	// Create response channel
-	responses := make(chan *pb.PluginResponse)
+	responses := make(chan *schema.PluginResponse)
 
 	go func() {
 		errBytes, _ := io.ReadAll(stderr)
-		responses <- &pb.PluginResponse{
+		responses <- &schema.PluginResponse{
 			PluginId: cfg.ID,
 			Error:    "plugin stderr: " + string(errBytes),
 		}
 
-		responses <- &pb.PluginResponse{
+		responses <- &schema.PluginResponse{
 			Closed: true,
 		}
 	}()
@@ -80,7 +80,7 @@ func Execute(ctx context.Context, cfg *config.Plugin, req <-chan *pb.PluginReque
 
 			if resp.Item != nil {
 				if resp.Item.Meta.Hash != hash.Generate(resp.Item.RawData) {
-					responses <- &pb.PluginResponse{
+					responses <- &schema.PluginResponse{
 						PluginId: cfg.ID,
 						Error:    "hash mismatch",
 					}
@@ -101,12 +101,12 @@ func Execute(ctx context.Context, cfg *config.Plugin, req <-chan *pb.PluginReque
 	go func() {
 		// Check for stream error
 		if err := <-errc; err != nil {
-			responses <- &pb.PluginResponse{
+			responses <- &schema.PluginResponse{
 				PluginId: cfg.ID,
 				Error:    fmt.Sprintf("stream error: %v", err),
 			}
 
-			responses <- &pb.PluginResponse{
+			responses <- &schema.PluginResponse{
 				Closed: true,
 			}
 
@@ -117,12 +117,12 @@ func Execute(ctx context.Context, cfg *config.Plugin, req <-chan *pb.PluginReque
 	go func() {
 		// Wait for plugin to finish
 		if err := cmd.Wait(); err != nil {
-			responses <- &pb.PluginResponse{
+			responses <- &schema.PluginResponse{
 				PluginId: cfg.ID,
 				Error:    fmt.Sprintf("plugin execution failed: %v\n", err),
 			}
 
-			responses <- &pb.PluginResponse{
+			responses <- &schema.PluginResponse{
 				Closed: true,
 			}
 		}

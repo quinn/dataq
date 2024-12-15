@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package dataq;
+option go_package = "./schema";
+
+import "tagger/tagger.proto";
+
+/* Types for Queue */
+
+// // TaskModel represents the database model for tasks
+// type TaskModel struct {
+// 	ID           string `gorm:"primaryKey"`
+// 	PluginID     string
+// 	Status       string
+// 	Error        string
+// 	Hash         string
+// 	CreatedAt    time.Time
+// 	UpdatedAt    time.Time
+// 	PluginConfig string // JSON encoded map
+// 	Action       string // JSON encoded pb.Action
+// }
+
+// [(tagger.tags) = "json:\"A\""]
+
+// TaskModel represents the database model for tasks
+message Task {
+  string              uid = 1 [(tagger.tags) = "gorm:\"primaryKey\""];
+  int64               claim_timestamp = 10;
+  string              plugin_id = 2;
+  string              action_uid = 9;
+  string              data_item_uid = 5;
+  string              status = 3;
+  string              error = 4;
+  int64               created_at = 6;
+  int64               updated_at = 7;
+  map<string, string> plugin_config = 8;
+}
+
+/* Generic entitities inside of dataq */
+message Email {
+  string from = 1;
+  string to = 2;
+  string subject = 3;
+  string body = 4;
+  string date = 5;
+  string message_id = 6;
+  string thread_id = 7;
+  string in_reply_to = 8;
+  string references = 9;
+  string cc = 10;
+  string bcc = 11;
+  string attachments = 12;
+  string mime_type = 13;
+  string content_type = 14;
+  string content = 15;
+  string html = 16;
+  string text = 17;
+}
+
+message FinancialTransaction {
+  string id = 1;
+  string date = 2;
+  string description = 3;
+  string amount = 4;
+  string currency = 5;
+  string category = 6;
+  string account = 7;
+  string subcategory = 8;
+  string notes = 9;
+  string type = 10;
+}

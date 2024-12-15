@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/hash"
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/schema"
 )
 
 // TaskStatus represents the current state of a task
@@ -22,63 +21,49 @@ const (
 	TaskStatusCancelled  TaskStatus = "cancelled"
 )
 
-// Task represents metadata about a unit of work to be processed
-type Task struct {
-	Status       TaskStatus
-	Error        string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	Hash         string // SHA-256 hash of the data, used to reference the actual data
-	PluginConfig map[string]string
-	PluginID     string
-	ID           string
-	Action       *pb.Action
-}
+// func (t *schema.Task) Key() string {
+// 	return t.Uid
+// }
 
-func (t *Task) Key() string {
-	return t.PluginID + "-" + t.ID
-}
-
-func (t *Task) Request() *pb.PluginRequest {
-	return &pb.PluginRequest{
-		PluginId:     t.PluginID,
-		Id:           t.ID,
-		Operation:    "extract",
-		PluginConfig: t.PluginConfig,
-		Action:       t.Action,
-	}
-}
+// func (t *schema.Task) Request() *schema.PluginRequest {
+// 	return &schema.PluginRequest{
+// 		PluginId:     t.PluginID,
+// 		Id:           t.ID,
+// 		Operation:    "extract",
+// 		PluginConfig: t.PluginConfig,
+// 		Action:       t.Action,
+// 	}
+// }
 
 // NewTask creates a new TaskMetadata instance
-func NewTask(plugin config.Plugin, action *pb.Action) *Task {
-	id := [16]byte(uuid.New())
-	return &Task{
-		Status:       TaskStatusPending,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-		Action:       action,
+func NewTask(plugin config.Plugin, action *schema.Action) *schema.Task {
+	return &schema.Task{
+		Uid:          hash.UID(),
+		Status:       string(TaskStatusPending),
+		CreatedAt:    time.Now().Unix(),
+		UpdatedAt:    time.Now().Unix(),
+		ActionUid:    action.Id,
 		PluginConfig: plugin.Config,
-		PluginID:     plugin.ID,
-		ID:           hash.Encode(id[:]),
+		PluginId:     plugin.ID,
 	}
 }
 
-func NewExtractTask(plugin config.Plugin, item *pb.DataItem) *Task {
-	id := [16]byte(uuid.New())
-	return &Task{
-		Status:       TaskStatusPending,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+func NewExtractTask(plugin config.Plugin, item *schema.DataItem) *schema.Task {
+	return &schema.Task{
+		Uid:          hash.UID(),
+		Status:       string(TaskStatusPending),
+		CreatedAt:    time.Now().Unix(),
+		UpdatedAt:    time.Now().Unix(),
 		PluginConfig: plugin.Config,
-		PluginID:     plugin.ID,
-		Hash:         item.Meta.Hash,
-		ID:           hash.Encode(id[:]),
+		PluginId:     plugin.ID,
+		DataItemUid:  item.Meta.Id,
 	}
 }
 
 // InitialTask creates an initial task metadata for a plugin
-func InitialTask(plugin config.Plugin) *Task {
-	return NewTask(plugin, &pb.Action{
+func InitialTask(plugin config.Plugin) *schema.Task {
+	return NewTask(plugin, &schema.Action{
+		Id:   hash.UID(),
 		Name: "initial",
 	})
 }
@@ -97,17 +82,17 @@ func NewQueue(queueType, path string) (Queue, error) {
 // Queue defines the interface for task queues
 type Queue interface {
 	// Push adds a task metadata to the queue
-	Push(ctx context.Context, meta *Task) error
+	Push(ctx context.Context, meta *schema.Task) error
 
 	// Pop removes and returns the next task metadata from the queue
-	Pop(ctx context.Context) (*Task, error)
+	Pop(ctx context.Context) (*schema.Task, error)
 
 	// Update updates an existing task metadata in the queue
-	Update(ctx context.Context, meta *Task) error
+	Update(ctx context.Context, meta *schema.Task) error
 
 	// Close closes the queue and releases any resources
 	Close() error
 
 	// List returns all task metadata in the queue, optionally filtered by status
-	List(ctx context.Context, status TaskStatus) ([]*Task, error)
+	List(ctx context.Context, status TaskStatus) ([]*schema.Task, error)
 }

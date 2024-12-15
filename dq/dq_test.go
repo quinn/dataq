@@ -6,13 +6,13 @@ import (
 	"reflect"
 	"testing"
 
-	pb "go.quinn.io/dataq/proto"
+	"go.quinn.io/dataq/schema"
 )
 
 func TestWriteReadWithDelimiterInMetadata(t *testing.T) {
 	// Create a DataItem with the delimiter sequence in its metadata
-	item := &pb.DataItem{
-		Meta: &pb.DataItemMetadata{
+	item := &schema.DataItem{
+		Meta: &schema.DataItemMetadata{
 			PluginId:    "test-plugin",
 			Id:          "test-source",
 			Kind:        "test",
@@ -66,8 +66,8 @@ func TestWriteReadWithDelimiterInRawData(t *testing.T) {
 		[]byte("end"),
 	}, nil)
 
-	item := &pb.DataItem{
-		Meta: &pb.DataItemMetadata{
+	item := &schema.DataItem{
+		Meta: &schema.DataItemMetadata{
 			PluginId:    "test-plugin",
 			Id:          "test-source",
 			Kind:        "test",
@@ -98,8 +98,8 @@ func TestWriteReadWithDelimiterInRawData(t *testing.T) {
 
 func TestWriteReadEmpty(t *testing.T) {
 	// Test with empty raw data and metadata
-	item := &pb.DataItem{
-		Meta: &pb.DataItemMetadata{
+	item := &schema.DataItem{
+		Meta: &schema.DataItemMetadata{
 			PluginId:    "test-plugin",
 			Id:          "test-source",
 			Kind:        "test",

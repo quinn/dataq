@@ -8,16 +8,16 @@ import (
 
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/pluginutil"
-	pb "go.quinn.io/dataq/proto"
 	"go.quinn.io/dataq/queue"
+	"go.quinn.io/dataq/schema"
 )
 
-func (w *Worker) startPluginHandlers(ctx context.Context, messages chan Message) (map[string]chan *pb.PluginRequest, map[string]map[string]*queue.Task, error) {
-	pluginReqs := make(map[string]chan *pb.PluginRequest)
+func (w *Worker) startPluginHandlers(ctx context.Context, messages chan Message) (map[string]chan *schema.PluginRequest, map[string]map[string]*queue.Task, error) {
+	pluginReqs := make(map[string]chan *schema.PluginRequest)
 	taskmap := make(map[string]map[string]*queue.Task)
 
 	for id, cfg := range w.plugins {
-		reqs := make(chan *pb.PluginRequest)
+		reqs := make(chan *schema.PluginRequest)
 		pluginReqs[id] = reqs
 		taskmap[id] = make(map[string]*queue.Task)
 
@@ -27,7 +27,7 @@ func (w *Worker) startPluginHandlers(ctx context.Context, messages chan Message)
 	return pluginReqs, taskmap, nil
 }
 
-func (w *Worker) runPlugin(ctx context.Context, id string, cfg *config.Plugin, reqs chan *pb.PluginRequest, taskmap map[string]*queue.Task, messages chan Message) {
+func (w *Worker) runPlugin(ctx context.Context, id string, cfg *config.Plugin, reqs chan *schema.PluginRequest, taskmap map[string]*queue.Task, messages chan Message) {
 	resps, err := pluginutil.Execute(ctx, cfg, reqs)
 	if err != nil {
 		sendErrorf(messages, "Failed to start plugin %s: %v", id, err)
@@ -37,7 +37,7 @@ func (w *Worker) runPlugin(ctx context.Context, id string, cfg *config.Plugin, r
 	w.handlePluginResponses(ctx, id, resps, taskmap, messages)
 }
 
-func (w *Worker) handlePluginResponses(ctx context.Context, pluginID string, resps <-chan *pb.PluginResponse, taskmap map[string]*queue.Task, messages chan Message) {
+func (w *Worker) handlePluginResponses(ctx context.Context, pluginID string, resps <-chan *schema.PluginResponse, taskmap map[string]*queue.Task, messages chan Message) {
 	for resp := range resps {
 		if resp.Closed {
 			// The plugin closed, no more requests will be handled
@@ -75,7 +75,7 @@ func (w *Worker) handlePluginResponses(ctx context.Context, pluginID string, res
 	}
 }
 
-func (w *Worker) handlePluginResponseItem(ctx context.Context, item *pb.DataItem, messages chan Message) error {
+func (w *Worker) handlePluginResponseItem(ctx context.Context, item *schema.DataItem, messages chan Message) error {
 	jsonBytes, err := json.Marshal(item)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (w *Worker) handlePluginResponseItem(ctx context.Context, item *pb.DataItem
 	return nil
 }
 
-func (w *Worker) handlePluginResponseAction(ctx context.Context, resp *pb.PluginResponse, messages chan Message) error {
+func (w *Worker) handlePluginResponseAction(ctx context.Context, resp *schema.PluginResponse, messages chan Message) error {
 	newTask := queue.NewTask(*w.plugins[resp.PluginId], resp.Action)
 	if err := w.queue.Push(ctx, newTask); err != nil {
 		return err

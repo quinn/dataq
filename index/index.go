@@ -5,30 +5,85 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/claims"
+	"go.quinn.io/dataq/schema"
+	"gorm.io/gorm"
 )
 
-type KV interface {
-	Set(key, value string) error
-	Get(key string) (string, error)
-}
-
 type ClaimsIndexer struct {
+	cl  claims.Claimer
 	cas cas.Storage
-	kv  KV
+	db  *gorm.DB
 }
-
-var PREFIX = byte('{')
 
 // NewClaimsIndexer returns a ClaimsIndexer that can build and query an index of claims.
-func NewClaimsIndexer(cas cas.Storage, kv KV) *ClaimsIndexer {
+func NewClaimsIndexer(cas cas.Storage, db *gorm.DB) *ClaimsIndexer {
 	return &ClaimsIndexer{
 		cas: cas,
-		kv:  kv,
+		cl:  claims.NewClaimsService(cas),
+		db:  db,
 	}
+}
+
+func (ci *ClaimsIndexer) StoreClaim(ctx context.Context, c *claims.Claim) (string, error) {
+	hash, err := ci.cl.StoreClaim(ctx, c)
+	if err != nil {
+		return "", fmt.Errorf("failed to store claim: %w", err)
+	}
+
+	if err := ci.IndexClaim(ctx, hash); err != nil {
+		return "", fmt.Errorf("failed to index claim: %w", err)
+	}
+
+	return hash, nil
+}
+
+func (ci *ClaimsIndexer) IndexClaim(ctx context.Context, hash string) error {
+	claim, payload, err := ci.cl.RetrieveClaim(ctx, hash)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve claim: %w", err)
+	}
+
+	var newModel claims.Claimable
+	var existingModel claims.Claimable
+	switch payload.Kind {
+	case "task":
+		newModel = &schema.Task{}
+		existingModel = &schema.Task{}
+	default:
+		return errors.New("unsupported claim kind: " + payload.Kind)
+	}
+
+	if err := json.Unmarshal(payload.Payload, existingModel); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	if err := ci.db.WithContext(ctx).First(existingModel, "uid = ?", claim.UID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			existingModel = nil
+		} else {
+			return fmt.Errorf("failed to query model: %w", err)
+		}
+	}
+
+	if existingModel == nil {
+		if err := ci.db.WithContext(ctx).Create(newModel).Error; err != nil {
+			return fmt.Errorf("failed to create model: %w", err)
+		}
+	} else {
+		if existingModel.GetClaimTimestamp() >= claim.Timestamp {
+			return nil
+		}
+
+		// TODO: gorm apparently ignores zero values when updating so this could cause problems down the line
+		if err := ci.db.WithContext(ctx).Updates(newModel).Error; err != nil {
+			return fmt.Errorf("failed to update model: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // RebuildIndex scans the entire Storage, finds claims, and indexes the latest claim per entity.
@@ -44,96 +99,35 @@ func (ci *ClaimsIndexer) RebuildIndex(ctx context.Context) error {
 		return fmt.Errorf("failed to iterate cas: %w", err)
 	}
 
+	// TODO: increase performance by refactoring IndexClaim to not check for existing model and timestamp
 	// temporary map in memory: entityUID -> (version, claimHash)
-	latestClaims := make(map[string]struct {
-		Timestamp int64
-		claimHash string
-	})
+	// latestClaims := make(map[string]struct {
+	// 	Timestamp int64
+	// 	claimHash string
+	// })
 
 	for hash := range hashes {
-		c, err := ci.tryDecodeClaim(ctx, hash)
-		if err != nil {
-			// Not a claim or some other error; ignore and continue
-			continue
+		if err := ci.IndexClaim(ctx, hash); err != nil {
+			return fmt.Errorf("failed to index claim: %w", err)
 		}
 
-		prev, exists := latestClaims[c.UID]
-		if !exists || c.Timestamp > prev.Timestamp {
-			latestClaims[c.UID] = struct {
-				Timestamp int64
-				claimHash string
-			}{
-				Timestamp: c.Timestamp,
-				claimHash: hash,
-			}
-		}
-	}
-
-	// Persist the results to KV
-	for entityUID, info := range latestClaims {
-		if err := ci.kv.Set(entityUID, info.claimHash); err != nil {
-			return fmt.Errorf("failed to set KV entry for entity %s: %w", entityUID, err)
-		}
+		// prev, exists := latestClaims[c.UID]
+		// if !exists || c.Timestamp > prev.Timestamp {
+		// 	latestClaims[c.UID] = struct {
+		// 		Timestamp int64
+		// 		claimHash string
+		// 	}{
+		// 		Timestamp: c.Timestamp,
+		// 		claimHash: hash,
+		// 	}
+		// }
 	}
 
 	return nil
 }
 
-// tryDecodeClaim attempts to decode the content at the given hash as a Claim.
+// RetrieveClaim attempts to decode the content at the given hash as a Claim.
 // Returns an error if the content is not a valid JSON-encoded Claim.
-func (ci *ClaimsIndexer) tryDecodeClaim(ctx context.Context, hash string) (*claims.Claim, error) {
-	r, err := ci.cas.Retrieve(ctx, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(data) == 0 || data[0] != PREFIX {
-		return nil, errors.New("not a claim")
-	}
-
-	var c claims.Claim
-	if err := json.Unmarshal(data, &c); err != nil {
-		return nil, err
-	}
-
-	// Validate at least the EntityUID and Version fields to ensure it's a "real" claim.
-	if c.UID == "" || c.Timestamp == 0 {
-		return nil, errors.New("invalid claim structure")
-	}
-
-	return &c, nil
-}
-
-// GetLatestClaimHash returns the hash of the latest claim for the given entity, if present.
-func (ci *ClaimsIndexer) GetLatestClaimHash(entityUID string) (string, error) {
-	h, err := ci.kv.Get(entityUID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get latest claim for entity %s: %w", entityUID, err)
-	}
-	if h == "" {
-		return "", errors.New("no claim found for entity")
-	}
-	return h, nil
-}
-
-// RetrieveLatestClaim returns the latest claim object for the given entity.
-// It looks up the entity in KV to find the latest claim hash, then retrieves the claim from Storage.
-func (ci *ClaimsIndexer) RetrieveLatestClaim(ctx context.Context, entityUID string) (*claims.Claim, error) {
-	claimHash, err := ci.GetLatestClaimHash(entityUID)
-	if err != nil {
-		return nil, err
-	}
-
-	cs := claims.NewClaimsService(ci.cas)
-	claim, err := cs.RetrieveClaim(ctx, claimHash)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve latest claim for entity %s: %w", entityUID, err)
-	}
-
-	return claim, nil
+func (ci *ClaimsIndexer) RetrieveClaim(ctx context.Context, hash string) (*claims.Claim, *claims.ClaimPayload, error) {
+	return ci.cl.RetrieveClaim(ctx, hash)
 }

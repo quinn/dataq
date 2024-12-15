@@ -6,9 +6,8 @@ import (
 	"os"
 	"time"
 
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/stream"
-
-	pb "go.quinn.io/dataq/proto"
 )
 
 // waitForDebugger is used as a breakpoint for debugger attachment
@@ -18,8 +17,8 @@ var waitForDebugger bool = false
 type Plugin interface {
 	ID() string
 	Configure(map[string]string) error
-	Extract(context.Context, *pb.Action, *PluginAPI) error
-	Transform(context.Context, *pb.DataItem, *PluginAPI) error
+	Extract(context.Context, *schema.Action, *PluginAPI) error
+	Transform(context.Context, *schema.DataItem, *PluginAPI) error
 }
 
 // Run is a harness that a plugin written in Go can use to receive and respond to requests
@@ -35,7 +34,7 @@ func Run(p Plugin) {
 	// Handle stream errors in a separate goroutine
 	go func() {
 		if err := <-errc; err != nil {
-			stream.WriteResponse(os.Stdout, &pb.PluginResponse{
+			stream.WriteResponse(os.Stdout, &schema.PluginResponse{
 				PluginId: p.ID(),
 				Error:    fmt.Sprintf("stream error: %v", err),
 			})

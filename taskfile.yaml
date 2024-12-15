@@ -112,12 +112,18 @@ tasks:
 
   gen-proto:
     cmds:
-      - protoc --go_out=. --go_opt=paths=source_relative proto/*.proto
       - |
         protoc \
-        -I $HOME/.config/asdf/installs/golang/1.22.0/packages/pkg/mod/github.com/srikrsna/protoc-gen-gotag@v1.0.2 \
-        --gotag_out=. \
-        proto/*.proto
+          -I $HOME/.config/asdf/installs/golang/1.22.0/packages/pkg/mod/github.com/srikrsna/protoc-gen-gotag@v1.0.2 \
+          -I . \
+          --go_out=. \
+          schema/*.proto
+      - |
+          protoc \
+          -I $HOME/.config/asdf/installs/golang/1.22.0/packages/pkg/mod/github.com/srikrsna/protoc-gen-gotag@v1.0.2 \
+          -I . \
+          --gotag_out=. \
+          schema/*.proto
 
   build-plugins:
     cmds:
