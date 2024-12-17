@@ -9,6 +9,7 @@ import (
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/claims"
 	"go.quinn.io/dataq/config"
+	"go.quinn.io/dataq/index"
 	tree "go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/queue"
 	"go.quinn.io/dataq/worker"
@@ -21,6 +22,7 @@ type Boot struct {
 	Worker *worker.Worker
 	CAS    cas.Storage
 	Claim  *claims.ClaimsService
+	Index  *index.ClaimsIndexer
 }
 
 func New() (*Boot, error) {

@@ -10,6 +10,7 @@ import (
 func RegisterRoutes(e *echo.Echo) {
 	e.GET("/content/:hash", ContentHashHandler)
 	e.GET("/", IndexHandler)
+	e.GET("/tasks", TasksHandler)
 }
 
 // ContentHashHandler handles requests to /content/:hash
@@ -28,4 +29,13 @@ func IndexHandler(c echo.Context) error {
 		return err
 	}
 	return pages.Index(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// TasksHandler handles requests to /tasks
+func TasksHandler(c echo.Context) error {
+	result, err := pages.TasksHandler(c)
+	if err != nil {
+		return err
+	}
+	return pages.Tasks(result).Render(c.Request().Context(), c.Response().Writer)
 }

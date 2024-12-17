@@ -68,17 +68,6 @@ func InitialTask(plugin config.Plugin) *schema.Task {
 	})
 }
 
-func NewQueue(queueType, path string) (Queue, error) {
-	switch queueType {
-	case "bbolt":
-		return newBoltQueue(path)
-	case "file":
-		return newFileQueue(path)
-	default:
-		return nil, fmt.Errorf("unknown queue type: %s", queueType)
-	}
-}
-
 // Queue defines the interface for task queues
 type Queue interface {
 	// Push adds a task metadata to the queue

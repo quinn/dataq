@@ -3,7 +3,7 @@ package pages
 import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
-	"go.quinn.io/dataq/components"
+	"go.quinn.io/dataq/ui"
 )
 
 type IndexData []string
@@ -25,7 +25,7 @@ func IndexHandler(c echo.Context) (IndexData, error) {
 }
 
 templ Index(posts IndexData) {
-	@components.Layout() {
+	@ui.Layout() {
 		<ul class="list-disc list-inside">
 			for _, post := range posts {
 				<li class="list-item">

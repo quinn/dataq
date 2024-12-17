@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
-	"go.quinn.io/dataq/components"
 	"go.quinn.io/dataq/schema"
+	"go.quinn.io/dataq/ui"
 	"io"
 )
 
@@ -42,7 +42,7 @@ func ContentHashHandler(c echo.Context, hash string) (*ContentHashData, error) {
 }
 
 templ ContentHash(data *ContentHashData) {
-	@components.Layout() {
+	@ui.Layout() {
 		<h1 class="font-bold inline-block mb-3">
 			<dl class="inline-grid grid-cols-[min-content,1fr] gap-x-3">
 				<dt>Plugin ID</dt>
@@ -75,7 +75,7 @@ templ ContentHash(data *ContentHashData) {
 		<hr class="mb-3"/>
 		<h3 class="font-bold">Data</h3>
 		<div class="border p-3 mb-3">
-			@components.JsonBrowser(data.Item.RawData)
+			@ui.JsonBrowser(data.Item.RawData)
 		</div>
 	}
 }

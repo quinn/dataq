@@ -60,13 +60,13 @@ message DataItem {
 }
 
 // Action represents an action to be taken on a DataItem
+// An action will be converted into a task inside dataq
 message Action {
-  string              name = 1;
-  string              id = 3;
+  string              name = 1;       // name should be treated like an enum
+  string              uid = 3;        // ideally deterministic, to allow for deduplication
   string              parent_hash = 4;
   map<string, string> config = 5;
 }
-
 
 /*
 actions = [

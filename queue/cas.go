@@ -2,43 +2,28 @@ package queue
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
+	"go.quinn.io/dataq/claims"
+	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/schema"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 type ClaimsQueue struct {
-	db *gorm.DB
+	index *index.ClaimsIndexer
 }
 
-// NewSQLiteQueue creates a new SQLite-backed queue
-func NewClaimsQueue(conn *sql.DB) (*SQLiteQueue, error) {
-	// Convert sql.DB to gorm.DB
-	db, err := gorm.Open(sqlite.Dialector{Conn: conn})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gorm database: %w", err)
-	}
-
-	// Auto-migrate the schema
-	if err := db.AutoMigrate(&TaskModel{}); err != nil {
-		return nil, fmt.Errorf("failed to migrate database: %w", err)
-	}
-
-	return &SQLiteQueue{db: db}, nil
+// NewClaimsQueue creates a queue stored in cas and indexed in a database
+func NewClaimsQueue(index *index.ClaimsIndexer) *ClaimsQueue {
+	return &ClaimsQueue{index: index}
 }
 
-func (q *SQLiteQueue) Push(ctx context.Context, task *schema.Task) error {
-	model, err := TaskModelFromTask(task)
-	if err != nil {
-		return fmt.Errorf("failed to convert task to model: %w", err)
-	}
-
-	if err := q.db.WithContext(ctx).Create(model).Error; err != nil {
-		return fmt.Errorf("failed to insert task: %w", err)
+func (q *ClaimsQueue) Push(ctx context.Context, task *schema.Task) error {
+	claim := &claims.Claim{
+		Kind:    "task",
+		Payload: task,
 	}
 
 	return nil

@@ -18,24 +18,43 @@ var PREFIX = byte('{')
 // It includes the entity's unique identifier, a reference to the previous claim,
 // and a reference to the associated data.
 type Claim struct {
-	DQV       string `json:"dataq_version"`     // version of dataq claim schema
-	UID       string `json:"entity_uid"`        // unique identifier of the entity. shared across multiple claims, and used to reduce all claims into a single entity.
-	ParentUID string `json:"entity_parent_uid"` // parent entity UID. This is linked through plugin requests and responses
-	Timestamp int64  `json:"claim_timestamp"`   // Unix timestamp of creation
-	Kind      string `json:"schema_kind"`       // kind of the entity. Has meaning to DataQ. Determines table of index
-	Payload   any    `json:"payload"`           // payload of the entity. This what is stored in the Index
+	DQV       string    `json:"dataq_version"`     // version of dataq claim schema
+	UID       string    `json:"entity_uid"`        // unique identifier of the entity. shared across multiple claims, and used to reduce all claims into a single entity.
+	ParentUID string    `json:"entity_parent_uid"` // parent entity UID. This is linked through plugin requests and responses
+	Timestamp int64     `json:"claim_timestamp"`   // Unix timestamp of creation
+	Kind      string    `json:"schema_kind"`       // kind of the entity. Has meaning to DataQ. Determines table of index
+	Payload   Claimable `json:"payload"`           // payload of the entity. This what is stored in the Index
 }
 
+func NewClaim(kind string, payload Claimable) *Claim {
+	return &Claim{
+		DQV:       "1",
+		UID:       payload.GetUid(),
+		Timestamp: time.Now().Unix(),
+		Kind:      kind,
+		Payload:   payload,
+	}
+}
+
+// The same bytes can be unmarshaled into a Claim or a ClaimPayload
+// Claim is typically used for convienence of marshaling
+// ClaimPayload is used for unmarshaling the payload into its schema entity
+// It probably has no use if not paired with a Claim
 type ClaimPayload struct {
 	Kind    string          `json:"schema_kind"`
 	Payload json.RawMessage `json:"payload"`
 }
 
+// interface of claim storage. Retrieve may not have any use, yet
+// the ClaimsService implements Claimer, but also the index implements Claimer
+// the index is a layer above claims and is not referenced here
 type Claimer interface {
 	StoreClaim(context.Context, *Claim) (hash string, err error)
 	RetrieveClaim(ctx context.Context, hash string) (*Claim, *ClaimPayload, error)
 }
 
+// Claimable is an interface for entities that can be claimed.
+// all schema entities are expected to be claimable
 type Claimable interface {
 	GetUid() string
 	GetClaimTimestamp() int64

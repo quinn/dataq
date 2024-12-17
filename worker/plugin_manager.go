@@ -95,7 +95,7 @@ func (w *Worker) handlePluginResponseAction(ctx context.Context, resp *schema.Pl
 	if err := w.queue.Push(ctx, newTask); err != nil {
 		return err
 	}
-	sendInfo(messages, fmt.Sprintf("[task: %s] [plugin: %s] [action: %s]", newTask.ID, newTask.PluginID, newTask.Action.Name))
+	sendInfo(messages, fmt.Sprintf("[task: %s] [plugin: %s] [action: %s]", newTask.Uid, newTask.PluginId, resp.Action.Name))
 	return nil
 }
 
