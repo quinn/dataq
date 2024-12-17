@@ -2,35 +2,34 @@ package boot
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 	"sync"
+	"syscall"
 
-	"go.quinn.io/dataq/config"
-	pb "go.quinn.io/dataq/rpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	rpc "go.quinn.io/dataq/rpc"
 )
 
 // PluginManager manages plugin processes and their gRPC clients
 type PluginManager struct {
 	sync.RWMutex
-	Clients map[string]pb.DataQPluginClient
+	Clients   map[string]rpc.DataQPluginClient
 	processes map[string]*exec.Cmd
 }
 
 // NewPluginManager creates a new plugin manager
 func NewPluginManager() *PluginManager {
 	return &PluginManager{
-		Clients: make(map[string]pb.DataQPluginClient),
+		Clients:   make(map[string]rpc.DataQPluginClient),
 		processes: make(map[string]*exec.Cmd),
 	}
 }
 
 // GetClient returns the gRPC client for a plugin
-func (pm *PluginManager) GetClient(pluginID string) (pb.DataQPluginClient, error) {
+func (pm *PluginManager) GetClient(pluginID string) (rpc.DataQPluginClient, error) {
 	pm.RLock()
 	defer pm.RUnlock()
-	
+
 	client, exists := pm.Clients[pluginID]
 	if !exists {
 		return nil, fmt.Errorf("no client found for plugin %s", pluginID)
@@ -42,7 +41,7 @@ func (pm *PluginManager) GetClient(pluginID string) (pb.DataQPluginClient, error
 func (pm *PluginManager) AddPlugin(pluginID string, client pb.DataQPluginClient, process *exec.Cmd) {
 	pm.Lock()
 	defer pm.Unlock()
-	
+
 	pm.Clients[pluginID] = client
 	pm.processes[pluginID] = process
 }

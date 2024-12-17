@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"sync"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -18,52 +17,24 @@ import (
 	"go.quinn.io/dataq/index"
 	tree "go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/queue"
+	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/worker"
-	pb "go.quinn.io/dataq/proto"
 )
 
 type Boot struct {
-	Queue    queue.Queue
-	Tree     tree.Tree
-	Config   *config.Config
-	Worker   *worker.Worker
-	CAS      cas.Storage
-	Claim    *claims.ClaimsService
-	Index    *index.ClaimsIndexer
-	Plugins  *PluginManager
-}
-
-type PluginManager struct {
-	plugins map[string]*plugin
-	mu      sync.Mutex
+	Queue   queue.Queue
+	Tree    tree.Tree
+	Config  *config.Config
+	Worker  *worker.Worker
+	CAS     cas.Storage
+	Claim   *claims.ClaimsService
+	Index   *index.ClaimsIndexer
+	Plugins *PluginManager
 }
 
 type plugin struct {
-	client pb.DataQPluginClient
+	client rpc.DataQPluginClient
 	cmd    *exec.Cmd
-}
-
-func NewPluginManager() *PluginManager {
-	return &PluginManager{
-		plugins: make(map[string]*plugin),
-	}
-}
-
-func (pm *PluginManager) AddPlugin(id string, client pb.DataQPluginClient, cmd *exec.Cmd) {
-	pm.mu.Lock()
-	defer pm.mu.Unlock()
-	pm.plugins[id] = &plugin{
-		client: client,
-		cmd:    cmd,
-	}
-}
-
-func (pm *PluginManager) Shutdown() {
-	pm.mu.Lock()
-	defer pm.mu.Unlock()
-	for _, p := range pm.plugins {
-		p.cmd.Process.Kill()
-	}
 }
 
 func New() (*Boot, error) {
@@ -168,7 +139,7 @@ func (b *Boot) startPlugin(plugin *config.Plugin, port string) error {
 		return fmt.Errorf("failed to connect to plugin: %w", err)
 	}
 
-	client := pb.NewDataQPluginClient(conn)
+	client := rpc.NewDataQPluginClient(conn)
 	b.Plugins.AddPlugin(plugin.ID, client, cmd)
 	return nil
 }
