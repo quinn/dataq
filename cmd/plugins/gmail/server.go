@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	pb "go.quinn.io/dataq/rpc"
 	"google.golang.org/api/gmail/v1"
@@ -46,7 +45,7 @@ func (s *server) Transform(ctx context.Context, req *pb.TransformRequest) (*pb.T
 	}
 }
 
-func (s *server) handlePageExtract(ctx context.Context, req *pb.ExtractRequest, srv *gmail.Service) (*pb.ExtractResponse, error) {
+func (s *server) handlePageExtract(_ context.Context, req *pb.ExtractRequest, srv *gmail.Service) (*pb.ExtractResponse, error) {
 	gmailReq := srv.Users.Messages.List("me").MaxResults(100)
 
 	if req.Kind == "next_page" {
@@ -75,6 +74,7 @@ func (s *server) handlePageExtract(ctx context.Context, req *pb.ExtractRequest, 
 	resp := &pb.ExtractResponse{
 		Kind:        "page",
 		RequestHash: req.Hash,
+		Data:        &pb.ExtractResponse_Content{Content: rawJSON},
 		Transforms: []*pb.ExtractResponse_Transform{{
 			Kind: "page",
 		}},
@@ -93,7 +93,7 @@ func (s *server) handlePageExtract(ctx context.Context, req *pb.ExtractRequest, 
 	return resp, nil
 }
 
-func (s *server) handleMessageExtract(ctx context.Context, req *pb.ExtractRequest, srv *gmail.Service) (*pb.ExtractResponse, error) {
+func (s *server) handleMessageExtract(_ context.Context, req *pb.ExtractRequest, srv *gmail.Service) (*pb.ExtractResponse, error) {
 	messageID, ok := req.Metadata["message_id"]
 	if !ok || messageID == "" {
 		return nil, fmt.Errorf("get_message request requires message_id in metadata")
@@ -113,13 +113,14 @@ func (s *server) handleMessageExtract(ctx context.Context, req *pb.ExtractReques
 	return &pb.ExtractResponse{
 		Kind:        "message",
 		RequestHash: req.Hash,
+		Data:        &pb.ExtractResponse_Content{Content: rawJSON},
 		Transforms: []*pb.ExtractResponse_Transform{{
 			Kind: "message",
 		}},
 	}, nil
 }
 
-func (s *server) handlePageTransform(ctx context.Context, req *pb.TransformRequest) (*pb.TransformResponse, error) {
+func (s *server) handlePageTransform(_ context.Context, req *pb.TransformRequest) (*pb.TransformResponse, error) {
 	var pageData gmail.ListMessagesResponse
 	if err := json.Unmarshal([]byte(req.Hash), &pageData); err != nil {
 		return nil, fmt.Errorf("error unmarshaling page data: %v", err)
@@ -143,7 +144,7 @@ func (s *server) handlePageTransform(ctx context.Context, req *pb.TransformReque
 	return resp, nil
 }
 
-func (s *server) handleMessageTransform(ctx context.Context, req *pb.TransformRequest) (*pb.TransformResponse, error) {
+func (s *server) handleMessageTransform(_ context.Context, req *pb.TransformRequest) (*pb.TransformResponse, error) {
 	var msgData gmail.Message
 	if err := json.Unmarshal([]byte(req.Hash), &msgData); err != nil {
 		return nil, fmt.Errorf("error unmarshaling message data: %v", err)
@@ -172,7 +173,7 @@ func extractEmailFromMessage(msg *gmail.Message) *pb.Email {
 		MessageId: msg.Id,
 		ThreadId:  msg.ThreadId,
 	}
-	
+
 	for _, header := range msg.Payload.Headers {
 		switch header.Name {
 		case "From":

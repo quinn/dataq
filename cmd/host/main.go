@@ -26,7 +26,7 @@ func main() {
 
 	// Create a WaitGroup for coordinating shutdown
 	var wg sync.WaitGroup
-	ctx, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.Background())
 
 	// Start the web server in a goroutine
 	wg.Add(1)
@@ -41,7 +41,7 @@ func main() {
 
 	<-sigChan
 	log.Println("Shutting down...")
-	
+
 	// Cancel context and shutdown all components
 	cancel()
 	b.Shutdown()

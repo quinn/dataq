@@ -4,33 +4,56 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/ui"
+	"slices"
 )
 
-type IndexData []string
+type IndexData struct {
+	Hashes  []string
+	Plugins []string
+}
 
-func IndexHandler(c echo.Context) (IndexData, error) {
+func IndexHandler(c echo.Context) (*IndexData, error) {
 	b := c.Get("boot").(*boot.Boot)
+	var plugins []string
+	for key := range b.Plugins.Clients {
+		plugins = append(plugins, key)
+	}
+
+	slices.Sort(plugins)
+
 	hashes, err := b.CAS.Iterate(c.Request().Context())
 	// items, err := b.Tree.Children("")
 	if err != nil {
 		return nil, err
 	}
 
-	var items IndexData
+	var items []string
 	for hash := range hashes {
 		items = append(items, hash)
 	}
 
-	return items, nil
+	return &IndexData{
+		Hashes:  items,
+		Plugins: plugins,
+	}, nil
 }
 
-templ Index(posts IndexData) {
+templ Index(data IndexData) {
 	@ui.Layout() {
 		<ul class="list-disc list-inside">
-			for _, post := range posts {
+			for _, plugin := range data.Plugins {
 				<li class="list-item">
-					<a href={ templ.URL("/content/" + post) } class="underline">
-						{ post }
+					<a href={ templ.URL("/content/" + plugin) } class="underline">
+						{ plugin }
+					</a>
+				</li>
+			}
+		</ul>
+		<ul class="list-disc list-inside">
+			for _, hash := range data.Hashes {
+				<li class="list-item">
+					<a href={ templ.URL("/content/" + hash) } class="underline">
+						{ hash }
 					</a>
 				</li>
 			}

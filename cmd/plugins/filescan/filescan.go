@@ -1,88 +1,88 @@
 package main
 
-import (
-	"context"
-	"io/fs"
-	"path/filepath"
+// import (
+// 	"context"
+// 	"io/fs"
+// 	"path/filepath"
 
-	"go.quinn.io/dataq/plugin"
-	"go.quinn.io/dataq/schema"
-)
+// 	"go.quinn.io/dataq/plugin"
+// 	"go.quinn.io/dataq/schema"
+// )
 
-type FileScanPlugin struct {
-	rootPath string
-}
+// type FileScanPlugin struct {
+// 	rootPath string
+// }
 
-func New() *FileScanPlugin {
-	return &FileScanPlugin{}
-}
+// func New() *FileScanPlugin {
+// 	return &FileScanPlugin{}
+// }
 
-func (p *FileScanPlugin) ID() string {
-	return "filescan"
-}
+// func (p *FileScanPlugin) ID() string {
+// 	return "filescan"
+// }
 
-func (p *FileScanPlugin) Name() string {
-	return "File System Scanner"
-}
+// func (p *FileScanPlugin) Name() string {
+// 	return "File System Scanner"
+// }
 
-func (p *FileScanPlugin) Description() string {
-	return "Scans specified directories for files and returns their metadata"
-}
+// func (p *FileScanPlugin) Description() string {
+// 	return "Scans specified directories for files and returns their metadata"
+// }
 
-func (p *FileScanPlugin) Configure(config map[string]string) error {
-	if path, ok := config["root_path"]; ok {
-		p.rootPath = path
-	} else {
-		p.rootPath = "."
-	}
-	return nil
-}
+// func (p *FileScanPlugin) Configure(config map[string]string) error {
+// 	if path, ok := config["root_path"]; ok {
+// 		p.rootPath = path
+// 	} else {
+// 		p.rootPath = "."
+// 	}
+// 	return nil
+// }
 
-func (p *FileScanPlugin) Extract(ctx context.Context, action *schema.Action, api *plugin.PluginAPI) error {
-	err := filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+// func (p *FileScanPlugin) Extract(ctx context.Context, action *schema.Action, api *plugin.PluginAPI) error {
+// 	err := filepath.WalkDir(p.rootPath, func(path string, d fs.DirEntry, err error) error {
+// 		if err != nil {
+// 			return err
+// 		}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+// 		select {
+// 		case <-ctx.Done():
+// 			return ctx.Err()
+// 		default:
+// 		}
 
-		if d.IsDir() {
-			return nil
-		}
+// 		if d.IsDir() {
+// 			return nil
+// 		}
 
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
+// 		info, err := d.Info()
+// 		if err != nil {
+// 			return err
+// 		}
 
-		item := &schema.DataItem{
-			Meta: &schema.DataItemMetadata{
-				PluginId:    p.ID(),
-				Id:          path,
-				Kind:        "file",
-				Timestamp:   info.ModTime().Unix(),
-				ContentType: "application/octet-stream",
-			},
-			RawData: []byte{},
-		}
+// 		item := &schema.DataItem{
+// 			Meta: &schema.DataItemMetadata{
+// 				PluginId:    p.ID(),
+// 				Id:          path,
+// 				Kind:        "file",
+// 				Timestamp:   info.ModTime().Unix(),
+// 				ContentType: "application/octet-stream",
+// 			},
+// 			RawData: []byte{},
+// 		}
 
-		api.WriteItem(item)
+// 		api.WriteItem(item)
 
-		return nil
-	})
+// 		return nil
+// 	})
 
-	if err != nil {
-		// In a real implementation, we'd want to handle this error better
-		return err
-	}
+// 	if err != nil {
+// 		// In a real implementation, we'd want to handle this error better
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (p *FileScanPlugin) Transform(ctx context.Context, item *schema.DataItem, api *plugin.PluginAPI) error {
-	return nil
-}
+// func (p *FileScanPlugin) Transform(ctx context.Context, item *schema.DataItem, api *plugin.PluginAPI) error {
+// 	return nil
+// }

@@ -8,18 +8,7 @@ import (
 
 // RegisterRoutes adds all page routes to the Echo instance
 func RegisterRoutes(e *echo.Echo) {
-	e.GET("/content/:hash", ContentHashHandler)
 	e.GET("/", IndexHandler)
-	e.GET("/tasks", TasksHandler)
-}
-
-// ContentHashHandler handles requests to /content/:hash
-func ContentHashHandler(c echo.Context) error {
-	result, err := pages.ContentHashHandler(c, c.Param("hash"))
-	if err != nil {
-		return err
-	}
-	return pages.ContentHash(result).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // IndexHandler handles requests to /
@@ -29,13 +18,4 @@ func IndexHandler(c echo.Context) error {
 		return err
 	}
 	return pages.Index(result).Render(c.Request().Context(), c.Response().Writer)
-}
-
-// TasksHandler handles requests to /tasks
-func TasksHandler(c echo.Context) error {
-	result, err := pages.TasksHandler(c)
-	if err != nil {
-		return err
-	}
-	return pages.Tasks(result).Render(c.Request().Context(), c.Response().Writer)
 }

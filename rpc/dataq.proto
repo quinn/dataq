@@ -9,7 +9,7 @@ import "rpc/schema.proto";
 service DataQPlugin {
   // Handle extract requests
   rpc Extract(ExtractRequest) returns (ExtractResponse) {}
-  
+
   // Handle transform requests
   rpc Transform(TransformRequest) returns (TransformResponse) {}
 }
@@ -23,10 +23,15 @@ message ExtractRequest {
 
 // ExtractResponse contains the result of an extraction
 message ExtractResponse {
-  string hash = 1;                       // Content address of the produced data
+  // string hash = 1;                       // Content address of the produced data
   string kind = 2;                       // Kind of content being stored
   string request_hash = 3;               // Address of the request
-  
+
+  oneof data {
+    string hash = 5;                     // Address of the data
+    bytes content = 6;                   // Extracted data
+  }
+
   // Transform defines a transform operation to be performed
   message Transform {
     string kind = 1;    // Name of the transform
@@ -49,7 +54,7 @@ message TransformResponse {
   string hash = 1;                   // Value copied from RequestHash
   string kind = 2;                   // Kind from request
   string request_hash = 3;           // Address of request
-  
+
   // Extract defines an extract operation to be performed
   message Extract {
     string kind = 1;    // Operation to perform
