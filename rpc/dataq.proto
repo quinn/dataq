@@ -4,8 +4,6 @@ package dataq;
 
 option go_package = "github.com/quinn/dataq/rpc";
 
-import "rpc/schema.proto";
-
 // Service definition for DataQ plugin interface
 service DataQPlugin {
   // Handle extract requests
@@ -62,7 +60,7 @@ message TransformResponse {
   message Permanode {
     string kind = 1;    // Kind of permanode to be managed
     string key = 2;     // Value to uniquely identify the permanode within the plugin
-    
+
     oneof payload {
       string email = 6;
       string financial_transaction = 7;
@@ -84,7 +82,6 @@ message DataSource {
 message PermanodeVersion {
   string permanode_hash = 1; // Hash of the permanode
   int64 timestamp = 2;       // Version timestamp
-  bytes payload = 3;         // Versioned data
   bool deleted = 4;          // Deletion status
   DataSource source = 5;     // Source of the permanode version
 

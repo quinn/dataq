@@ -127,7 +127,8 @@ tasks:
           --gotag_out=. \
           schema/*.proto
 
-    gen-rpc:
+  gen-rpc:
+    cmds:
       - |
         protoc \
           --go_out=rpc \
