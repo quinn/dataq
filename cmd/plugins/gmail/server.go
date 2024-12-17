@@ -167,29 +167,56 @@ func (s *server) handleMessageTransform(ctx context.Context, req *pb.TransformRe
 	return resp, nil
 }
 
-func extractEmailFromMessage(msg *gmail.Message) string {
-	// Convert Gmail message to email format
-	// This is a placeholder - implement full conversion logic
-	emailData := make(map[string]string)
+func extractEmailFromMessage(msg *gmail.Message) *pb.Email {
+	email := &pb.Email{
+		MessageId: msg.Id,
+		ThreadId:  msg.ThreadId,
+	}
 	
 	for _, header := range msg.Payload.Headers {
 		switch header.Name {
 		case "From":
-			emailData["from"] = header.Value
+			email.From = header.Value
 		case "To":
-			emailData["to"] = header.Value
+			email.To = header.Value
 		case "Subject":
-			emailData["subject"] = header.Value
+			email.Subject = header.Value
 		case "Date":
-			emailData["date"] = header.Value
+			email.Date = header.Value
+		case "Cc":
+			email.Cc = header.Value
+		case "Bcc":
+			email.Bcc = header.Value
+		case "In-Reply-To":
+			email.InReplyTo = header.Value
+		case "References":
+			email.References = header.Value
+		case "Content-Type":
+			email.ContentType = header.Value
 		}
 	}
 
-	emailJSON, err := json.Marshal(emailData)
-	if err != nil {
-		log.Printf("Error marshaling email data: %v", err)
-		return ""
+	// Handle message body
+	if msg.Payload != nil {
+		if len(msg.Payload.Parts) > 0 {
+			for _, part := range msg.Payload.Parts {
+				switch part.MimeType {
+				case "text/plain":
+					email.Text = part.Body.Data
+				case "text/html":
+					email.Html = part.Body.Data
+				}
+			}
+		} else if msg.Payload.Body != nil {
+			// Single part message
+			if msg.Payload.MimeType == "text/html" {
+				email.Html = msg.Payload.Body.Data
+			} else {
+				email.Text = msg.Payload.Body.Data
+			}
+		}
+		email.MimeType = msg.Payload.MimeType
 	}
 
-	return string(emailJSON)
+	return email
 }
