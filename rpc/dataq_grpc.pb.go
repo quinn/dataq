@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.29.1
-// source: dataq.proto
+// source: rpc/dataq.proto
 
 package rpc
 
@@ -163,5 +163,5 @@ var DataQPlugin_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "dataq.proto",
+	Metadata: "rpc/dataq.proto",
 }

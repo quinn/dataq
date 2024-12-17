@@ -1,10 +1,9 @@
 syntax = "proto3";
 
 package dataq;
+option go_package = "go.quinn.io/dataq/rpc";
 
-option go_package = "github.com/quinn/dataq/rpc";
-
-import "schema.proto";
+import "rpc/schema.proto";
 
 // Service definition for DataQ plugin interface
 service DataQPlugin {

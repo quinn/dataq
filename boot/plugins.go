@@ -38,7 +38,7 @@ func (pm *PluginManager) GetClient(pluginID string) (rpc.DataQPluginClient, erro
 }
 
 // AddPlugin adds a new plugin process and client
-func (pm *PluginManager) AddPlugin(pluginID string, client pb.DataQPluginClient, process *exec.Cmd) {
+func (pm *PluginManager) AddPlugin(pluginID string, client rpc.DataQPluginClient, process *exec.Cmd) {
 	pm.Lock()
 	defer pm.Unlock()
 
