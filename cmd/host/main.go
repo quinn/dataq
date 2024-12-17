@@ -10,7 +10,9 @@ import (
 	"sync"
 	"syscall"
 
+	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/config"
+	"go.quinn.io/dataq/internal/web"
 	pb "go.quinn.io/dataq/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -24,16 +26,17 @@ type PluginProcess struct {
 }
 
 func main() {
-	cfg, err := config.Get()
+	// Initialize the boot package
+	b, err := boot.New()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatalf("Failed to initialize boot: %v", err)
 	}
 
 	// Start all enabled plugins
 	plugins := make([]*PluginProcess, 0)
 	basePort := 50051
 
-	for _, plugin := range cfg.Plugins {
+	for _, plugin := range b.Config.Plugins {
 		if !plugin.Enabled {
 			continue
 		}
@@ -49,6 +52,17 @@ func main() {
 		basePort++
 	}
 
+	// Create a WaitGroup for coordinating shutdown
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start the web server in a goroutine
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		web.Run(b)
+	}()
+
 	// Handle shutdown gracefully
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -56,10 +70,16 @@ func main() {
 	<-sigChan
 	log.Println("Shutting down...")
 	
+	// Cancel context to signal shutdown
+	cancel()
+	
 	// Stop all plugins
 	for _, proc := range plugins {
 		stopPlugin(proc)
 	}
+
+	// Wait for all components to shut down
+	wg.Wait()
 }
 
 func startPlugin(plugin *config.Plugin, port string) (*PluginProcess, error) {
