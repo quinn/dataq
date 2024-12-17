@@ -6,6 +6,7 @@ An extract request contains a `Kind` that has meaning to plugin. Fields:
 * Kind: the operation to be performed that will produce a piece of data. 
 
 *example*
+
 One `Kind: initial` request is made to the Gmail Plug-in. 
 A `Kind: get_message` request is made, to get and store the api response for a given message ID.
 A `Kind: get_page` with a page token. 
@@ -20,6 +21,7 @@ Fields:
 	- metadata: Any additional information necessary for the transform. So far, the content itself is all that is necessary. This will always be empty for all current use-cases. 
 
 *example*
+
 From gmail, a `Kind: page` response will be created. linked to api page data. It will also contain a single transform of type `page`. 
 A `Kind: message` will also have a single transform of type `message`. 
 ### TransformRequest:
@@ -29,6 +31,7 @@ Fields:
 * Kind: the kind of transform to be applied to the data. So far, this has been 1:1 with the kind of the data. 
 
 *example*
+
 a `Kind: page` with the address to a page api response from gmail.
 
 ### TransformResponse
@@ -47,6 +50,7 @@ The response from a transform. Enumerates next steps for the host.
 	* Payload: The data, structured to match the expected Kind. 
 
 *example*
+
 transform will scan the page for two things: the next page to extract, as well as a list of messages to extract. the extracts will be structured like this:
 * `get_page`: includes page cursor
 * `get_message`: includes message ID
@@ -65,6 +69,7 @@ Fields:
 - Deleted: bool
 
 *example*
+
 the data of an email, formatted into the DataQ schema. 
 ### DataSource
 Fields:
@@ -74,4 +79,5 @@ Fields:
 * Key: A value that can be used to uniquely identify the plugin's internal representation of the permanode
 
 *example*
+
 A `Kind: email` permanode is created. A DS is created That links the permanode 
