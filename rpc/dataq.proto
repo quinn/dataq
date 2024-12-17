@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package dataq;
+
+option go_package = "github.com/quinn/dataq/rpc";
+
+import "rpc/schema.proto";
+
+// Service definition for DataQ plugin interface
+service DataQPlugin {
+  // Handle extract requests
+  rpc Extract(ExtractRequest) returns (ExtractResponse) {}
+  
+  // Handle transform requests
+  rpc Transform(TransformRequest) returns (TransformResponse) {}
+}
+
+// ExtractRequest contains information about what data to extract
+message ExtractRequest {
+  string hash = 1; // Content address of the object responsible for creating the Extract
+  string kind = 2; // Operation to be performed that will produce data
+  map<string, string> metadata = 3;
+}
+
+// ExtractResponse contains the result of an extraction
+message ExtractResponse {
+  string hash = 1;                       // Content address of the produced data
+  string kind = 2;                       // Kind of content being stored
+  string request_hash = 3;               // Address of the request
+  
+  // Transform defines a transform operation to be performed
+  message Transform {
+    string kind = 1;    // Name of the transform
+    map<string, string> metadata = 2; // Additional information for the transform
+  }
+
+  repeated Transform transforms = 4; // List of transform requests to be created
+}
+
+
+// TransformRequest represents an action to be performed on data
+message TransformRequest {
+  string hash = 1; // Address of the data to transform
+  string kind = 2; // Kind of transform to be applied
+  map<string, string> metadata = 3;
+}
+
+// TransformResponse contains the result of a transform operation
+message TransformResponse {
+  string hash = 1;                   // Value copied from RequestHash
+  string kind = 2;                   // Kind from request
+  string request_hash = 3;           // Address of request
+  
+  // Extract defines an extract operation to be performed
+  message Extract {
+    string kind = 1;    // Operation to perform
+    map<string, string> metadata = 2; // Data necessary to perform the operation
+  }
+  repeated Extract extracts = 4; // List of extracts to be performed
+
+
+  message Permanode {
+    string kind = 1;    // Kind of permanode to be managed
+    string key = 2;     // Value to uniquely identify the permanode within the plugin
+    
+    oneof payload {
+      string email = 6;
+      string financial_transaction = 7;
+    }
+  }
+
+  repeated Permanode permanodes = 5; // List of permanodes to be managed
+}
+
+// DataSource identifies an object within a specific plugin
+message DataSource {
+  string permanode_hash = 1;
+  string transform_response_hash = 2;
+  string plugin = 3; // Unique identifier for the plugin
+  string key = 4;    // Value to uniquely identify plugin's internal representation
+}
+
+// PermanodeVersion represents a versioned permanode
+message PermanodeVersion {
+  string permanode_hash = 1; // Hash of the permanode
+  int64 timestamp = 2;       // Version timestamp
+  bytes payload = 3;         // Versioned data
+  bool deleted = 4;          // Deletion status
+  DataSource source = 5;     // Source of the permanode version
+
+  oneof payload {
+    string email = 6;
+    string financial_transaction = 7;
+  }
+}

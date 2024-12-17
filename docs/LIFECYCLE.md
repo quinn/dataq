@@ -4,6 +4,7 @@
 An extract request contains a `Kind` that has meaning to plugin. Fields:
 * Hash: the content address of the object responsible for creating the Extract. Should reference either a `Permanode` or content linked to an `ExtractResponse`.
 * Kind: the operation to be performed that will produce a piece of data. 
+* Metadata: any data necessary to perform the operation
 
 *example*
 
@@ -23,7 +24,8 @@ Fields:
 *example*
 
 From gmail, a `Kind: page` response will be created. linked to api page data. It will also contain a single transform of type `page`. 
-A `Kind: message` will also have a single transform of type `message`. 
+A `Kind: message` will also have a single transform of type `message`.
+
 ### TransformRequest:
 Any action or behavior performed on a piece of data is considered a transform. Each transform step should reference a hash for the piece of data in the CAS.
 Fields:
