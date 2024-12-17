@@ -5,6 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
+	"sync"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/claims"
@@ -13,16 +19,51 @@ import (
 	tree "go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/queue"
 	"go.quinn.io/dataq/worker"
+	pb "go.quinn.io/dataq/proto"
 )
 
 type Boot struct {
-	Queue  queue.Queue
-	Tree   tree.Tree
-	Config *config.Config
-	Worker *worker.Worker
-	CAS    cas.Storage
-	Claim  *claims.ClaimsService
-	Index  *index.ClaimsIndexer
+	Queue    queue.Queue
+	Tree     tree.Tree
+	Config   *config.Config
+	Worker   *worker.Worker
+	CAS      cas.Storage
+	Claim    *claims.ClaimsService
+	Index    *index.ClaimsIndexer
+	Plugins  *PluginManager
+}
+
+type PluginManager struct {
+	plugins map[string]*plugin
+	mu      sync.Mutex
+}
+
+type plugin struct {
+	client pb.DataQPluginClient
+	cmd    *exec.Cmd
+}
+
+func NewPluginManager() *PluginManager {
+	return &PluginManager{
+		plugins: make(map[string]*plugin),
+	}
+}
+
+func (pm *PluginManager) AddPlugin(id string, client pb.DataQPluginClient, cmd *exec.Cmd) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	pm.plugins[id] = &plugin{
+		client: client,
+		cmd:    cmd,
+	}
+}
+
+func (pm *PluginManager) Shutdown() {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+	for _, p := range pm.plugins {
+		p.cmd.Process.Kill()
+	}
 }
 
 func New() (*Boot, error) {
@@ -79,10 +120,62 @@ func New() (*Boot, error) {
 	}
 
 	return &Boot{
-		Config: cfg,
-		Queue:  q,
-		Tree:   t,
-		Worker: wrkr,
-		CAS:    pk,
+		Config:  cfg,
+		Queue:   q,
+		Tree:    t,
+		Worker:  wrkr,
+		CAS:     pk,
+		Plugins: NewPluginManager(),
 	}, nil
+}
+
+// StartPlugins initializes and starts all enabled plugins
+func (b *Boot) StartPlugins() error {
+	basePort := 50051
+	for _, plugin := range b.Config.Plugins {
+		if !plugin.Enabled {
+			continue
+		}
+
+		port := fmt.Sprintf("%d", basePort)
+		if err := b.startPlugin(plugin, port); err != nil {
+			return fmt.Errorf("failed to start plugin %s: %w", plugin.ID, err)
+		}
+		basePort++
+	}
+	return nil
+}
+
+func (b *Boot) startPlugin(plugin *config.Plugin, port string) error {
+	// Start the plugin process
+	cmd := exec.Command(plugin.BinaryPath)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("PORT=%s", port))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start plugin process: %w", err)
+	}
+
+	// Connect to the plugin
+	conn, err := grpc.Dial(
+		fmt.Sprintf("localhost:%s", port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		cmd.Process.Kill()
+		return fmt.Errorf("failed to connect to plugin: %w", err)
+	}
+
+	client := pb.NewDataQPluginClient(conn)
+	b.Plugins.AddPlugin(plugin.ID, client, cmd)
+	return nil
+}
+
+// Shutdown gracefully stops all components
+func (b *Boot) Shutdown() {
+	if b.Plugins != nil {
+		b.Plugins.Shutdown()
+	}
 }

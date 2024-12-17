@@ -2,28 +2,15 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
 	"sync"
 	"syscall"
 
 	"go.quinn.io/dataq/boot"
-	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/internal/web"
-	pb "go.quinn.io/dataq/rpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
-
-type PluginProcess struct {
-	Plugin *config.Plugin
-	Client pb.DataQPluginClient
-	Port   string
-	cmd    *exec.Cmd
-}
 
 func main() {
 	// Initialize the boot package
@@ -32,24 +19,9 @@ func main() {
 		log.Fatalf("Failed to initialize boot: %v", err)
 	}
 
-	// Start all enabled plugins
-	plugins := make([]*PluginProcess, 0)
-	basePort := 50051
-
-	for _, plugin := range b.Config.Plugins {
-		if !plugin.Enabled {
-			continue
-		}
-
-		port := fmt.Sprintf("%d", basePort)
-		proc, err := startPlugin(plugin, port)
-		if err != nil {
-			log.Printf("Failed to start plugin %s: %v", plugin.ID, err)
-			continue
-		}
-
-		plugins = append(plugins, proc)
-		basePort++
+	// Start all plugins
+	if err := b.StartPlugins(); err != nil {
+		log.Fatalf("Failed to start plugins: %v", err)
 	}
 
 	// Create a WaitGroup for coordinating shutdown
@@ -70,65 +42,10 @@ func main() {
 	<-sigChan
 	log.Println("Shutting down...")
 	
-	// Cancel context to signal shutdown
+	// Cancel context and shutdown all components
 	cancel()
-	
-	// Stop all plugins
-	for _, proc := range plugins {
-		stopPlugin(proc)
-	}
+	b.Shutdown()
 
 	// Wait for all components to shut down
 	wg.Wait()
-}
-
-func startPlugin(plugin *config.Plugin, port string) (*PluginProcess, error) {
-	// Start the plugin process
-	cmd := exec.Command(plugin.BinaryPath)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("PORT=%s", port))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start plugin process: %w", err)
-	}
-
-	// Connect to the plugin
-	conn, err := grpc.Dial(
-		fmt.Sprintf("localhost:%s", port),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-	)
-	if err != nil {
-		cmd.Process.Kill()
-		return nil, fmt.Errorf("failed to connect to plugin: %w", err)
-	}
-
-	client := pb.NewDataQPluginClient(conn)
-
-	return &PluginProcess{
-		Plugin: plugin,
-		Client: client,
-		Port:   port,
-		cmd:    cmd,
-	}, nil
-}
-
-func stopPlugin(proc *PluginProcess) {
-	if proc.cmd.Process != nil {
-		if err := proc.cmd.Process.Signal(syscall.SIGTERM); err != nil {
-			log.Printf("Failed to send SIGTERM to plugin %s: %v", proc.Plugin.ID, err)
-			proc.cmd.Process.Kill()
-		}
-	}
-}
-
-// Example function to demonstrate plugin interaction
-func extractFromPlugin(ctx context.Context, proc *PluginProcess, req *pb.ExtractRequest) (*pb.ExtractResponse, error) {
-	return proc.Client.Extract(ctx, req)
-}
-
-// Example function to demonstrate plugin interaction
-func transformWithPlugin(ctx context.Context, proc *PluginProcess, req *pb.TransformRequest) (*pb.TransformResponse, error) {
-	return proc.Client.Transform(ctx, req)
 }
