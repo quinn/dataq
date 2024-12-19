@@ -21,16 +21,13 @@
             "processId": 0
         },
         {
-            "name": "Run Example",
+            "name": "Run Host",
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/cmd/main.go",
-            "cwd": "${workspaceFolder}/example",
-            "args": [
-                "--mode",
-                "one"
-            ]
+            "program": "${workspaceFolder}/cmd/host/main.go",
+            "cwd": "${workspaceFolder}",
+            "args": []
         }
     ]
 }

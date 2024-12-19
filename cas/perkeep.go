@@ -11,7 +11,6 @@ import (
 	"perkeep.org/pkg/blob"
 	"perkeep.org/pkg/cacher"
 	"perkeep.org/pkg/client"
-	"perkeep.org/pkg/cmdmain"
 	"perkeep.org/pkg/constants"
 )
 
@@ -39,7 +38,7 @@ func NewPerkeep() *Perkeep {
 
 func (p *Perkeep) Store(ctx context.Context, r io.Reader) (hash string, err error) {
 	var buf bytes.Buffer
-	size, err := io.CopyN(&buf, cmdmain.Stdin, constants.MaxBlobSize+1)
+	size, err := io.CopyN(&buf, r, constants.MaxBlobSize+1)
 	if size > constants.MaxBlobSize {
 		return "", fmt.Errorf("blob size cannot be bigger than %d", constants.MaxBlobSize)
 	}

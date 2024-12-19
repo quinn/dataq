@@ -16,6 +16,7 @@ service DataQPlugin {
 
 // ExtractRequest contains information about what data to extract
 message ExtractRequest {
+  string plugin_id = 4; // Plugin to use for extraction
   string hash = 1; // Content address of the object responsible for creating the Extract
   string kind = 2; // Operation to be performed that will produce data
   map<string, string> metadata = 3;
@@ -60,8 +61,6 @@ message TransformResponse {
     string kind = 1;    // Operation to perform
     map<string, string> metadata = 2; // Data necessary to perform the operation
   }
-  repeated Extract extracts = 4; // List of extracts to be performed
-
 
   message Permanode {
     string kind = 1;    // Kind of permanode to be managed
@@ -73,6 +72,7 @@ message TransformResponse {
     }
   }
 
+  repeated Extract extracts = 4; // List of extracts to be performed
   repeated Permanode permanodes = 5; // List of permanodes to be managed
 }
 
