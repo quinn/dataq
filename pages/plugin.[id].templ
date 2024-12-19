@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/config"
@@ -27,7 +28,44 @@ func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
 	return plugin, nil
 }
 
-templ PluginId(data PluginIdData) {
+// type Plugin struct {
+// 	ID         string            `yaml:"id"`
+// 	Name       string            `yaml:"name"`
+// 	BinaryPath string            `yaml:"binary_path"`
+// 	Config     map[string]string `yaml:"config"`
+// 	Enabled    bool              `yaml:"enabled"`
+// }
+templ PluginId(plugin PluginIdData) {
 	@ui.Layout() {
+		<h1 class="font-bold inline-block mb-3">
+			<dl class="inline-grid grid-cols-[min-content,1fr] gap-x-3 whitespace-nowrap">
+				<dt>ID</dt>
+				<dd>{ plugin.ID }</dd>
+				<dt>Name</dt>
+				<dd>{ plugin.Name }</dd>
+				<dt>Binary Path</dt>
+				<dd>{ plugin.BinaryPath }</dd>
+				<dt>Config</dt>
+				<dd>
+					<dl class="inline-grid grid-cols-[min-content,1fr] gap-x-3">
+						for key, value := range plugin.Config {
+							<dt>{ key }</dt>
+							<dd>{ value }</dd>
+						}
+					</dl>
+				</dd>
+				<dt>Enabled</dt>
+				<dd>{ fmt.Sprintf("%t", plugin.Enabled) }</dd>
+			</dl>
+		</h1>
+		<hr class="mb-3"/>
+		<h2 class="font-bold mb-3">Actions</h2>
+		<ul class="list-disc list-inside">
+			<li class="list-item">
+				<a href={ templ.URL("/plugin/" + plugin.ID + "/extract-request/initial") } class="underline">
+					Send Initial Event
+				</a>
+			</li>
+		</ul>
 	}
 }

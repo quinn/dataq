@@ -43,7 +43,7 @@ templ Index(data *IndexData) {
 		<ul class="list-disc list-inside">
 			for _, plugin := range data.Plugins {
 				<li class="list-item">
-					<a href={ templ.URL("/content/" + plugin) } class="underline">
+					<a href={ templ.URL("/plugin/" + plugin) } class="underline">
 						{ plugin }
 					</a>
 				</li>
