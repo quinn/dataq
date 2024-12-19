@@ -7,9 +7,10 @@ import (
 	"os"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"go.quinn.io/ccf/assets"
 	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/internal/router"
 )
 
@@ -21,7 +22,7 @@ func Run(b *boot.Boot) {
 	// content.Initialize()
 
 	e := echo.New()
-	e.Use(middleware.Logger())
+	e.Use(echomiddleware.Logger())
 
 	// Register routes from generated code
 	router.RegisterRoutes(e)
@@ -36,12 +37,7 @@ func Run(b *boot.Boot) {
 	)
 
 	e.Debug = true
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			c.Set("boot", b)
-			return next(c)
-		}
-	})
+	e.Use(middleware.BootContext(b))
 
 	fmt.Println("Server starting on http://localhost:3000")
 	if err := e.Start(":3000"); err != nil {

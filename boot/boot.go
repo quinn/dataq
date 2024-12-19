@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -111,7 +112,7 @@ func (b *Boot) StartPlugins() error {
 
 func (b *Boot) startPlugin(plugin *config.Plugin, port string) error {
 	// Start the plugin process
-	cmd := exec.Command(plugin.BinaryPath)
+	cmd := exec.Command(filepath.Join(config.StateDir(), "bin", plugin.BinaryPath))
 	cmd.Env = append(os.Environ(), fmt.Sprintf("PORT=%s", port))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -121,10 +122,9 @@ func (b *Boot) startPlugin(plugin *config.Plugin, port string) error {
 	}
 
 	// Connect to the plugin
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		fmt.Sprintf("localhost:%s", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 	)
 	if err != nil {
 		cmd.Process.Kill()

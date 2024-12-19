@@ -4,7 +4,7 @@ package main
 // 	"go.quinn.io/dataq/plugin"
 // )
 
-// func main() {
-// 	p := New()
-// 	plugin.Run(p)
-// }
+func main() {
+	// p := New()
+	// plugin.Run(p)
+}

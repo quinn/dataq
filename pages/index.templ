@@ -38,7 +38,7 @@ func IndexHandler(c echo.Context) (*IndexData, error) {
 	}, nil
 }
 
-templ Index(data IndexData) {
+templ Index(data *IndexData) {
 	@ui.Layout() {
 		<ul class="list-disc list-inside">
 			for _, plugin := range data.Plugins {

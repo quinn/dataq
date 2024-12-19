@@ -69,7 +69,7 @@ tasks:
 
   build-server:
     cmds:
-      - cmd: go build -o {{ .BUILD_BIN }} cmd/main.go
+      - cmd: go build -o {{ .BUILD_BIN }} cmd/host/main.go
 
   live:server:
     cmds:

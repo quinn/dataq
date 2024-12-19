@@ -1,0 +1,33 @@
+package pages
+
+import (
+	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/config"
+	"go.quinn.io/dataq/ui"
+)
+
+type PluginIdData = *config.Plugin
+
+func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
+	b := c.Get("boot").(*boot.Boot)
+
+	var plugin *config.Plugin
+	for _, p := range b.Config.Plugins {
+		if p.ID == id {
+			plugin = p
+			break
+		}
+	}
+
+	if plugin == nil {
+		return nil, echo.ErrNotFound
+	}
+
+	return plugin, nil
+}
+
+templ PluginId(data PluginIdData) {
+	@ui.Layout() {
+	}
+}

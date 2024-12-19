@@ -9,6 +9,7 @@ import (
 // RegisterRoutes adds all page routes to the Echo instance
 func RegisterRoutes(e *echo.Echo) {
 	e.GET("/", IndexHandler)
+	e.GET("/plugin/:id", PluginIdHandler)
 }
 
 // IndexHandler handles requests to /
@@ -18,4 +19,13 @@ func IndexHandler(c echo.Context) error {
 		return err
 	}
 	return pages.Index(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// PluginIdHandler handles requests to /plugin/:id
+func PluginIdHandler(c echo.Context) error {
+	result, err := pages.PluginIdHandler(c, c.Param("id"))
+	if err != nil {
+		return err
+	}
+	return pages.PluginId(result).Render(c.Request().Context(), c.Response().Writer)
 }
