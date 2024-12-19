@@ -38,6 +38,7 @@ func Run(b *boot.Boot) {
 
 	e.Debug = true
 	e.Use(middleware.BootContext(b))
+	e.HTTPErrorHandler = middleware.HTTPErrorHandler
 
 	fmt.Println("Server starting on http://localhost:3000")
 	if err := e.Start(":3000"); err != nil {

@@ -7,7 +7,9 @@ templ Layout() {
 	<html lang="en">
 		<head>
 			<meta charset="UTF-8"/>
-			<title>Go Astro</title>
+			<title>DataQ</title>
+			<script src="https://unpkg.com/htmx.org@1.9.11" integrity="sha384-0gxUXCCR8yv9FM2b+U3FDbsKthCI66oH5IA9fHppQq9DDMHuMauqq1ZHBpJxQ0J0" crossorigin="anonymous"></script>
+			<script src={ assets.Path("toast.js") } defer></script>
 			<link rel="stylesheet" href={ assets.Path("styles.css") }/>
 		</head>
 		<body class="font-mono">
@@ -17,6 +19,16 @@ templ Layout() {
 			<div class="p-3">
 				{ children... }
 			</div>
+			<div
+				id="toast-container"
+				style="position: fixed; top: 1rem; right: 1rem; z-index: 9999;"
+			></div>
+			<script>
+				document.body.addEventListener('showToast', function(e) {
+					let { message, type } = e.detail;
+					showToast(message, type);
+				});
+			</script>
 		</body>
 	</html>
 }

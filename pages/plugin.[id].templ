@@ -62,9 +62,9 @@ templ PluginId(plugin PluginIdData) {
 		<h2 class="font-bold mb-3">Actions</h2>
 		<ul class="list-disc list-inside">
 			<li class="list-item">
-				<a href={ templ.URL("/plugin/" + plugin.ID + "/extract-request/initial") } class="underline">
+				<button hx-post={ "/plugin/" + plugin.ID + "/extract-request/initial" } class="underline cursor-pointer">
 					Send Initial Event
-				</a>
+				</button>
 			</li>
 		</ul>
 	}
