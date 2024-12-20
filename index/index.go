@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"go.quinn.io/dataq/cas"
@@ -16,9 +17,9 @@ type Index struct {
 }
 
 type Claim struct {
-	SchemaKind string `json:"dataq_schema_kind"`
-	PluginID   string `json:"plugin_id"`
-	Hash       string `json:"hash"`
+	SchemaKind string                 `json:"dataq_schema_kind"`
+	Hash       string                 `json:"hash"`
+	Metadata   map[string]interface{} `json:"-"` // Not stored in CAS
 }
 
 func NewIndex(cas cas.Storage, db *sql.DB) *Index {
@@ -33,7 +34,7 @@ type Indexable interface {
 	SchemaKind() string
 }
 
-func (i *Index) Store(ctx context.Context, pluginID string, data Indexable) (string, error) {
+func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return "", err
@@ -46,7 +47,6 @@ func (i *Index) Store(ctx context.Context, pluginID string, data Indexable) (str
 
 	claim := Claim{
 		SchemaKind: data.SchemaKind(),
-		PluginID:   pluginID,
 		Hash:       hash,
 	}
 
@@ -148,6 +148,109 @@ func (i *Index) Index(hash string, data Indexable) error {
 	return err
 }
 
-func (i *Index) Query(data Indexable, query string, args ...any) error {
-	return nil
+// Get retrieves a single object from the index and CAS store.
+// The caller must provide a concrete type T that implements Indexable.
+func (i *Index) Get(ctx context.Context, hash string, result Indexable) error {
+	// First check if the hash exists in our index
+	var schemaKind string
+	err := i.db.QueryRow("SELECT schema_kind FROM index_data WHERE hash = ?", hash).Scan(&schemaKind)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("hash %s not found in index", hash)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Verify schema kind matches
+	if schemaKind != result.SchemaKind() {
+		return fmt.Errorf("schema kind mismatch: stored %s, requested %s", schemaKind, result.SchemaKind())
+	}
+
+	// Retrieve from CAS
+	r, err := i.cas.Retrieve(ctx, hash)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	return json.NewDecoder(r).Decode(result)
+}
+
+// Query executes a SQL query against the index and returns matching rows
+// The query should be a valid SQL WHERE clause
+func (i *Index) Query(ctx context.Context, whereClause string, args ...interface{}) ([]Claim, error) {
+	// Get column names first
+	rows, err := i.db.Query("PRAGMA table_info(index_data)")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var columns []string
+	for rows.Next() {
+		var cid int
+		var name, type_ string
+		var notnull, pk int
+		var dflt_value interface{}
+		if err := rows.Scan(&cid, &name, &type_, &notnull, &dflt_value, &pk); err != nil {
+			return nil, err
+		}
+		columns = append(columns, name)
+	}
+
+	// Build and execute the query
+	query := "SELECT " + strings.Join(columns, ", ") + " FROM index_data"
+	if whereClause != "" {
+		query += " WHERE " + whereClause
+	}
+
+	rows, err = i.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []Claim
+	for rows.Next() {
+		// Create a slice of interface{} to scan into
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return nil, err
+		}
+
+		// Create result object
+		result := Claim{
+			Metadata: make(map[string]interface{}),
+		}
+
+		// Map values to appropriate fields
+		for i, col := range columns {
+			val := values[i]
+			switch col {
+			case "schema_kind":
+				if v, ok := val.(string); ok {
+					result.SchemaKind = v
+				}
+			case "hash":
+				if v, ok := val.(string); ok {
+					result.Hash = v
+				}
+			default:
+				result.Metadata[col] = val
+			}
+		}
+
+		results = append(results, result)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
