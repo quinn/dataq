@@ -39,7 +39,7 @@ func generateIndexMethods(g *protogen.GeneratedFile, message *protogen.Message) 
 	g.P()
 
 	// Generate Metadata method
-	g.P("func (m *", message.GoIdent.GoName, ") Metadata() map[string]interface{} {")
+	g.P("func (m *", message.GoIdent.GoName, ") SchemaMetadata() map[string]interface{} {")
 	g.P("    metadata := make(map[string]interface{})")
 	g.P()
 
