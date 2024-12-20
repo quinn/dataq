@@ -43,9 +43,34 @@ func generateIndexMethods(g *protogen.GeneratedFile, message *protogen.Message) 
 	g.P("    metadata := make(map[string]interface{})")
 	g.P()
 
+	// Group fields by oneof
+	oneofFields := make(map[*protogen.Oneof][]*protogen.Field)
+	regularFields := make([]*protogen.Field, 0)
+
 	for _, field := range message.Fields {
+		if oneof := field.Oneof; oneof != nil && !field.Oneof.Desc.IsSynthetic() {
+			oneofFields[oneof] = append(oneofFields[oneof], field)
+		} else {
+			regularFields = append(regularFields, field)
+		}
+	}
+
+	// Handle regular fields
+	for _, field := range regularFields {
 		g.P("    if m.", field.GoName, " != ", zeroValue(field), " {")
 		g.P(`        metadata["`, field.Desc.TextName(), `"] = m.`, field.GoName)
+		g.P("    }")
+	}
+
+	// Handle oneof fields
+	for oneof, fields := range oneofFields {
+		g.P("    if m.", oneof.GoName, " != nil {")
+		g.P("        switch {")
+		for _, field := range fields {
+			g.P("        case m.Get", field.GoName, "() != ", zeroValue(field), ":")
+			g.P(`            metadata["`, oneof.GoName, "_", field.Desc.TextName(), `"] = m.Get`, field.GoName, "()")
+		}
+		g.P("        }")
 		g.P("    }")
 	}
 
