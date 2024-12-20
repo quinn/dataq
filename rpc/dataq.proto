@@ -24,7 +24,7 @@ message ExtractRequest {
 
 // ExtractResponse contains the result of an extraction
 message ExtractResponse {
-  // string hash = 1;                       // Content address of the produced data
+  // string hash = 1;                    // Content address of the produced data
   string kind = 2;                       // Kind of content being stored
   string request_hash = 3;               // Address of the request
 

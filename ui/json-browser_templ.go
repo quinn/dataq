@@ -8,7 +8,7 @@ package ui
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func JsonBrowser(data []byte) templ.Component {
+func JsonBrowser(data any) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -29,11 +29,18 @@ func JsonBrowser(data []byte) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templ.JSONScript("raw-data", string(data)).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if _, ok := data.([]byte); ok {
+			templ_7745c5c3_Err = templ.JSONScript("stringified-data", string(data.([]byte))).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templ.JSONScript("struct-data", data).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<script src=\"https://cdn.jsdelivr.net/npm/@textea/json-viewer@3\"></script><div id=\"json-viewer\"></div><script>\n        const data = JSON.parse(JSON.parse(document.getElementById('raw-data').textContent))\n        new JsonViewer({ value: data }).render('#json-viewer')\n    </script>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<script src=\"https://cdn.jsdelivr.net/npm/@textea/json-viewer@3\"></script><div id=\"json-viewer\"></div><script>\n\t\tconst jsonData = document.getElementById('struct-data')\n\t\t\t? document.getElementById('struct-data').textContent\n\t\t\t: JSON.parse(document.getElementById('stringified-data').textContent)\n\n\t\tconst data = JSON.parse(jsonData)\n\t\tnew JsonViewer({ value: data }).render('#json-viewer')\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

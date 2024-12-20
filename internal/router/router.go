@@ -9,6 +9,7 @@ import (
 // RegisterRoutes adds all page routes to the Echo instance
 func RegisterRoutes(e *echo.Echo) {
 	e.GET("/", IndexHandler)
+	e.GET("/plugin/:id/extract/:hash", PluginIdExtractHashHandler)
 	e.GET("/plugin/:id", PluginIdHandler)
 }
 
@@ -19,6 +20,15 @@ func IndexHandler(c echo.Context) error {
 		return err
 	}
 	return pages.Index(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// PluginIdExtractHashHandler handles requests to /plugin/:id/extract/:hash
+func PluginIdExtractHashHandler(c echo.Context) error {
+	result, err := pages.PluginIdExtractHashHandler(c, c.Param("id"), c.Param("hash"))
+	if err != nil {
+		return err
+	}
+	return pages.PluginIdExtractHash(result).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // PluginIdHandler handles requests to /plugin/:id

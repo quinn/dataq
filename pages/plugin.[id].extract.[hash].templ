@@ -1,0 +1,45 @@
+package pages
+
+import (
+	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/rpc"
+	"go.quinn.io/dataq/ui"
+	"google.golang.org/protobuf/encoding/protojson"
+	"io"
+)
+
+type PluginIdExtractHashData struct {
+	req    *rpc.ExtractRequest
+	rawreq []byte
+}
+
+func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
+	var data PluginIdExtractHashData
+	b := middleware.GetBoot(c)
+	r, err := b.CAS.Retrieve(c.Request().Context(), hash)
+	if err != nil {
+		return data, err
+	}
+
+	// read raw request
+	data.rawreq, err = io.ReadAll(r)
+	if err != nil {
+		return data, err
+	}
+
+	// unmarshal reader into extract request
+	var req rpc.ExtractRequest
+	if err := protojson.Unmarshal(data.rawreq, &req); err != nil {
+		return data, err
+	}
+
+	data.req = &req
+	return data, nil
+}
+
+templ PluginIdExtractHash(data PluginIdExtractHashData) {
+	@ui.Layout() {
+		@ui.JsonBrowser(data.rawreq)
+	}
+}

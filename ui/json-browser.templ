@@ -1,11 +1,19 @@
 package ui
 
-templ JsonBrowser(data []byte) {
-	@templ.JSONScript("raw-data", string(data))
+templ JsonBrowser(data any) {
+	if _, ok := data.([]byte); ok {
+		@templ.JSONScript("stringified-data", string(data.([]byte)))
+	} else {
+		@templ.JSONScript("struct-data", data)
+	}
 	<script src="https://cdn.jsdelivr.net/npm/@textea/json-viewer@3"></script>
 	<div id="json-viewer"></div>
 	<script>
-        const data = JSON.parse(JSON.parse(document.getElementById('raw-data').textContent))
-        new JsonViewer({ value: data }).render('#json-viewer')
-    </script>
+		const jsonData = document.getElementById('struct-data')
+			? document.getElementById('struct-data').textContent
+			: JSON.parse(document.getElementById('stringified-data').textContent)
+
+		const data = JSON.parse(jsonData)
+		new JsonViewer({ value: data }).render('#json-viewer')
+	</script>
 }
