@@ -6,7 +6,7 @@ func (m *ExtractRequest) SchemaKind() string {
 	return "ExtractRequest"
 }
 
-func (m *ExtractRequest) Metadata() map[string]interface{} {
+func (m *ExtractRequest) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
 	if m.PluginId != "" {
@@ -28,7 +28,7 @@ func (m *ExtractResponse) SchemaKind() string {
 	return "ExtractResponse"
 }
 
-func (m *ExtractResponse) Metadata() map[string]interface{} {
+func (m *ExtractResponse) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
 	if m.Kind != "" {
@@ -53,7 +53,7 @@ func (m *TransformRequest) SchemaKind() string {
 	return "TransformRequest"
 }
 
-func (m *TransformRequest) Metadata() map[string]interface{} {
+func (m *TransformRequest) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
 	if m.Hash != "" {
@@ -72,7 +72,7 @@ func (m *TransformResponse) SchemaKind() string {
 	return "TransformResponse"
 }
 
-func (m *TransformResponse) Metadata() map[string]interface{} {
+func (m *TransformResponse) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
 	if m.Hash != "" {
@@ -97,7 +97,7 @@ func (m *DataSource) SchemaKind() string {
 	return "DataSource"
 }
 
-func (m *DataSource) Metadata() map[string]interface{} {
+func (m *DataSource) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
 	if m.PermanodeHash != "" {
@@ -119,7 +119,7 @@ func (m *PermanodeVersion) SchemaKind() string {
 	return "PermanodeVersion"
 }
 
-func (m *PermanodeVersion) Metadata() map[string]interface{} {
+func (m *PermanodeVersion) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
 	if m.PermanodeHash != "" {

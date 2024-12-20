@@ -6,7 +6,7 @@ func (m *Email) SchemaKind() string {
 	return "Email"
 }
 
-func (m *Email) Metadata() map[string]interface{} {
+func (m *Email) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
 	if m.From != "" {
@@ -67,7 +67,7 @@ func (m *FinancialTransaction) SchemaKind() string {
 	return "FinancialTransaction"
 }
 
-func (m *FinancialTransaction) Metadata() map[string]interface{} {
+func (m *FinancialTransaction) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
 	if m.Id != "" {
