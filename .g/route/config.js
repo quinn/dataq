@@ -39,6 +39,8 @@ function config({ method, path }) {
     })
     .join("");
 
+  let reverseName = parts.filter((part) => !part.startsWith(":")).join(".");
+
   switch (method) {
     case "POST":
       funcName = funcName + "Create";
@@ -46,7 +48,7 @@ function config({ method, path }) {
       break;
   }
 
-  return { method, path, routeFilename, funcName };
+  return { method, path, routeFilename, funcName, reverseName };
 }
 
 /**
@@ -62,7 +64,7 @@ function addRoute(fileData, config) {
     }
 
     if (!alreadyAdded && line.endsWith("/* insert new routes here */")) {
-      out += `e.${config.method}("${config.path}", r.${config.funcName})\n`;
+      out += `e.${config.method}("${config.path}", routes.${config.funcName}).Name = "${config.reverseName}";\n`;
     }
     out += line + "\n";
   }
