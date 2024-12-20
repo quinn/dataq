@@ -43,9 +43,9 @@ func (m *ExtractResponse) SchemaMetadata() map[string]interface{} {
 	if m.Data != nil {
 		switch {
 		case m.GetHash() != "":
-			metadata["Data_hash"] = m.GetHash()
+			metadata["data_hash"] = m.GetHash()
 		case m.GetContent() != nil:
-			metadata["Data_content"] = m.GetContent()
+			metadata["data_content"] = m.GetContent()
 		}
 	}
 	return metadata
@@ -139,9 +139,9 @@ func (m *PermanodeVersion) SchemaMetadata() map[string]interface{} {
 	if m.Payload != nil {
 		switch {
 		case m.GetEmail() != nil:
-			metadata["Payload_email"] = m.GetEmail()
+			metadata["payload_email"] = m.GetEmail()
 		case m.GetFinancialTransaction() != nil:
-			metadata["Payload_financial_transaction"] = m.GetFinancialTransaction()
+			metadata["payload_financial_transaction"] = m.GetFinancialTransaction()
 		}
 	}
 	return metadata

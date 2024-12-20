@@ -68,7 +68,7 @@ func generateIndexMethods(g *protogen.GeneratedFile, message *protogen.Message) 
 		g.P("        switch {")
 		for _, field := range fields {
 			g.P("        case m.Get", field.GoName, "() != ", zeroValue(field), ":")
-			g.P(`            metadata["`, oneof.GoName, "_", field.Desc.TextName(), `"] = m.Get`, field.GoName, "()")
+			g.P(`            metadata["`, oneof.Desc.Name(), "_", field.Desc.TextName(), `"] = m.Get`, field.GoName, "()")
 		}
 		g.P("        }")
 		g.P("    }")
