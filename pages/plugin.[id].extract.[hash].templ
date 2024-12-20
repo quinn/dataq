@@ -1,38 +1,39 @@
 package pages
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
-	"google.golang.org/protobuf/encoding/protojson"
-	"io"
 )
 
 type PluginIdExtractHashData struct {
-	req    *rpc.ExtractRequest
-	rawreq []byte
-	hash   string
+	req  *rpc.ExtractRequest
+	res  []*rpc.ExtractResponse
+	hash string
 }
 
 func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
 	var data PluginIdExtractHashData
 	b := middleware.GetBoot(c)
-	r, err := b.CAS.Retrieve(c.Request().Context(), hash)
-	if err != nil {
-		return data, err
-	}
 
-	// read raw request
-	data.rawreq, err = io.ReadAll(r)
-	if err != nil {
-		return data, err
-	}
-
-	// unmarshal reader into extract request
 	var req rpc.ExtractRequest
-	if err := protojson.Unmarshal(data.rawreq, &req); err != nil {
-		return data, err
+	if err := b.Index.Get(c.Request().Context(), &req, "hash = ?", hash); err != nil {
+		return data, fmt.Errorf("extract request not found: %w", err)
+	}
+
+	claims, err := b.Index.Query(c.Request().Context(), "request_hash = ?", hash)
+	if err != nil {
+		return data, fmt.Errorf("failed to query response claims: %w", err)
+	}
+
+	for _, claim := range claims {
+		var r rpc.ExtractResponse
+		if err := b.Index.Get(c.Request().Context(), &r, "hash = ?", claim.Hash); err != nil {
+			return data, fmt.Errorf("extract response not found (%s): %w", claim.Hash, err)
+		}
+		data.res = append(data.res, &r)
 	}
 
 	data.req = &req
@@ -43,7 +44,16 @@ func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtrac
 templ PluginIdExtractHash(data PluginIdExtractHashData) {
 	@ui.Layout() {
 		<div class="space-y-3">
-			@ui.JsonBrowser(data.rawreq)
+			@ui.JsonBrowser(data.req)
+			<hr/>
+			<div class="font-bold">Responses</div>
+			<ul class="list-disc list-inside">
+				for _, res := range data.res {
+					<li class="list-item">
+						@ui.JsonBrowser(res)
+					</li>
+				}
+			</ul>
 			<hr/>
 			<div class="font-bold">Actions</div>
 			<ul class="list-disc list-inside">

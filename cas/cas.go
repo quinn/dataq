@@ -6,15 +6,8 @@ import (
 )
 
 type Storage interface {
-
-	// generic
 	Store(context.Context, io.Reader) (hash string, err error)
 	Retrieve(ctx context.Context, hash string) (data io.ReadCloser, err error)
-
-	// claims
-	// StoreItem(item *schema.DataItem) (hash string, err error)
-	// RetrieveItem(hash string) (item *schema.DataItem, err error)
-	// StoreClaim()
-
 	Iterate(context.Context) (hashes <-chan string, err error)
+	Delete(ctx context.Context, hash string) error
 }

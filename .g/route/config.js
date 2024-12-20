@@ -46,6 +46,10 @@ function config({ method, path }) {
       funcName = funcName + "Create";
       routeFilename = routeFilename + "POST";
       break;
+    case "DELETE":
+      funcName = funcName + "Delete";
+      routeFilename = routeFilename + "DELETE";
+      break;
   }
 
   return { method, path, routeFilename, funcName, reverseName };

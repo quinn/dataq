@@ -1,11 +1,14 @@
 package boot
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/rpc"
 )
@@ -14,13 +17,15 @@ import (
 type DataQClient struct {
 	client rpc.DataQPluginClient
 	index  *index.Index
+	cas    cas.Storage
 }
 
 // NewDataQClient creates a new DataQClient with index-based request hash handling
-func NewDataQClient(conn *grpc.ClientConn, idx *index.Index) *DataQClient {
+func NewDataQClient(conn *grpc.ClientConn, idx *index.Index, cas cas.Storage) *DataQClient {
 	return &DataQClient{
 		client: rpc.NewDataQPluginClient(conn),
 		index:  idx,
+		cas:    cas,
 	}
 }
 
@@ -39,6 +44,22 @@ func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts
 	res, err := c.client.Extract(newCtx, req, opts...)
 	if err != nil {
 		return nil, err
+	}
+
+	content := res.GetContent()
+	if content == nil {
+		return nil, fmt.Errorf("response content is nil")
+	}
+
+	r := bytes.NewReader(content)
+
+	dataHash, err := c.cas.Store(ctx, r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store response content: %w", err)
+	}
+
+	res.Data = &rpc.ExtractResponse_Hash{
+		Hash: dataHash,
 	}
 
 	// Store the response in the index

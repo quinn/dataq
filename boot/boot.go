@@ -84,7 +84,7 @@ func New() (*Boot, error) {
 		// Tree:   t,
 		// Worker:  wrkr,
 		CAS:     pk,
-		Plugins: NewPluginManager(idx),
+		Plugins: NewPluginManager(idx, pk),
 	}, nil
 }
 

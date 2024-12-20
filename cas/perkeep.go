@@ -104,3 +104,12 @@ func (p *Perkeep) Iterate(ctx context.Context) (<-chan string, error) {
 
 	return hashes, nil
 }
+
+func (p *Perkeep) Delete(ctx context.Context, hash string) error {
+	br, ok := blob.Parse(hash)
+	if !ok {
+		return fmt.Errorf("failed to parse argument %q as a blobref", hash)
+	}
+
+	return p.cl.RemoveBlob(ctx, br)
+}

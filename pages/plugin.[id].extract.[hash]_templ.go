@@ -9,38 +9,39 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
-	"google.golang.org/protobuf/encoding/protojson"
-	"io"
 )
 
 type PluginIdExtractHashData struct {
-	req    *rpc.ExtractRequest
-	rawreq []byte
-	hash   string
+	req  *rpc.ExtractRequest
+	res  []*rpc.ExtractResponse
+	hash string
 }
 
 func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
 	var data PluginIdExtractHashData
 	b := middleware.GetBoot(c)
-	r, err := b.CAS.Retrieve(c.Request().Context(), hash)
-	if err != nil {
-		return data, err
-	}
 
-	// read raw request
-	data.rawreq, err = io.ReadAll(r)
-	if err != nil {
-		return data, err
-	}
-
-	// unmarshal reader into extract request
 	var req rpc.ExtractRequest
-	if err := protojson.Unmarshal(data.rawreq, &req); err != nil {
-		return data, err
+	if err := b.Index.Get(c.Request().Context(), &req, "hash = ?", hash); err != nil {
+		return data, fmt.Errorf("extract request not found: %w", err)
+	}
+
+	claims, err := b.Index.Query(c.Request().Context(), "request_hash = ?", hash)
+	if err != nil {
+		return data, fmt.Errorf("failed to query response claims: %w", err)
+	}
+
+	for _, claim := range claims {
+		var r rpc.ExtractResponse
+		if err := b.Index.Get(c.Request().Context(), &r, "hash = ?", claim.Hash); err != nil {
+			return data, fmt.Errorf("extract response not found (%s): %w", claim.Hash, err)
+		}
+		data.res = append(data.res, &r)
 	}
 
 	data.req = &req
@@ -85,18 +86,36 @@ func PluginIdExtractHash(data PluginIdExtractHashData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = ui.JsonBrowser(data.rawreq).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.JsonBrowser(data.req).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-post=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<hr><div class=\"font-bold\">Responses</div><ul class=\"list-disc list-inside\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for _, res := range data.res {
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<li class=\"list-item\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = ui.JsonBrowser(res).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</li>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</ul><hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(middleware.Reverse(ctx, "plugin.extract.send", data.req.PluginId, data.hash))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].extract.[hash].templ`, Line: 51, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].extract.[hash].templ`, Line: 61, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {

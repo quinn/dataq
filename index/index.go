@@ -6,9 +6,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"strings"
 
 	"go.quinn.io/dataq/cas"
+	"go.quinn.io/dataq/rpc"
+	"golang.org/x/exp/slog"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type Index struct {
@@ -30,12 +36,13 @@ func NewIndex(cas cas.Storage, db *sql.DB) *Index {
 }
 
 type Indexable interface {
+	protoreflect.ProtoMessage
 	SchemaMetadata() map[string]interface{}
 	SchemaKind() string
 }
 
 func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
-	b, err := json.Marshal(data)
+	b, err := protojson.Marshal(data)
 	if err != nil {
 		return "", err
 	}
@@ -61,6 +68,79 @@ func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
 
 	err = i.Index(hash, data)
 	return hash, err
+}
+
+func (i *Index) Rebuild(ctx context.Context) error {
+	if _, err := i.db.ExecContext(ctx, "DROP TABLE IF EXISTS index_data"); err != nil {
+		return fmt.Errorf("failed to drop table: %w", err)
+	}
+
+	// Get all hashes from CAS
+	hashes, err := i.cas.Iterate(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get hashes: %w", err)
+	}
+
+	// Index each hash
+	for hash := range hashes {
+		r, err := i.cas.Retrieve(ctx, hash)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve CAS object: %w", err)
+		}
+		defer r.Close()
+
+		b, err := io.ReadAll(r)
+		if err != nil {
+			return fmt.Errorf("failed to read CAS object: %w", err)
+		}
+
+		if !strings.HasPrefix(string(b), "{\"dataq_schema_kind\":") {
+			log.Println("skipping non-claim object: ", hash)
+			continue
+		}
+
+		var claim Claim
+		if err := json.Unmarshal(b, &claim); err != nil {
+			return fmt.Errorf("failed to unmarshal claim: %w", err)
+		}
+
+		if claim.SchemaKind == "" {
+			return fmt.Errorf("claim missing schema kind: %w", err)
+		}
+
+		slog.Info("rebuilding claim", "hash", claim.Hash, "kind", claim.SchemaKind)
+
+		var data Indexable
+		switch claim.SchemaKind {
+		case "ExtractRequest":
+			data = &rpc.ExtractRequest{}
+		case "ExtractResponse":
+			data = &rpc.ExtractResponse{}
+		default:
+			return fmt.Errorf("unknown schema kind: %s", claim.SchemaKind)
+		}
+
+		// Get the data from CAS
+		r, err = i.cas.Retrieve(ctx, claim.Hash)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve CAS object: %w", err)
+		}
+
+		b, err = io.ReadAll(r)
+		if err != nil {
+			return fmt.Errorf("failed to read CAS object: %w", err)
+		}
+
+		if err := protojson.Unmarshal(b, data); err != nil {
+			return fmt.Errorf("failed to unmarshal data: %w", err)
+		}
+
+		if err := i.Index(claim.Hash, data); err != nil {
+			return fmt.Errorf("failed to index data: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (i *Index) Index(hash string, data Indexable) error {
@@ -196,11 +276,18 @@ func (i *Index) Get(ctx context.Context, result Indexable, whereClause string, a
 	// Retrieve from CAS
 	r, err := i.cas.Retrieve(ctx, hash)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to retrieve CAS object: %w", err)
 	}
 	defer r.Close()
 
-	return json.NewDecoder(r).Decode(result)
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("failed to read CAS object: %w", err)
+	}
+
+	// Decode into result object
+
+	return protojson.Unmarshal(b, result)
 }
 
 // Query executes a SQL query against the index and returns matching rows
@@ -209,7 +296,7 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 	// Get column names first
 	rows, err := i.db.Query("PRAGMA table_info(index_data)")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get table info: %w", err)
 	}
 	defer rows.Close()
 
@@ -233,7 +320,11 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 
 	rows, err = i.db.Query(query, args...)
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), "no such column") {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer rows.Close()
 
@@ -247,7 +338,7 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 		}
 
 		if err := rows.Scan(valuePtrs...); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
 		// Create result object
@@ -276,7 +367,7 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("rows.Err() would like to speak with you: %w", err)
 	}
 
 	return results, nil

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"syscall"
 
+	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/index"
 	"google.golang.org/grpc"
 )
@@ -17,14 +18,16 @@ type PluginManager struct {
 	Clients   map[string]*DataQClient
 	processes map[string]*exec.Cmd
 	index     *index.Index
+	cas       cas.Storage
 }
 
 // NewPluginManager creates a new plugin manager
-func NewPluginManager(idx *index.Index) *PluginManager {
+func NewPluginManager(idx *index.Index, cas cas.Storage) *PluginManager {
 	return &PluginManager{
 		Clients:   make(map[string]*DataQClient),
 		processes: make(map[string]*exec.Cmd),
 		index:     idx,
+		cas:       cas,
 	}
 }
 
@@ -45,7 +48,7 @@ func (pm *PluginManager) AddPlugin(pluginID string, conn *grpc.ClientConn, proce
 	pm.Lock()
 	defer pm.Unlock()
 
-	pm.Clients[pluginID] = NewDataQClient(conn, pm.index)
+	pm.Clients[pluginID] = NewDataQClient(conn, pm.index, pm.cas)
 	pm.processes[pluginID] = process
 }
 
