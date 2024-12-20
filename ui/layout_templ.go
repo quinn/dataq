@@ -65,7 +65,7 @@ func Layout() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</div><div id=\"toast-container\" style=\"position: fixed; top: 1rem; right: 1rem; z-index: 9999;\"></div><script>\n\t\t\t\tdocument.body.addEventListener('showToast', function(e) {\n\t\t\t\t\tlet { message, type } = e.detail;\n\t\t\t\t\tshowToast(message, type);\n\t\t\t\t});\n\t\t\t</script></body></html>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</div><div id=\"toast-container\" style=\"position: fixed; top: 1rem; right: 1rem; z-index: 9999;\"></div><script>\n\t\t\t\tdocument.body.addEventListener('showToast', function(e) {\n\t\t\t\t\tlet { message, type } = e.detail;\n\t\t\t\t\tshowToast(message, type);\n\t\t\t\t});\n\n\t\t\t\tdocument.body.addEventListener('htmx:sendError', function(e) {\n\t\t\t\t\tshowToast(e.detail.error, 'error');\n\t\t\t\t});\n\t\t\t</script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

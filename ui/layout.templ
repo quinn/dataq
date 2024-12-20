@@ -29,6 +29,10 @@ templ Layout() {
 					let { message, type } = e.detail;
 					showToast(message, type);
 				});
+
+				document.body.addEventListener('htmx:sendError', function(e) {
+					showToast(e.detail.error, 'error');
+				});
 			</script>
 		</body>
 	</html>
