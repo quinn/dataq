@@ -3,13 +3,15 @@ package index
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 
 	"go.quinn.io/dataq/cas"
 )
 
 type Index struct {
-	CAS cas.Storage
+	cas cas.Storage
+	db  *sql.DB
 }
 
 type Claim struct {
@@ -18,9 +20,10 @@ type Claim struct {
 	Hash       string `json:"hash"`
 }
 
-func NewIndex(cas cas.Storage) *Index {
+func NewIndex(cas cas.Storage, db *sql.DB) *Index {
 	return &Index{
-		CAS: cas,
+		cas: cas,
+		db:  db,
 	}
 }
 
@@ -34,7 +37,7 @@ func (i *Index) Store(ctx context.Context, schemaKind string, pluginID string, d
 		return "", err
 	}
 
-	hash, err := i.CAS.Store(ctx, bytes.NewReader(b))
+	hash, err := i.cas.Store(ctx, bytes.NewReader(b))
 	if err != nil {
 		return "", err
 	}
@@ -50,5 +53,5 @@ func (i *Index) Store(ctx context.Context, schemaKind string, pluginID string, d
 		return "", err
 	}
 
-	return i.CAS.Store(ctx, bytes.NewReader(claimBytes))
+	return i.cas.Store(ctx, bytes.NewReader(claimBytes))
 }

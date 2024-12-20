@@ -1,6 +1,7 @@
 package boot
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/config"
+	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/rpc"
 )
 
@@ -21,7 +23,7 @@ type Boot struct {
 	// Worker *worker.Worker
 	CAS cas.Storage
 	// Claim   *claims.ClaimsService
-	// Index   *index.ClaimsIndexer
+	Index   *index.Index
 	Plugins *PluginManager
 }
 
@@ -36,10 +38,10 @@ func New() (*Boot, error) {
 		return nil, fmt.Errorf("failed to get config: %w", err)
 	}
 	config.StateDir()
-	// db, err := sql.Open("sqlite3", config.StateDir()+"/state.db")
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to open database: %w", err)
-	// }
+	db, err := sql.Open("sqlite3", config.StateDir()+"/state.db")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
 
 	// // Initialize queue
 	// q, err := queue.NewSQLiteQueue(db)
@@ -60,11 +62,8 @@ func New() (*Boot, error) {
 	// 	return nil, fmt.Errorf("failed to create tree: %w", err)
 	// }
 
-	// // build index
-	// err = t.Index(ctx)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to index tree: %w", err)
-	// }
+	// Initialize index
+	idx := index.NewIndex(pk, db)
 
 	// queueItems, err := q.List(context.Background(), "")
 	// if err != nil {
@@ -85,6 +84,7 @@ func New() (*Boot, error) {
 
 	return &Boot{
 		Config: cfg,
+		Index:  idx,
 		// Queue:  q,
 		// Tree:   t,
 		// Worker:  wrkr,
