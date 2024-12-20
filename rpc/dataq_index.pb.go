@@ -12,8 +12,8 @@ func (m *ExtractRequest) SchemaMetadata() map[string]interface{} {
 	if m.PluginId != "" {
 		metadata["plugin_id"] = m.PluginId
 	}
-	if m.Hash != "" {
-		metadata["hash"] = m.Hash
+	if m.ParentHash != "" {
+		metadata["parent_hash"] = m.ParentHash
 	}
 	if m.Kind != "" {
 		metadata["kind"] = m.Kind
@@ -58,14 +58,19 @@ func (m *TransformRequest) SchemaKind() string {
 func (m *TransformRequest) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
-	if m.Hash != "" {
-		metadata["hash"] = m.Hash
-	}
 	if m.Kind != "" {
 		metadata["kind"] = m.Kind
 	}
 	if m.Metadata != nil {
 		metadata["metadata"] = m.Metadata
+	}
+	if m.Data != nil {
+		switch {
+		case m.GetHash() != "":
+			metadata["data_hash"] = m.GetHash()
+		case m.GetContent() != nil:
+			metadata["data_content"] = m.GetContent()
+		}
 	}
 	return metadata
 }
@@ -77,9 +82,6 @@ func (m *TransformResponse) SchemaKind() string {
 func (m *TransformResponse) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
-	if m.Hash != "" {
-		metadata["hash"] = m.Hash
-	}
 	if m.Kind != "" {
 		metadata["kind"] = m.Kind
 	}

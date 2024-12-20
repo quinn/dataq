@@ -7,6 +7,9 @@ import (
 
 	pb "go.quinn.io/dataq/rpc"
 	"google.golang.org/api/gmail/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type server struct {
@@ -35,11 +38,26 @@ func (s *server) Extract(ctx context.Context, req *pb.ExtractRequest) (*pb.Extra
 }
 
 func (s *server) Transform(ctx context.Context, req *pb.TransformRequest) (*pb.TransformResponse, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.DataLoss, "failed to get metadata")
+	}
+
+	var reqHash string
+	if h, ok := md["request-hash"]; !ok {
+		return nil, status.Errorf(codes.InvalidArgument, "request-hash metadata not found")
+	} else {
+		if len(h) != 1 {
+			return nil, status.Errorf(codes.InvalidArgument, "request-hash metadata has multiple or zero values")
+		}
+		reqHash = h[0]
+	}
+
 	switch req.Kind {
 	case "page":
-		return s.handlePageTransform(ctx, req)
+		return s.handlePageTransform(ctx, req, reqHash)
 	case "message":
-		return s.handleMessageTransform(ctx, req)
+		return s.handleMessageTransform(ctx, req, reqHash)
 	default:
 		return nil, fmt.Errorf("unknown transform kind: %s", req.Kind)
 	}
@@ -72,9 +90,8 @@ func (s *server) handlePageExtract(_ context.Context, req *pb.ExtractRequest, sr
 	}
 
 	resp := &pb.ExtractResponse{
-		Kind:        "page",
-		RequestHash: req.Hash,
-		Data:        &pb.ExtractResponse_Content{Content: rawJSON},
+		Kind: "page",
+		Data: &pb.ExtractResponse_Content{Content: rawJSON},
 		Transforms: []*pb.ExtractResponse_Transform{{
 			Kind: "page",
 		}},
@@ -111,24 +128,23 @@ func (s *server) handleMessageExtract(_ context.Context, req *pb.ExtractRequest,
 	}
 
 	return &pb.ExtractResponse{
-		Kind:        "message",
-		RequestHash: req.Hash,
-		Data:        &pb.ExtractResponse_Content{Content: rawJSON},
+		Kind: "message",
+		Data: &pb.ExtractResponse_Content{Content: rawJSON},
 		Transforms: []*pb.ExtractResponse_Transform{{
 			Kind: "message",
 		}},
 	}, nil
 }
 
-func (s *server) handlePageTransform(_ context.Context, req *pb.TransformRequest) (*pb.TransformResponse, error) {
+func (s *server) handlePageTransform(_ context.Context, req *pb.TransformRequest, reqHash string) (*pb.TransformResponse, error) {
 	var pageData gmail.ListMessagesResponse
-	if err := json.Unmarshal([]byte(req.Hash), &pageData); err != nil {
+	if err := json.Unmarshal(req.GetContent(), &pageData); err != nil {
 		return nil, fmt.Errorf("error unmarshaling page data: %v", err)
 	}
 
 	resp := &pb.TransformResponse{
 		Kind:        "page",
-		RequestHash: req.Hash,
+		RequestHash: reqHash,
 	}
 
 	// Create extract requests for each message

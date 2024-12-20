@@ -17,14 +17,13 @@ service DataQPlugin {
 // ExtractRequest contains information about what data to extract
 message ExtractRequest {
   string plugin_id = 4; // Plugin to use for extraction
-  string hash = 1; // Content address of the object responsible for creating the Extract
+  string parent_hash = 1; // Content address of the object responsible for creating the Extract
   string kind = 2; // Operation to be performed that will produce data
   map<string, string> metadata = 3;
 }
 
 // ExtractResponse contains the result of an extraction
 message ExtractResponse {
-  // string hash = 1;                    // Content address of the produced data
   string kind = 2;                       // Kind of content being stored
   string request_hash = 3;               // Address of the request
 
@@ -45,14 +44,16 @@ message ExtractResponse {
 
 // TransformRequest represents an action to be performed on data
 message TransformRequest {
-  string hash = 1; // Address of the data to transform
+  oneof data {
+    string hash = 5;                     // Address of the data
+    bytes content = 6;                   // Extracted data
+  }
   string kind = 2; // Kind of transform to be applied
   map<string, string> metadata = 3;
 }
 
 // TransformResponse contains the result of a transform operation
 message TransformResponse {
-  string hash = 1;                   // Value copied from RequestHash
   string kind = 2;                   // Kind from request
   string request_hash = 3;           // Address of request
 
