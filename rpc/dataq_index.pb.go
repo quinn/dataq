@@ -37,14 +37,16 @@ func (m *ExtractResponse) SchemaMetadata() map[string]interface{} {
 	if m.RequestHash != "" {
 		metadata["request_hash"] = m.RequestHash
 	}
-	if m.Hash != "" {
-		metadata["hash"] = m.Hash
-	}
-	if m.Content != nil {
-		metadata["content"] = m.Content
-	}
 	if m.Transforms != nil {
 		metadata["transforms"] = m.Transforms
+	}
+	if m.Data != nil {
+		switch {
+		case m.GetHash() != "":
+			metadata["Data_hash"] = m.GetHash()
+		case m.GetContent() != nil:
+			metadata["Data_content"] = m.GetContent()
+		}
 	}
 	return metadata
 }
@@ -134,11 +136,13 @@ func (m *PermanodeVersion) SchemaMetadata() map[string]interface{} {
 	if m.Source != nil {
 		metadata["source"] = m.Source
 	}
-	if m.Email != nil {
-		metadata["email"] = m.Email
-	}
-	if m.FinancialTransaction != nil {
-		metadata["financial_transaction"] = m.FinancialTransaction
+	if m.Payload != nil {
+		switch {
+		case m.GetEmail() != nil:
+			metadata["Payload_email"] = m.GetEmail()
+		case m.GetFinancialTransaction() != nil:
+			metadata["Payload_financial_transaction"] = m.GetFinancialTransaction()
+		}
 	}
 	return metadata
 }
