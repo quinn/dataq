@@ -67,7 +67,7 @@ func (i *Index) Index(hash string, data Indexable) error {
 		schema_kind TEXT NOT NULL,
 		hash TEXT PRIMARY KEY
 	)`
-	
+
 	if _, err := i.db.Exec(createTableSQL); err != nil {
 		return err
 	}
@@ -140,10 +140,14 @@ func (i *Index) Index(hash string, data Indexable) error {
 	}
 
 	// Insert the data
-	insertSQL := "INSERT INTO index_data (" + 
-		strings.Join(insertColumns, ", ") + 
+	insertSQL := "INSERT INTO index_data (" +
+		strings.Join(insertColumns, ", ") +
 		") VALUES (" + strings.Join(placeholders, ", ") + ")"
-	
+
 	_, err = i.db.Exec(insertSQL, values...)
 	return err
+}
+
+func (i *Index) Query(data Indexable, query string, args ...any) error {
+	return nil
 }
