@@ -64,7 +64,7 @@ func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
 }
 
 func (i *Index) Index(hash string, data Indexable) error {
-	metadata := data.Metadata()
+	metadata := data.SchemaMetadata()
 	schemaKind := data.SchemaKind()
 
 	// Create base table if not exists
