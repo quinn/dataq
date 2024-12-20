@@ -20,6 +20,7 @@ import (
 type PluginIdExtractHashData struct {
 	req    *rpc.ExtractRequest
 	rawreq []byte
+	hash   string
 }
 
 func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
@@ -43,6 +44,7 @@ func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtrac
 	}
 
 	data.req = &req
+	data.hash = hash
 	return data, nil
 }
 
@@ -79,7 +81,28 @@ func PluginIdExtractHash(data PluginIdExtractHashData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"space-y-3\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 			templ_7745c5c3_Err = ui.JsonBrowser(data.rawreq).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-post=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var3 string
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(middleware.Reverse(ctx, "plugin.extract.send", data.req.PluginId, data.hash))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].extract.[hash].templ`, Line: 51, Col: 99}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\" class=\"underline\">Send</button></li></ul></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

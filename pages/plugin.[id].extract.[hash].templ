@@ -12,6 +12,7 @@ import (
 type PluginIdExtractHashData struct {
 	req    *rpc.ExtractRequest
 	rawreq []byte
+	hash   string
 }
 
 func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
@@ -35,11 +36,21 @@ func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtrac
 	}
 
 	data.req = &req
+	data.hash = hash
 	return data, nil
 }
 
 templ PluginIdExtractHash(data PluginIdExtractHashData) {
 	@ui.Layout() {
-		@ui.JsonBrowser(data.rawreq)
+		<div class="space-y-3">
+			@ui.JsonBrowser(data.rawreq)
+			<hr/>
+			<div class="font-bold">Actions</div>
+			<ul class="list-disc list-inside">
+				<li class="list-item">
+					<button hx-post={ middleware.Reverse(ctx, "plugin.extract.send", data.req.PluginId, data.hash) } class="underline">Send</button>
+				</li>
+			</ul>
+		</div>
 	}
 }

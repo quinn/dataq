@@ -35,7 +35,15 @@ func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts
 	md := metadata.Pairs("request-hash", hash)
 	newCtx := metadata.NewOutgoingContext(ctx, md)
 
-	return c.client.Extract(newCtx, req, opts...)
+	res, err := c.client.Extract(newCtx, req, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store the response in the index
+	hash, err = c.index.Store(ctx, res)
+
+	return res, err
 }
 
 // Transform performs a transformation with index-based request hash

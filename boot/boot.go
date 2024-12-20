@@ -2,6 +2,7 @@ package boot
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -105,9 +106,26 @@ func (b *Boot) StartPlugins() error {
 }
 
 func (b *Boot) startPlugin(plugin *config.Plugin, port string) error {
+	// Create plugin state directory if it doesn't exist
+	pluginStateDir := filepath.Join(config.StateDir(), plugin.ID)
+	if err := os.MkdirAll(pluginStateDir, 0755); err != nil {
+		return fmt.Errorf("failed to create plugin state directory: %w", err)
+	}
+
 	// Start the plugin process
 	cmd := exec.Command(filepath.Join(config.StateDir(), "bin", plugin.BinaryPath))
-	cmd.Env = append(os.Environ(), fmt.Sprintf("PORT=%s", port))
+	cmd.Dir = pluginStateDir
+
+	// Create plugin config
+	configJSON, err := json.Marshal(plugin.Config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal plugin config: %w", err)
+	}
+
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("PORT=%s", port),
+		fmt.Sprintf("CONFIG=%s", string(configJSON)),
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

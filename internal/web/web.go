@@ -38,6 +38,7 @@ func Run(b *boot.Boot) {
 
 	e.Debug = true
 	e.Use(middleware.BootContext(b))
+	e.Use(middleware.EchoContext(e))
 	e.HTTPErrorHandler = middleware.HTTPErrorHandler
 	addRoutes(e)
 
