@@ -28,10 +28,11 @@ func NewIndex(cas cas.Storage, db *sql.DB) *Index {
 }
 
 type Indexable interface {
-	QueryMetadata() map[string]string
+	Metadata() map[string]interface{}
+	SchemaKind() string
 }
 
-func (i *Index) Store(ctx context.Context, schemaKind string, pluginID string, data Indexable) (string, error) {
+func (i *Index) Store(ctx context.Context, pluginID string, data Indexable) (string, error) {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return "", err
@@ -43,7 +44,7 @@ func (i *Index) Store(ctx context.Context, schemaKind string, pluginID string, d
 	}
 
 	claim := Claim{
-		SchemaKind: schemaKind,
+		SchemaKind: data.SchemaKind(),
 		PluginID:   pluginID,
 		Hash:       hash,
 	}
@@ -54,4 +55,8 @@ func (i *Index) Store(ctx context.Context, schemaKind string, pluginID string, d
 	}
 
 	return i.cas.Store(ctx, bytes.NewReader(claimBytes))
+}
+
+func (i *Index) Index(data Indexable) error {
+	return nil
 }

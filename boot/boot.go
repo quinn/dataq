@@ -27,11 +27,6 @@ type Boot struct {
 	Plugins *PluginManager
 }
 
-type plugin struct {
-	client rpc.DataQPluginClient
-	cmd    *exec.Cmd
-}
-
 func New() (*Boot, error) {
 	cfg, err := config.Get()
 	if err != nil {
