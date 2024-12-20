@@ -7,12 +7,12 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
+	_ "github.com/mattn/go-sqlite3"
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/index"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Boot struct {

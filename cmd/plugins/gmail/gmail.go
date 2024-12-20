@@ -16,7 +16,6 @@ import (
 type GmailPlugin struct {
 	credentialsPath string
 	tokenPath       string
-	// config          map[string]string
 }
 
 func New() *GmailPlugin {
@@ -77,14 +76,12 @@ func (p *GmailPlugin) getClient(ctx context.Context) (*gmail.Service, error) {
 	// Read credentials file
 	b, err := os.ReadFile(p.credentialsPath)
 	if err != nil {
-		log.Printf("Error reading credentials: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("error reading credentials (%s): %v", p.credentialsPath, err)
 	}
 
 	config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
 	if err != nil {
-		log.Printf("Error parsing credentials (%s): %v", p.credentialsPath, err)
-		return nil, err
+		return nil, fmt.Errorf("error parsing credentials (%s): %v", p.credentialsPath, err)
 	}
 
 	// Read token file

@@ -13,6 +13,7 @@ require (
 require (
 	github.com/a-h/templ v0.2.793
 	github.com/labstack/echo/v4 v4.12.0
+	github.com/mattn/go-sqlite3 v1.14.24
 	go.quinn.io/ccf v0.0.0-20241118203441-349e850aca94
 	google.golang.org/grpc v1.67.1
 	perkeep.org v0.0.0-20240423032045-bb15e6eb48bc
