@@ -1,2 +1,9 @@
 include:
   ccf: "gh:quinn/ccf"
+generators:
+  - name: route
+    args:
+      - method
+      - path
+    transforms:
+      - addRoute: internal/web/server.go

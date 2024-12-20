@@ -7,5 +7,5 @@ import (
 
 func addRoutes(e *echo.Echo) {
 	e.POST("/plugin/:id/extract/initial", routes.PluginExtractInitialCreate)
-	/* new routes go here */
+	/* insert new routes here */
 }
