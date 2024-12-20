@@ -74,44 +74,6 @@ func (p *GmailPlugin) Description() string {
 	return "Extracts emails and metadata from Gmail using the Gmail API"
 }
 
-// func (p *GmailPlugin) Configure(config map[string]string) error {
-// 	log.Printf("Gmail plugin config: %+v", config)
-// 	if creds, ok := config["credentials_path"]; ok {
-// 		// Convert to absolute path if relative
-// 		if !filepath.IsAbs(creds) {
-// 			wd, err := os.Getwd()
-// 			if err != nil {
-// 				return fmt.Errorf("unable to get working directory: %v", err)
-// 			}
-// 			log.Printf("Working directory: %s", wd)
-// 			creds = filepath.Join(wd, creds)
-// 		}
-// 		log.Printf("Using credentials path: %s", creds)
-// 		p.credentialsPath = creds
-// 	} else {
-// 		return fmt.Errorf("credentials_path configuration is required")
-// 	}
-
-// 	if token, ok := config["token_path"]; ok {
-// 		// Convert to absolute path if relative
-// 		if !filepath.IsAbs(token) {
-// 			wd, err := os.Getwd()
-// 			if err != nil {
-// 				return fmt.Errorf("unable to get working directory: %v", err)
-// 			}
-// 			token = filepath.Join(wd, token)
-// 		}
-// 		log.Printf("Using token path: %s", token)
-// 		p.tokenPath = token
-// 	} else {
-// 		return fmt.Errorf("token_path configuration is required")
-// 	}
-
-// 	p.config = config
-
-// 	return nil
-// }
-
 func (p *GmailPlugin) getClient(ctx context.Context) (*gmail.Service, error) {
 	// Read credentials file
 	b, err := os.ReadFile(p.credentialsPath)

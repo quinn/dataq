@@ -8,6 +8,11 @@ package ui
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
+import (
+	"fmt"
+	"github.com/google/uuid"
+)
+
 func JsonBrowser(data any) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -29,18 +34,40 @@ func JsonBrowser(data any) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
+
+		var encoded bool
 		if _, ok := data.([]byte); ok {
-			templ_7745c5c3_Err = templ.JSONScript("stringified-data", string(data.([]byte))).Render(ctx, templ_7745c5c3_Buffer)
+			encoded = true
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div><div role=\"data-container\" data-is-encoded=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var2 string
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%t", encoded))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/json-browser.templ`, Line: 16, Col: 73}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if encoded {
+			templ_7745c5c3_Err = templ.JSONScript(uuid.NewString(), string(data.([]byte))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templ.JSONScript("struct-data", data).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = templ.JSONScript(uuid.NewString(), data).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<script src=\"https://cdn.jsdelivr.net/npm/@textea/json-viewer@3\"></script><div id=\"json-viewer\"></div><script>\n\t\tconst jsonData = document.getElementById('struct-data')\n\t\t\t? document.getElementById('struct-data').textContent\n\t\t\t: JSON.parse(document.getElementById('stringified-data').textContent)\n\n\t\tconst data = JSON.parse(jsonData)\n\t\tnew JsonViewer({ value: data }).render('#json-viewer')\n\t</script>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</div><script src=\"https://cdn.jsdelivr.net/npm/@textea/json-viewer@3\"></script><div role=\"json-viewer\"></div><script>\n\t\t\t{\n\t\t\t\tconst jsonViewer = me('[role=\"json-viewer\"]', me())\n\t\t\t\tconst dataContainer = me('[role=\"data-container\"]', me())\n\t\t\t\tconst script = dataContainer.querySelector('script')\n\t\t\t\tconst jsonData = dataContainer.dataset.isEncoded === 'false'\n\t\t\t\t\t? script.textContent\n\t\t\t\t\t: JSON.parse(script.textContent)\n\n\t\t\t\tconst data = JSON.parse(jsonData)\n\t\t\t\tnew JsonViewer({ value: data }).render(jsonViewer)\n\t\t\t}\n\t\t</script></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

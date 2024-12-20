@@ -42,7 +42,12 @@ type Indexable interface {
 }
 
 func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
-	b, err := protojson.Marshal(data)
+	// Trying to make this as deterministic as possible
+	b, err := protojson.MarshalOptions{
+		Multiline:     true,
+		Indent:        "\t",
+		UseProtoNames: true,
+	}.Marshal(data)
 	if err != nil {
 		return "", err
 	}
@@ -97,6 +102,8 @@ func (i *Index) Rebuild(ctx context.Context) error {
 		if !strings.HasPrefix(string(b), "{\"dataq_schema_kind\":") {
 			log.Println("skipping non-claim object: ", hash)
 			continue
+		} else {
+			log.Println("rebuilding claim: ", hash)
 		}
 
 		var claim Claim
@@ -312,6 +319,11 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 		columns = append(columns, name)
 	}
 
+	if len(columns) == 0 {
+		// If columns is zero, it means that the table does not exist yet.
+		return nil, nil
+	}
+
 	// Build and execute the query
 	query := "SELECT " + strings.Join(columns, ", ") + " FROM index_data"
 	if whereClause != "" {
@@ -324,7 +336,7 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("failed to execute query: %w", err)
+		return nil, fmt.Errorf("failed to execute query (%s): %w", query, err)
 	}
 	defer rows.Close()
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/htmx"
 	"go.quinn.io/dataq/rpc"
 )
 
@@ -26,5 +27,6 @@ func PluginExtractSendCreate(c echo.Context) error {
 	if _, err := plugin.Extract(c.Request().Context(), &req); err != nil {
 		return fmt.Errorf("error extracting: %w", err)
 	}
-	return c.Redirect(http.StatusFound, "/")
+
+	return htmx.Refresh(c)
 }

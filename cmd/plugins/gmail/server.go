@@ -108,16 +108,6 @@ func (s *server) handlePageExtract(_ context.Context, req *pb.ExtractRequest, re
 		}},
 	}
 
-	// If there's a next page, add an extract for it
-	if r.NextPageToken != "" {
-		resp.Transforms = append(resp.Transforms, &pb.ExtractResponse_Transform{
-			Kind: "next_page",
-			Metadata: map[string]string{
-				"next_page_token": r.NextPageToken,
-			},
-		})
-	}
-
 	return resp, nil
 }
 
@@ -159,6 +149,16 @@ func (s *server) handlePageTransform(_ context.Context, req *pb.TransformRequest
 	resp := &pb.TransformResponse{
 		Kind:        "page",
 		RequestHash: reqHash,
+	}
+
+	// If there's a next page, add an extract for it
+	if pageData.NextPageToken != "" {
+		resp.Extracts = append(resp.Extracts, &pb.TransformResponse_Extract{
+			Kind: "next_page",
+			Metadata: map[string]string{
+				"next_page_token": pageData.NextPageToken,
+			},
+		})
 	}
 
 	// Create extract requests for each message

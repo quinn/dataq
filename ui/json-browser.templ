@@ -1,19 +1,39 @@
 package ui
 
-templ JsonBrowser(data any) {
-	if _, ok := data.([]byte); ok {
-		@templ.JSONScript("stringified-data", string(data.([]byte)))
-	} else {
-		@templ.JSONScript("struct-data", data)
-	}
-	<script src="https://cdn.jsdelivr.net/npm/@textea/json-viewer@3"></script>
-	<div id="json-viewer"></div>
-	<script>
-		const jsonData = document.getElementById('struct-data')
-			? document.getElementById('struct-data').textContent
-			: JSON.parse(document.getElementById('stringified-data').textContent)
+import (
+	"fmt"
+	"github.com/google/uuid"
+)
 
-		const data = JSON.parse(jsonData)
-		new JsonViewer({ value: data }).render('#json-viewer')
-	</script>
+templ JsonBrowser(data any) {
+	{{
+		var encoded bool
+		if _, ok := data.([]byte); ok {
+			encoded = true
+		}
+	}}
+	<div>
+		<div role="data-container" data-is-encoded={ fmt.Sprintf("%t", encoded) }>
+			if encoded {
+				@templ.JSONScript(uuid.NewString(), string(data.([]byte)))
+			} else {
+				@templ.JSONScript(uuid.NewString(), data)
+			}
+		</div>
+		<script src="https://cdn.jsdelivr.net/npm/@textea/json-viewer@3"></script>
+		<div role="json-viewer"></div>
+		<script>
+			{
+				const jsonViewer = me('[role="json-viewer"]', me())
+				const dataContainer = me('[role="data-container"]', me())
+				const script = dataContainer.querySelector('script')
+				const jsonData = dataContainer.dataset.isEncoded === 'false'
+					? script.textContent
+					: JSON.parse(script.textContent)
+
+				const data = JSON.parse(jsonData)
+				new JsonViewer({ value: data }).render(jsonViewer)
+			}
+		</script>
+	</div>
 }

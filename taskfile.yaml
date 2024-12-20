@@ -173,3 +173,9 @@ tasks:
   default:
     cmds:
       - "{{ .RUN_BIN }} {{ .CLI_ARGS }}"
+
+  reset:
+    cmds:
+      - rm -rfv ~/.cache/perkeep
+      - rm -rfv ~/var/perkeep/blobs/sha224
+      - go run cmd/index/main.go
