@@ -7,26 +7,29 @@ import (
 	"sync"
 	"syscall"
 
-	rpc "go.quinn.io/dataq/rpc"
+	"go.quinn.io/dataq/index"
+	"google.golang.org/grpc"
 )
 
 // PluginManager manages plugin processes and their gRPC clients
 type PluginManager struct {
 	sync.RWMutex
-	Clients   map[string]rpc.DataQPluginClient
+	Clients   map[string]*DataQClient
 	processes map[string]*exec.Cmd
+	index     *index.Index
 }
 
 // NewPluginManager creates a new plugin manager
-func NewPluginManager() *PluginManager {
+func NewPluginManager(idx *index.Index) *PluginManager {
 	return &PluginManager{
-		Clients:   make(map[string]rpc.DataQPluginClient),
+		Clients:   make(map[string]*DataQClient),
 		processes: make(map[string]*exec.Cmd),
+		index:     idx,
 	}
 }
 
 // GetClient returns the gRPC client for a plugin
-func (pm *PluginManager) GetClient(pluginID string) (rpc.DataQPluginClient, error) {
+func (pm *PluginManager) GetClient(pluginID string) (*DataQClient, error) {
 	pm.RLock()
 	defer pm.RUnlock()
 
@@ -38,11 +41,11 @@ func (pm *PluginManager) GetClient(pluginID string) (rpc.DataQPluginClient, erro
 }
 
 // AddPlugin adds a new plugin process and client
-func (pm *PluginManager) AddPlugin(pluginID string, client rpc.DataQPluginClient, process *exec.Cmd) {
+func (pm *PluginManager) AddPlugin(pluginID string, conn *grpc.ClientConn, process *exec.Cmd) {
 	pm.Lock()
 	defer pm.Unlock()
 
-	pm.Clients[pluginID] = client
+	pm.Clients[pluginID] = NewDataQClient(conn, pm.index)
 	pm.processes[pluginID] = process
 }
 

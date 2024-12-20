@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	pb "go.quinn.io/dataq/rpc"
 	"google.golang.org/api/gmail/v1"
@@ -14,43 +15,52 @@ import (
 
 type server struct {
 	pb.UnimplementedDataQPluginServer
-	plugin *GmailPlugin
+	service *gmail.Service
 }
 
 func NewServer(p *GmailPlugin) *server {
-	return &server{plugin: p}
+	srv, err := p.getClient(context.Background())
+	if err != nil {
+		log.Fatalf("Error creating Gmail client: %v", err)
+	}
+
+	return &server{service: srv}
+}
+
+// getReqHash extracts the request hash from the context
+func getReqHash(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", status.Errorf(codes.DataLoss, "failed to get metadata")
+	}
+
+	hashes := md.Get("request-hash")
+	if len(hashes) != 1 {
+		return "", status.Errorf(codes.InvalidArgument, "request-hash metadata has multiple or zero values")
+	}
+	return hashes[0], nil
 }
 
 func (s *server) Extract(ctx context.Context, req *pb.ExtractRequest) (*pb.ExtractResponse, error) {
-	srv, err := s.plugin.getClient(ctx)
+	reqHash, err := getReqHash(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	switch req.Kind {
 	case "initial", "next_page":
-		return s.handlePageExtract(ctx, req, srv)
+		return s.handlePageExtract(ctx, req, reqHash)
 	case "get_message":
-		return s.handleMessageExtract(ctx, req, srv)
+		return s.handleMessageExtract(ctx, req, reqHash)
 	default:
 		return nil, fmt.Errorf("unknown extract kind: %s", req.Kind)
 	}
 }
 
 func (s *server) Transform(ctx context.Context, req *pb.TransformRequest) (*pb.TransformResponse, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Errorf(codes.DataLoss, "failed to get metadata")
-	}
-
-	var reqHash string
-	if h, ok := md["request-hash"]; !ok {
-		return nil, status.Errorf(codes.InvalidArgument, "request-hash metadata not found")
-	} else {
-		if len(h) != 1 {
-			return nil, status.Errorf(codes.InvalidArgument, "request-hash metadata has multiple or zero values")
-		}
-		reqHash = h[0]
+	reqHash, err := getReqHash(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	switch req.Kind {
@@ -63,8 +73,8 @@ func (s *server) Transform(ctx context.Context, req *pb.TransformRequest) (*pb.T
 	}
 }
 
-func (s *server) handlePageExtract(_ context.Context, req *pb.ExtractRequest, srv *gmail.Service) (*pb.ExtractResponse, error) {
-	gmailReq := srv.Users.Messages.List("me").MaxResults(100)
+func (s *server) handlePageExtract(_ context.Context, req *pb.ExtractRequest, reqHash string) (*pb.ExtractResponse, error) {
+	gmailReq := s.service.Users.Messages.List("me").MaxResults(100)
 
 	if req.Kind == "next_page" {
 		pageToken, ok := req.Metadata["next_page_token"]
@@ -90,8 +100,9 @@ func (s *server) handlePageExtract(_ context.Context, req *pb.ExtractRequest, sr
 	}
 
 	resp := &pb.ExtractResponse{
-		Kind: "page",
-		Data: &pb.ExtractResponse_Content{Content: rawJSON},
+		Kind:        "page",
+		RequestHash: reqHash,
+		Data:        &pb.ExtractResponse_Content{Content: rawJSON},
 		Transforms: []*pb.ExtractResponse_Transform{{
 			Kind: "page",
 		}},
@@ -110,15 +121,15 @@ func (s *server) handlePageExtract(_ context.Context, req *pb.ExtractRequest, sr
 	return resp, nil
 }
 
-func (s *server) handleMessageExtract(_ context.Context, req *pb.ExtractRequest, srv *gmail.Service) (*pb.ExtractResponse, error) {
+func (s *server) handleMessageExtract(_ context.Context, req *pb.ExtractRequest, reqHash string) (*pb.ExtractResponse, error) {
 	messageID, ok := req.Metadata["message_id"]
 	if !ok || messageID == "" {
 		return nil, fmt.Errorf("get_message request requires message_id in metadata")
 	}
 
-	msg, err := srv.Users.Messages.Get("me", messageID).Do()
+	msg, err := s.service.Users.Messages.Get("me", messageID).Do()
 	if err != nil {
-		return nil, fmt.Errorf("error getting message %s: %v", messageID, err)
+		return nil, fmt.Errorf("error getting message: %v", err)
 	}
 
 	// Store the raw response
@@ -127,13 +138,16 @@ func (s *server) handleMessageExtract(_ context.Context, req *pb.ExtractRequest,
 		return nil, fmt.Errorf("error marshaling message: %v", err)
 	}
 
-	return &pb.ExtractResponse{
-		Kind: "message",
-		Data: &pb.ExtractResponse_Content{Content: rawJSON},
+	resp := &pb.ExtractResponse{
+		Kind:        "message",
+		RequestHash: reqHash,
+		Data:        &pb.ExtractResponse_Content{Content: rawJSON},
 		Transforms: []*pb.ExtractResponse_Transform{{
 			Kind: "message",
 		}},
-	}, nil
+	}
+
+	return resp, nil
 }
 
 func (s *server) handlePageTransform(_ context.Context, req *pb.TransformRequest, reqHash string) (*pb.TransformResponse, error) {
@@ -160,9 +174,9 @@ func (s *server) handlePageTransform(_ context.Context, req *pb.TransformRequest
 	return resp, nil
 }
 
-func (s *server) handleMessageTransform(_ context.Context, req *pb.TransformRequest) (*pb.TransformResponse, error) {
+func (s *server) handleMessageTransform(_ context.Context, req *pb.TransformRequest, reqHash string) (*pb.TransformResponse, error) {
 	var msgData gmail.Message
-	if err := json.Unmarshal([]byte(req.Hash), &msgData); err != nil {
+	if err := json.Unmarshal(req.GetContent(), &msgData); err != nil {
 		return nil, fmt.Errorf("error unmarshaling message data: %v", err)
 	}
 
@@ -171,7 +185,7 @@ func (s *server) handleMessageTransform(_ context.Context, req *pb.TransformRequ
 
 	resp := &pb.TransformResponse{
 		Kind:        "message",
-		RequestHash: req.Hash,
+		RequestHash: reqHash,
 		Permanodes: []*pb.TransformResponse_Permanode{{
 			Kind: "email",
 			Key:  msgData.Id,

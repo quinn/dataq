@@ -13,7 +13,6 @@ import (
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/index"
-	"go.quinn.io/dataq/rpc"
 )
 
 type Boot struct {
@@ -84,7 +83,7 @@ func New() (*Boot, error) {
 		// Tree:   t,
 		// Worker:  wrkr,
 		CAS:     pk,
-		Plugins: NewPluginManager(),
+		Plugins: NewPluginManager(idx),
 	}, nil
 }
 
@@ -126,8 +125,7 @@ func (b *Boot) startPlugin(plugin *config.Plugin, port string) error {
 		return fmt.Errorf("failed to connect to plugin: %w", err)
 	}
 
-	client := rpc.NewDataQPluginClient(conn)
-	b.Plugins.AddPlugin(plugin.ID, client, cmd)
+	b.Plugins.AddPlugin(plugin.ID, conn, cmd)
 	return nil
 }
 
