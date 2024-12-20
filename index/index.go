@@ -145,7 +145,7 @@ func (i *Index) Index(hash string, data Indexable) error {
 	}
 
 	// Insert the data
-	insertSQL := "INSERT INTO index_data (" +
+	insertSQL := "INSERT OR IGNORE INTO index_data (" +
 		strings.Join(insertColumns, ", ") +
 		") VALUES (" + strings.Join(placeholders, ", ") + ")"
 

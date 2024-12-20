@@ -40,23 +40,28 @@ func IndexHandler(c echo.Context) (*IndexData, error) {
 
 templ Index(data *IndexData) {
 	@ui.Layout() {
-		<ul class="list-disc list-inside">
-			for _, plugin := range data.Plugins {
-				<li class="list-item">
-					<a href={ templ.URL("/plugin/" + plugin) } class="underline">
-						{ plugin }
-					</a>
-				</li>
-			}
-		</ul>
-		<ul class="list-disc list-inside">
-			for _, hash := range data.Hashes {
-				<li class="list-item">
-					<a href={ templ.URL("/content/" + hash) } class="underline">
-						{ hash }
-					</a>
-				</li>
-			}
-		</ul>
+		<div class="space-y-3">
+			<div class="font-bold">Plugins</div>
+			<ul class="list-disc list-inside">
+				for _, plugin := range data.Plugins {
+					<li class="list-item">
+						<a href={ templ.URL("/plugin/" + plugin) } class="underline">
+							{ plugin }
+						</a>
+					</li>
+				}
+			</ul>
+			<hr/>
+			<div class="font-bold">Content</div>
+			<ul class="list-disc list-inside">
+				for _, hash := range data.Hashes {
+					<li class="list-item">
+						<a href={ templ.URL("/content/" + hash) } class="underline">
+							{ hash }
+						</a>
+					</li>
+				}
+			</ul>
+		</div>
 	}
 }

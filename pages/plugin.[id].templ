@@ -5,13 +5,18 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/config"
+	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/ui"
 )
 
-type PluginIdData = *config.Plugin
+type PluginIdData struct {
+	cfg      *config.Plugin
+	extracts []index.Claim
+}
 
 func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
 	b := c.Get("boot").(*boot.Boot)
+	var data PluginIdData
 
 	var plugin *config.Plugin
 	for _, p := range b.Config.Plugins {
@@ -22,10 +27,18 @@ func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
 	}
 
 	if plugin == nil {
-		return nil, echo.ErrNotFound
+		return data, echo.ErrNotFound
 	}
 
-	return plugin, nil
+	data.cfg = plugin
+
+	var err error
+	data.extracts, err = b.Index.Query(c.Request().Context(), "plugin_id = ? AND schema_kind = ?", id, "ExtractRequest")
+	if err != nil {
+		return data, err
+	}
+
+	return data, nil
 }
 
 // type Plugin struct {
@@ -35,7 +48,8 @@ func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
 // 	Config     map[string]string `yaml:"config"`
 // 	Enabled    bool              `yaml:"enabled"`
 // }
-templ PluginId(plugin PluginIdData) {
+templ PluginId(data PluginIdData) {
+	{{ plugin := data.cfg }}
 	@ui.Layout() {
 		<h1 class="font-bold inline-block mb-3">
 			<dl class="inline-grid grid-cols-[min-content,1fr] gap-x-3 whitespace-nowrap">
@@ -58,6 +72,21 @@ templ PluginId(plugin PluginIdData) {
 				<dd>{ fmt.Sprintf("%t", plugin.Enabled) }</dd>
 			</dl>
 		</h1>
+		<hr class="mb-3"/>
+		<h3 class="font-bold mb-3">Extracts</h3>
+		<ul class="list-disc list-inside mb-3">
+			for _, extract := range data.extracts {
+				<li class="list-item">
+					<a href={ templ.URL("/plugin/" + plugin.ID + "/extract/" + extract.Hash) } class="underline">
+						{ extract.Metadata["kind"].(string) }
+					</a>
+					<span>- </span>
+					<a href={ templ.URL("/content/" + extract.Hash) } class="underline">
+						{ extract.Hash }
+					</a>
+				</li>
+			}
+		</ul>
 		<hr class="mb-3"/>
 		<h2 class="font-bold mb-3">Actions</h2>
 		<ul class="list-disc list-inside">

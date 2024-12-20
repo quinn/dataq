@@ -2,6 +2,7 @@ package boot
 
 import (
 	"context"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
@@ -41,9 +42,11 @@ func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts
 	}
 
 	// Store the response in the index
-	hash, err = c.index.Store(ctx, res)
+	if _, err = c.index.Store(ctx, res); err != nil {
+		return nil, err
+	}
 
-	return res, err
+	return res, nil
 }
 
 // Transform performs a transformation with index-based request hash

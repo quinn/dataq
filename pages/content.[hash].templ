@@ -1,0 +1,66 @@
+package pages
+
+import (
+	"encoding/base64"
+	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/ui"
+	"io"
+	"net/http"
+)
+
+type ContentHashData struct {
+	hash        string
+	contentType string
+	content     any
+}
+
+func ContentHashHandler(c echo.Context, hash string) (ContentHashData, error) {
+	b := middleware.GetBoot(c)
+	r, err := b.CAS.Retrieve(c.Request().Context(), hash)
+	if err != nil {
+		return ContentHashData{}, err
+	}
+
+	bytes, err := io.ReadAll(r)
+	if err != nil {
+		return ContentHashData{}, err
+	}
+
+	var data ContentHashData
+
+	data.contentType = http.DetectContentType(bytes)
+	data.hash = hash
+
+	if data.contentType == "text/plain; charset=utf-8" {
+		if len(bytes) > 0 && bytes[0] == '{' {
+			data.contentType = "application/json"
+			data.content = bytes
+		} else {
+			data.content = string(bytes)
+		}
+	} else {
+		data.content = "data:" + data.contentType + ";base64," + base64.StdEncoding.EncodeToString(bytes)
+	}
+
+	return data, nil
+}
+
+templ ContentHash(data ContentHashData) {
+	@ui.Layout() {
+		<div class="space-y-3">
+			<div class="font-bold">{ data.hash }</div>
+			<div class="font-bold">Content Type</div>
+			<div>{ data.contentType }</div>
+			<hr/>
+			<div class="font-bold">Content</div>
+			if data.contentType == "application/json" {
+				@ui.JsonBrowser(data.content)
+			} else if data.contentType == "text/plain; charset=utf-8" {
+				<pre>{ data.content.(string) }</pre>
+			} else {
+				<img src={ data.content.(string) }/>
+			}
+		</div>
+	}
+}
