@@ -1,8 +1,6 @@
 package routes
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -21,14 +19,9 @@ func PluginExtractInitialCreate(c echo.Context) error {
 		Kind:     "initial",
 	}
 
-	jsn, err := json.Marshal(&req)
+	hash, err := b.Index.Store(c.Request().Context(), &req)
 	if err != nil {
-		return fmt.Errorf("failed to marshal extract request: %w", err)
-	}
-	r := bytes.NewReader(jsn)
-	hash, err := b.CAS.Store(c.Request().Context(), r)
-	if err != nil {
-		return fmt.Errorf("failed to store extract request: %w", err)
+		return fmt.Errorf("failed to store extract: %w", err)
 	}
 
 	c.Response().Header().Set("HX-Redirect", fmt.Sprintf("/plugin/%s/extract/%s", plugin, hash))

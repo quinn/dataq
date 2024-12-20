@@ -30,7 +30,7 @@ func NewIndex(cas cas.Storage, db *sql.DB) *Index {
 }
 
 type Indexable interface {
-	Metadata() map[string]interface{}
+	SchemaMetadata() map[string]interface{}
 	SchemaKind() string
 }
 
@@ -55,7 +55,12 @@ func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
 		return "", err
 	}
 
-	return i.cas.Store(ctx, bytes.NewReader(claimBytes))
+	if _, err := i.cas.Store(ctx, bytes.NewReader(claimBytes)); err != nil {
+		return "", err
+	}
+
+	err = i.Index(hash, data)
+	return hash, err
 }
 
 func (i *Index) Index(hash string, data Indexable) error {
@@ -150,15 +155,37 @@ func (i *Index) Index(hash string, data Indexable) error {
 
 // Get retrieves a single object from the index and CAS store.
 // The caller must provide a concrete type T that implements Indexable.
-func (i *Index) Get(ctx context.Context, hash string, result Indexable) error {
-	// First check if the hash exists in our index
-	var schemaKind string
-	err := i.db.QueryRow("SELECT schema_kind FROM index_data WHERE hash = ?", hash).Scan(&schemaKind)
-	if err == sql.ErrNoRows {
-		return fmt.Errorf("hash %s not found in index", hash)
+func (i *Index) Get(ctx context.Context, result Indexable, whereClause string, args ...interface{}) error {
+	// Query the index to get the hash
+	query := "SELECT schema_kind, hash FROM index_data"
+	if whereClause != "" {
+		query += " WHERE " + whereClause
 	}
+	query += " LIMIT 2" // Get 2 to check for multiple matches
+
+	rows, err := i.db.Query(query, args...)
 	if err != nil {
 		return err
+	}
+	defer rows.Close()
+
+	var hash, schemaKind string
+	var found bool
+
+	for rows.Next() {
+		if found {
+			return fmt.Errorf("multiple records found for query")
+		}
+		if err := rows.Scan(&schemaKind, &hash); err != nil {
+			return err
+		}
+		found = true
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("no record found for query")
 	}
 
 	// Verify schema kind matches
