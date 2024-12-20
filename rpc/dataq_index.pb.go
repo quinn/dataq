@@ -58,6 +58,9 @@ func (m *TransformRequest) SchemaKind() string {
 func (m *TransformRequest) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
+	if m.PluginId != "" {
+		metadata["plugin_id"] = m.PluginId
+	}
 	if m.Kind != "" {
 		metadata["kind"] = m.Kind
 	}

@@ -12,6 +12,7 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/", IndexHandler)
 	e.GET("/plugin/:id/extract/:hash", PluginIdExtractHashHandler)
 	e.GET("/plugin/:id", PluginIdHandler)
+	e.GET("/plugin/:id/transform/:hash", PluginIdTransformHashHandler)
 }
 
 // ContentHashHandler handles requests to /content/:hash
@@ -48,4 +49,13 @@ func PluginIdHandler(c echo.Context) error {
 		return err
 	}
 	return pages.PluginId(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// PluginIdTransformHashHandler handles requests to /plugin/:id/transform/:hash
+func PluginIdTransformHashHandler(c echo.Context) error {
+	result, err := pages.PluginIdTransformHashHandler(c, c.Param("id"), c.Param("hash"))
+	if err != nil {
+		return err
+	}
+	return pages.PluginIdTransformHash(result).Render(c.Request().Context(), c.Response().Writer)
 }

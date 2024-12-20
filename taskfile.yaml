@@ -112,21 +112,6 @@ tasks:
           --build.include_dir "internal/web/public" \
           --build.include_ext "css"
 
-  gen-proto:
-    cmds:
-      - |
-        protoc \
-          -I $HOME/.config/asdf/installs/golang/1.22.0/packages/pkg/mod/github.com/srikrsna/protoc-gen-gotag@v1.0.2 \
-          -I . \
-          --go_out=. \
-          schema/*.proto
-      - |
-          protoc \
-          -I $HOME/.config/asdf/installs/golang/1.22.0/packages/pkg/mod/github.com/srikrsna/protoc-gen-gotag@v1.0.2 \
-          -I . \
-          --gotag_out=. \
-          schema/*.proto
-
   gen-rpc:
     cmds:
       - |

@@ -44,6 +44,7 @@ message ExtractResponse {
 
 // TransformRequest represents an action to be performed on data
 message TransformRequest {
+  string plugin_id = 4; // Plugin to use for transformation
   oneof data {
     string hash = 5;                     // Address of the data
     bytes content = 6;                   // Extracted data

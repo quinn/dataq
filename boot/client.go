@@ -66,6 +66,7 @@ func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts
 	// For each transform in the response, create a transform request
 	for _, transform := range res.GetTransforms() {
 		transformReq := &rpc.TransformRequest{
+			PluginId: req.PluginId,
 			Data: &rpc.TransformRequest_Hash{
 				Hash: dataHash,
 			},

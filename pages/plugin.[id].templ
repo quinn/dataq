@@ -10,8 +10,9 @@ import (
 )
 
 type PluginIdData struct {
-	cfg      *config.Plugin
-	extracts []index.Claim
+	cfg        *config.Plugin
+	extracts   []index.Claim
+	transforms []index.Claim
 }
 
 func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
@@ -34,6 +35,11 @@ func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
 
 	var err error
 	data.extracts, err = b.Index.Query(c.Request().Context(), "plugin_id = ? AND schema_kind = ?", id, "ExtractRequest")
+	if err != nil {
+		return data, err
+	}
+
+	data.transforms, err = b.Index.Query(c.Request().Context(), "plugin_id = ? AND schema_kind = ?", id, "TransformRequest")
 	if err != nil {
 		return data, err
 	}
@@ -83,6 +89,21 @@ templ PluginId(data PluginIdData) {
 					<span>- </span>
 					<a href={ templ.URL("/content/" + extract.Hash) } class="underline">
 						{ extract.Hash }
+					</a>
+				</li>
+			}
+		</ul>
+		<hr class="mb-3"/>
+		<h3 class="font-bold mb-3">Transforms</h3>
+		<ul class="list-disc list-inside mb-3">
+			for _, transform := range data.transforms {
+				<li class="list-item">
+					<a href={ templ.URL("/plugin/" + plugin.ID + "/transform/" + transform.Hash) } class="underline">
+						{ transform.Metadata["kind"].(string) }
+					</a>
+					<span>- </span>
+					<a href={ templ.URL("/content/" + transform.Hash) } class="underline">
+						{ transform.Hash }
 					</a>
 				</li>
 			}
