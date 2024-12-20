@@ -57,6 +57,6 @@ func (i *Index) Store(ctx context.Context, pluginID string, data Indexable) (str
 	return i.cas.Store(ctx, bytes.NewReader(claimBytes))
 }
 
-func (i *Index) Index(data Indexable) error {
+func (i *Index) Index(hash string, data Indexable) error {
 	return nil
 }
