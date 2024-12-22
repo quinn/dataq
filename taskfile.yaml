@@ -127,7 +127,7 @@ tasks:
 
   build-plugins:
     cmds:
-      - for: ['filescan', 'gmail']
+      - for: ['filescan', 'gmail', 'fitbit']
         cmd: |
           go build \
             -o $HOME/.config/dataq/state/bin/{{ .ITEM }}{{ .BIN_SUFFIX }} \
