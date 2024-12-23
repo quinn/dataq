@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 vars:
   RUN_BIN: '{{if eq OS "windows"}}.\tmp\main.exe{{else}}./tmp/main{{end}}'
@@ -163,4 +163,8 @@ tasks:
     cmds:
       - rm -rfv ~/.cache/perkeep
       - rm -rfv ~/var/perkeep/blobs/sha224
+      - go run cmd/index/main.go
+
+  index:
+    cmds:
       - go run cmd/index/main.go

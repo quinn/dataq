@@ -125,11 +125,18 @@ func (c *DataQClient) Transform(ctx context.Context, req *rpc.TransformRequest, 
 		return nil, err
 	}
 
+	// Store the response in the index
+	if _, err = c.index.Store(ctx, res); err != nil {
+		return nil, err
+	}
+
 	// For each extract in the response, create an extract request
 	for _, extract := range res.GetExtracts() {
 		extractReq := &rpc.ExtractRequest{
-			Kind:     extract.Kind,
-			Metadata: extract.Metadata,
+			PluginId:   req.PluginId,
+			ParentHash: hash,
+			Kind:       extract.Kind,
+			Metadata:   extract.Metadata,
 		}
 
 		// Store the extract request
@@ -163,11 +170,6 @@ func (c *DataQClient) Transform(ctx context.Context, req *rpc.TransformRequest, 
 		if _, err := c.index.Store(ctx, version); err != nil {
 			return nil, fmt.Errorf("failed to store permanode version: %w", err)
 		}
-	}
-
-	// Store the response in the index
-	if _, err = c.index.Store(ctx, res); err != nil {
-		return nil, err
 	}
 
 	return res, nil
