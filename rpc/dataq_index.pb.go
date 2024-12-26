@@ -25,7 +25,7 @@ func (m *InstallResponse) SchemaMetadata() map[string]interface{} {
 	if m.PluginId != "" {
 		metadata["plugin_id"] = m.PluginId
 	}
-	if m.Configs != nil {
+	if len(m.Configs) > 0 {
 		metadata["configs"] = m.Configs
 	}
 	if m.OauthConfig != nil {
@@ -63,7 +63,7 @@ func (m *OauthConfig) SchemaMetadata() map[string]interface{} {
 	if m.RedirectUri != "" {
 		metadata["redirect_uri"] = m.RedirectUri
 	}
-	if m.Scopes != "" {
+	if len(m.Scopes) > 0 {
 		metadata["scopes"] = m.Scopes
 	}
 	if m.AuthUrl != "" {
@@ -110,7 +110,7 @@ func (m *ExtractResponse) SchemaMetadata() map[string]interface{} {
 	if m.RequestHash != "" {
 		metadata["request_hash"] = m.RequestHash
 	}
-	if m.Transforms != nil {
+	if len(m.Transforms) > 0 {
 		metadata["transforms"] = m.Transforms
 	}
 	if m.Data != nil {
@@ -164,10 +164,10 @@ func (m *TransformResponse) SchemaMetadata() map[string]interface{} {
 	if m.RequestHash != "" {
 		metadata["request_hash"] = m.RequestHash
 	}
-	if m.Extracts != nil {
+	if len(m.Extracts) > 0 {
 		metadata["extracts"] = m.Extracts
 	}
-	if m.Permanodes != nil {
+	if len(m.Permanodes) > 0 {
 		metadata["permanodes"] = m.Permanodes
 	}
 	return metadata

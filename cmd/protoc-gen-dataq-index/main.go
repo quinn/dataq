@@ -57,7 +57,11 @@ func generateIndexMethods(g *protogen.GeneratedFile, message *protogen.Message) 
 
 	// Handle regular fields
 	for _, field := range regularFields {
-		g.P("    if m.", field.GoName, " != ", zeroValue(field), " {")
+		if field.Desc.IsList() {
+			g.P("    if len(m.", field.GoName, ") > 0 {")
+		} else {
+			g.P("    if m.", field.GoName, " != ", zeroValue(field), " {")
+		}
 		g.P(`        metadata["`, field.Desc.TextName(), `"] = m.`, field.GoName)
 		g.P("    }")
 	}
@@ -67,7 +71,11 @@ func generateIndexMethods(g *protogen.GeneratedFile, message *protogen.Message) 
 		g.P("    if m.", oneof.GoName, " != nil {")
 		g.P("        switch {")
 		for _, field := range fields {
-			g.P("        case m.Get", field.GoName, "() != ", zeroValue(field), ":")
+			if field.Desc.IsList() {
+				g.P("        case len(m.Get", field.GoName, "()) > 0:")
+			} else {
+				g.P("        case m.Get", field.GoName, "() != ", zeroValue(field), ":")
+			}
 			g.P(`            metadata["`, oneof.Desc.Name(), "_", field.Desc.TextName(), `"] = m.Get`, field.GoName, "()")
 		}
 		g.P("        }")
