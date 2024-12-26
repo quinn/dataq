@@ -7,11 +7,36 @@ import "rpc/schema.proto";
 
 // Service definition for DataQ plugin interface
 service DataQPlugin {
+  rpc Install(InstallRequest) returns (InstallResponse) {}
+
   // Handle extract requests
   rpc Extract(ExtractRequest) returns (ExtractResponse) {}
 
   // Handle transform requests
   rpc Transform(TransformRequest) returns (TransformResponse) {}
+}
+
+message InstallRequest {
+  string plugin_id = 1;
+}
+
+message InstallResponse {
+  string plugin_id = 1;
+  repeated PluginConfig configs = 2;
+  OauthConfig oauth_config = 3;
+}
+
+message PluginConfig {
+  string key = 1;  
+}
+
+message OauthConfig {
+  string client_id = 1;
+  string client_secret = 2;
+  string redirect_uri = 3;
+  repeated string scopes = 4;
+  string auth_url = 5;
+  string token_url = 6;
 }
 
 // ExtractRequest contains information about what data to extract
@@ -40,7 +65,6 @@ message ExtractResponse {
 
   repeated Transform transforms = 4; // List of transform requests to be created
 }
-
 
 // TransformRequest represents an action to be performed on data
 message TransformRequest {

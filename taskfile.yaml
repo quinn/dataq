@@ -9,9 +9,9 @@ tasks:
   install-tools:
     cmds:
       - go install golang.org/x/tools/cmd/goimports@latest
-      - go install github.com/srikrsna/protoc-gen-gotag@latest
       - go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
       - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - cd cmd/protoc-gen-dataq-index && go install
 
   gen-templ:
     cmds:
@@ -127,7 +127,7 @@ tasks:
 
   build-plugins:
     cmds:
-      - for: ['filescan', 'gmail', 'fitbit']
+      - for: ["filescan", "gmail", "fitbit"]
         cmd: |
           go build \
             -o $HOME/.config/dataq/state/bin/{{ .ITEM }}{{ .BIN_SUFFIX }} \

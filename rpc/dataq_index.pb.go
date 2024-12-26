@@ -2,6 +2,79 @@
 
 package rpc
 
+func (m *InstallRequest) SchemaKind() string {
+	return "InstallRequest"
+}
+
+func (m *InstallRequest) SchemaMetadata() map[string]interface{} {
+	metadata := make(map[string]interface{})
+
+	if m.PluginId != "" {
+		metadata["plugin_id"] = m.PluginId
+	}
+	return metadata
+}
+
+func (m *InstallResponse) SchemaKind() string {
+	return "InstallResponse"
+}
+
+func (m *InstallResponse) SchemaMetadata() map[string]interface{} {
+	metadata := make(map[string]interface{})
+
+	if m.PluginId != "" {
+		metadata["plugin_id"] = m.PluginId
+	}
+	if m.Configs != nil {
+		metadata["configs"] = m.Configs
+	}
+	if m.OauthConfig != nil {
+		metadata["oauth_config"] = m.OauthConfig
+	}
+	return metadata
+}
+
+func (m *PluginConfig) SchemaKind() string {
+	return "PluginConfig"
+}
+
+func (m *PluginConfig) SchemaMetadata() map[string]interface{} {
+	metadata := make(map[string]interface{})
+
+	if m.Key != "" {
+		metadata["key"] = m.Key
+	}
+	return metadata
+}
+
+func (m *OauthConfig) SchemaKind() string {
+	return "OauthConfig"
+}
+
+func (m *OauthConfig) SchemaMetadata() map[string]interface{} {
+	metadata := make(map[string]interface{})
+
+	if m.ClientId != "" {
+		metadata["client_id"] = m.ClientId
+	}
+	if m.ClientSecret != "" {
+		metadata["client_secret"] = m.ClientSecret
+	}
+	if m.RedirectUri != "" {
+		metadata["redirect_uri"] = m.RedirectUri
+	}
+	if m.Scopes != "" {
+		metadata["scopes"] = m.Scopes
+	}
+	if m.AuthUrl != "" {
+		metadata["auth_url"] = m.AuthUrl
+	}
+	if m.TokenUrl != "" {
+		metadata["token_url"] = m.TokenUrl
+	}
+	return metadata
+}
+
 func (m *ExtractRequest) SchemaKind() string {
 	return "ExtractRequest"
 }

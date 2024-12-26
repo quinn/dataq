@@ -15,11 +15,9 @@ import (
 )
 
 type Config struct {
-	ClientID     string `json:"clientID"`
-	ClientSecret string `json:"clientSecret"`
-	RedirectURL  string `json:"redirectURL"`
-	AuthURL      string `json:"authURL"`
-	RefreshURL   string `json:"refreshURL"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectURL  string `json:"redirect_url"`
 
 	// These come from the authed Oauth2 token
 	Token string `json:"token"`
@@ -73,10 +71,10 @@ func NewFitbitClient() *FitbitClient {
 	return client
 }
 
-// GetAuthURL generates the URL for user authorization
-func (c *FitbitClient) GetAuthURL() string {
-	return c.oauthConfig.AuthCodeURL("state", oauth2.AccessTypeOffline)
-}
+// // GetAuthURL generates the URL for user authorization
+// func (c *FitbitClient) GetAuthURL() string {
+// 	return c.oauthConfig.AuthCodeURL("state", oauth2.AccessTypeOffline)
+// }
 
 // RefreshToken refreshes the OAuth token if it's expired
 // func (c *FitbitClient) RefreshToken(ctx context.Context) error {
