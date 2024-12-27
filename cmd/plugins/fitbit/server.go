@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.quinn.io/dataq/rpc"
+	"golang.org/x/oauth2/fitbit"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -16,6 +17,28 @@ type server struct {
 
 func NewServer(client *FitbitClient) *server {
 	return &server{client: client}
+}
+
+func (s *server) Install(ctx context.Context, req *rpc.InstallRequest) (*rpc.InstallResponse, error) {
+	return &rpc.InstallResponse{
+		PluginId: "fitbit",
+		Configs: []*rpc.PluginConfig{
+			{
+				Key: "client_id",
+			},
+		},
+		OauthConfig: &rpc.OauthConfig{
+			AuthUrl:  fitbit.Endpoint.AuthURL,
+			TokenUrl: fitbit.Endpoint.TokenURL,
+			Scopes: []string{
+				"activity",
+				"heartrate",
+				"profile",
+				"sleep",
+				"weight",
+			},
+		},
+	}, nil
 }
 
 func (s *server) Extract(ctx context.Context, req *rpc.ExtractRequest) (*rpc.ExtractResponse, error) {

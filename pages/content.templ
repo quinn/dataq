@@ -1,0 +1,48 @@
+package pages
+
+import (
+	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/ui"
+)
+
+type ContentData struct {
+	Hashes  []string
+	Plugins []string
+}
+
+func ContentHandler(c echo.Context) (ContentData, error) {
+	b := c.Get("boot").(*boot.Boot)
+
+	hashes, err := b.CAS.Iterate(c.Request().Context())
+	// items, err := b.Tree.Children("")
+	if err != nil {
+		return ContentData{}, err
+	}
+
+	var items []string
+	for hash := range hashes {
+		items = append(items, hash)
+	}
+
+	return ContentData{
+		Hashes: items,
+	}, nil
+}
+
+templ Content(data ContentData) {
+	@ui.Layout() {
+		<div class="space-y-3">
+			<div class="font-bold">Content</div>
+			<ul class="list-disc list-inside">
+				for _, hash := range data.Hashes {
+					<li class="list-item">
+						<a href={ templ.URL("/content/" + hash) } class="underline">
+							{ hash }
+						</a>
+					</li>
+				}
+			</ul>
+		</div>
+	}
+}

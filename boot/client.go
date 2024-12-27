@@ -30,15 +30,23 @@ func NewDataQClient(conn *grpc.ClientConn, idx *index.Index, cas cas.Storage) *D
 	}
 }
 
+func (c *DataQClient) Install(ctx context.Context, req *rpc.InstallRequest, opts ...grpc.CallOption) (*rpc.InstallResponse, error) {
+	// passthru for now
+	return c.client.Install(ctx, req, opts...)
+}
+
 // Extract performs an extraction with index-based request hash
 func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts ...grpc.CallOption) (*rpc.ExtractResponse, error) {
 	// Store the request in the index to get a hash
+	// TODO: typically, the extract is called by a request that has already been stored.
+	// this may not be necessary
 	hash, err := c.index.Store(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
 	// Add the hash to the context metadata
+	// TODO: is this still necessary if it is set on the response below?
 	md := metadata.Pairs("request-hash", hash)
 	newCtx := metadata.NewOutgoingContext(ctx, md)
 
@@ -47,6 +55,9 @@ func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts
 		return nil, err
 	}
 
+	// TODO: since hash is assigned here, it should not be assigned in the plugin
+	res.RequestHash = hash
+
 	content := res.GetContent()
 	if content == nil {
 		return nil, fmt.Errorf("response content is nil")
@@ -54,11 +65,13 @@ func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts
 
 	r := bytes.NewReader(content)
 
+	// Store the response content in the CAS
 	dataHash, err := c.cas.Store(ctx, r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to store response content: %w", err)
 	}
 
+	// replace the contents with a hash address to the content
 	res.Data = &rpc.ExtractResponse_Hash{
 		Hash: dataHash,
 	}
@@ -91,6 +104,8 @@ func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts
 // Transform performs a transformation with index-based request hash
 func (c *DataQClient) Transform(ctx context.Context, req *rpc.TransformRequest, opts ...grpc.CallOption) (*rpc.TransformResponse, error) {
 	// Store the request in the index to get a hash
+	// TODO: typically, the transform is called by a request that has already been stored.
+	// this may not be necessary
 	hash, err := c.index.Store(ctx, req)
 	if err != nil {
 		return nil, err
