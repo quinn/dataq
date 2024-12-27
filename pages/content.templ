@@ -2,7 +2,7 @@ package pages
 
 import (
 	"github.com/labstack/echo/v4"
-	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/ui"
 )
 
@@ -12,7 +12,7 @@ type ContentData struct {
 }
 
 func ContentHandler(c echo.Context) (ContentData, error) {
-	b := c.Get("boot").(*boot.Boot)
+	b := middleware.GetBoot(c)
 
 	hashes, err := b.CAS.Iterate(c.Request().Context())
 	// items, err := b.Tree.Children("")

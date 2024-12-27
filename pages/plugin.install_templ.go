@@ -9,36 +9,43 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
 )
 
-type ContentData struct {
-	Hashes  []string
-	Plugins []string
+type PluginInstallData struct {
+	install *rpc.InstallResponse
+	plugins []string
 }
 
-func ContentHandler(c echo.Context) (ContentData, error) {
+func PluginInstallHandler(c echo.Context) (PluginInstallData, error) {
 	b := middleware.GetBoot(c)
-
-	hashes, err := b.CAS.Iterate(c.Request().Context())
-	// items, err := b.Tree.Children("")
-	if err != nil {
-		return ContentData{}, err
+	data := PluginInstallData{}
+	pluginID := c.QueryParam("plugin")
+	for key := range b.Plugins.Clients {
+		data.plugins = append(data.plugins, key)
 	}
 
-	var items []string
-	for hash := range hashes {
-		items = append(items, hash)
-	}
+	if pluginID != "" {
+		client, ok := b.Plugins.Clients[pluginID]
+		if !ok {
+			return data, fmt.Errorf("plugin not found: %s", pluginID)
+		}
 
-	return ContentData{
-		Hashes: items,
-	}, nil
+		var err error
+		data.install, err = client.Install(c.Request().Context(), &rpc.InstallRequest{PluginId: pluginID})
+		if err != nil {
+			return data, fmt.Errorf("failed to install plugin: %w", err)
+		}
+
+	}
+	return data, nil
 }
 
-func Content(data ContentData) templ.Component {
+func PluginInstall(data PluginInstallData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -71,39 +78,58 @@ func Content(data ContentData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"space-y-3\"><div class=\"font-bold\">Content</div><ul class=\"list-disc list-inside\">")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"space-y-3\"><div class=\"font-bold\">Install</div><form action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for _, hash := range data.Hashes {
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<li class=\"list-item\"><a href=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var3 templ.SafeURL = templ.URL("/content/" + hash)
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var3)))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\" class=\"underline\">")
+			var templ_7745c5c3_Var3 templ.SafeURL = templ.URL("/plugin/install")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var3)))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\" method=\"get\" onchange=\"this.submit()\"><select name=\"plugin\" class=\"border border-gray-300 rounded-md\"><option value=\"\">Select Plugin</option> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for _, plugin := range data.plugins {
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<option value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(hash)
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/content.templ`, Line: 41, Col: 13}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 52, Col: 28}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</a></li>")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var5 string
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(plugin)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 52, Col: 39}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</option>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</ul></div>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</select></form>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if data.install == nil {
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

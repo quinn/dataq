@@ -15,8 +15,8 @@ tasks:
 
   gen-templ:
     cmds:
-      - |
-        go run github.com/a-h/templ/cmd/templ@latest generate
+      - go run github.com/a-h/templ/cmd/templ@latest fmt .
+      - go run github.com/a-h/templ/cmd/templ@latest generate
 
   live:templ:
     cmds:

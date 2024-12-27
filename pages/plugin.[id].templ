@@ -3,9 +3,9 @@ package pages
 import (
 	"fmt"
 	"github.com/labstack/echo/v4"
-	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/index"
+	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/ui"
 )
 
@@ -16,7 +16,8 @@ type PluginIdData struct {
 }
 
 func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
-	b := c.Get("boot").(*boot.Boot)
+	b := middleware.GetBoot(c)
+
 	var data PluginIdData
 
 	var plugin *config.Plugin

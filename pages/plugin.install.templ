@@ -1,0 +1,60 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/rpc"
+	"go.quinn.io/dataq/ui"
+)
+
+type PluginInstallData struct {
+	install *rpc.InstallResponse
+	plugins []string
+}
+
+func PluginInstallHandler(c echo.Context) (PluginInstallData, error) {
+	b := middleware.GetBoot(c)
+	data := PluginInstallData{}
+	pluginID := c.QueryParam("plugin")
+	for key := range b.Plugins.Clients {
+		data.plugins = append(data.plugins, key)
+	}
+
+	if pluginID != "" {
+		client, ok := b.Plugins.Clients[pluginID]
+		if !ok {
+			return data, fmt.Errorf("plugin not found: %s", pluginID)
+		}
+
+		var err error
+		data.install, err = client.Install(c.Request().Context(), &rpc.InstallRequest{PluginId: pluginID})
+		if err != nil {
+			return data, fmt.Errorf("failed to install plugin: %w", err)
+		}
+
+	}
+	return data, nil
+}
+
+templ PluginInstall(data PluginInstallData) {
+	@ui.Layout() {
+		<div class="space-y-3">
+			<div class="font-bold">Install</div>
+			<form
+				action={ templ.URL("/plugin/install") }
+				method="get"
+				onchange="this.submit()"
+			>
+				<select name="plugin" class="border border-gray-300 rounded-md">
+					<option value="">Select Plugin</option>
+					for _, plugin := range data.plugins {
+						<option value={ plugin }>{ plugin }</option>
+					}
+				</select>
+			</form>
+			if data.install == nil {
+			}
+		</div>
+	}
+}

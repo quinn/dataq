@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"github.com/labstack/echo/v4"
-	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/ui"
 	"slices"
 )
@@ -21,7 +21,7 @@ type IndexData struct {
 }
 
 func IndexHandler(c echo.Context) (*IndexData, error) {
-	b := c.Get("boot").(*boot.Boot)
+	b := middleware.GetBoot(c)
 	var plugins []string
 	for key := range b.Plugins.Clients {
 		plugins = append(plugins, key)

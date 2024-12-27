@@ -9,10 +9,12 @@ import (
 // RegisterRoutes adds all page routes to the Echo instance
 func RegisterRoutes(e *echo.Echo) {
 	e.GET("/content/:hash", ContentHashHandler)
+	e.GET("/content", ContentHandler)
 	e.GET("/", IndexHandler)
 	e.GET("/plugin/:id/extract/:hash", PluginIdExtractHashHandler)
 	e.GET("/plugin/:id", PluginIdHandler)
 	e.GET("/plugin/:id/transform/:hash", PluginIdTransformHashHandler)
+	e.GET("/plugin/install", PluginInstallHandler)
 }
 
 // ContentHashHandler handles requests to /content/:hash
@@ -22,6 +24,15 @@ func ContentHashHandler(c echo.Context) error {
 		return err
 	}
 	return pages.ContentHash(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// ContentHandler handles requests to /content
+func ContentHandler(c echo.Context) error {
+	result, err := pages.ContentHandler(c)
+	if err != nil {
+		return err
+	}
+	return pages.Content(result).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // IndexHandler handles requests to /
@@ -58,4 +69,13 @@ func PluginIdTransformHashHandler(c echo.Context) error {
 		return err
 	}
 	return pages.PluginIdTransformHash(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// PluginInstallHandler handles requests to /plugin/install
+func PluginInstallHandler(c echo.Context) error {
+	result, err := pages.PluginInstallHandler(c)
+	if err != nil {
+		return err
+	}
+	return pages.PluginInstall(result).Render(c.Request().Context(), c.Response().Writer)
 }
