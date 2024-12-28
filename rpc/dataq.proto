@@ -27,7 +27,8 @@ message InstallResponse {
 }
 
 message PluginConfig {
-  string key = 1;  
+  string key = 1;
+  string label = 2;
 }
 
 message OauthConfig {

@@ -22,11 +22,6 @@ func NewServer(client *FitbitClient) *server {
 func (s *server) Install(ctx context.Context, req *rpc.InstallRequest) (*rpc.InstallResponse, error) {
 	return &rpc.InstallResponse{
 		PluginId: "fitbit",
-		Configs: []*rpc.PluginConfig{
-			{
-				Key: "client_id",
-			},
-		},
 		OauthConfig: &rpc.OauthConfig{
 			AuthUrl:  fitbit.Endpoint.AuthURL,
 			TokenUrl: fitbit.Endpoint.TokenURL,

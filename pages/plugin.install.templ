@@ -9,8 +9,9 @@ import (
 )
 
 type PluginInstallData struct {
-	install *rpc.InstallResponse
-	plugins []string
+	install  *rpc.InstallResponse
+	plugins  []string
+	selected string
 }
 
 func PluginInstallHandler(c echo.Context) (PluginInstallData, error) {
@@ -27,6 +28,7 @@ func PluginInstallHandler(c echo.Context) (PluginInstallData, error) {
 			return data, fmt.Errorf("plugin not found: %s", pluginID)
 		}
 
+		data.selected = pluginID
 		var err error
 		data.install, err = client.Install(c.Request().Context(), &rpc.InstallRequest{PluginId: pluginID})
 		if err != nil {
@@ -46,14 +48,46 @@ templ PluginInstall(data PluginInstallData) {
 				method="get"
 				onchange="this.submit()"
 			>
-				<select name="plugin" class="border border-gray-300 rounded-md">
+				<select name="plugin" class="input">
 					<option value="">Select Plugin</option>
 					for _, plugin := range data.plugins {
-						<option value={ plugin }>{ plugin }</option>
+						<option value={ plugin } selected?={ plugin == data.selected }>{ plugin }</option>
 					}
 				</select>
 			</form>
-			if data.install == nil {
+			<hr/>
+			if data.install != nil {
+				<div class="font-bold">Config</div>
+				<form>
+					<input type="hidden" name="plugin_id" value={ data.selected }/>
+					for _, config := range data.install.Configs {
+						<div class="space-y-1">
+							<label for={ config.Key }>{ config.Label }</label>
+							<input
+								class="input"
+								type="text"
+								name={ config.Key }
+							/>
+						</div>
+					}
+					if data.install.OauthConfig != nil {
+						<label class="block" for="client_id">Client ID</label>
+						<input
+							class="input mb-3"
+							type="text"
+							name="client_id"
+						/>
+						<label class="block" for="client_secret">Client Secret</label>
+						<input
+							class="input mb-3"
+							type="text"
+							name="client_secret"
+						/>
+						<button class="underline block" type="submit">Install & Connect Oauth</button>
+					} else {
+						<button class="underline block" type="submit">Install</button>
+					}
+				</form>
 			}
 		</div>
 	}

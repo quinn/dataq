@@ -57,7 +57,7 @@ func Layout() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"></head><body class=\"font-mono\"><div class=\"bg-slate-400 p-3\"><a href=\"/\">dataq</a></div><div class=\"p-3\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"></head><body class=\"font-mono dark:bg-black dark:text-white\"><div class=\"bg-slate-400 p-3\"><a href=\"/\">dataq</a></div><div class=\"p-3\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

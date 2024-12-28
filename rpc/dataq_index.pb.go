@@ -44,6 +44,9 @@ func (m *PluginConfig) SchemaMetadata() map[string]interface{} {
 	if m.Key != "" {
 		metadata["key"] = m.Key
 	}
+	if m.Label != "" {
+		metadata["label"] = m.Label
+	}
 	return metadata
 }
 
