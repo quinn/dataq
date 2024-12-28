@@ -1,6 +1,7 @@
 package boot
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -148,8 +149,12 @@ func (b *Boot) startPlugin(plugin *config.Plugin, port string) error {
 }
 
 // Shutdown gracefully stops all components
-func (b *Boot) Shutdown() {
+func (b *Boot) Shutdown(ctx context.Context) error {
+	var shutdownErr error
 	if b.Plugins != nil {
-		b.Plugins.Shutdown()
+		if err := b.Plugins.Shutdown(ctx); err != nil {
+			shutdownErr = fmt.Errorf("plugin shutdown error: %w", err)
+		}
 	}
+	return shutdownErr
 }

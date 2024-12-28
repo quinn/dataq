@@ -78,11 +78,9 @@ tasks:
         go run github.com/cosmtrek/air@v1.51.0 \
           --build.cmd "task build-server && templ generate --notify-proxy" \
           --build.full_bin "{{ .RUN_BIN }}" \
-          --build.args_bin "-mode=web" \
           --build.delay "100" \
           --build.include_ext "go" \
           --build.stop_on_error "false" \
-          --misc.clean_on_exit true
 
   gen-tailwind:
     cmds:
@@ -135,6 +133,7 @@ tasks:
 
   live:
     cmds:
+      - defer: { task: kill }
       - |
         task -p \
           live:templ \
@@ -143,6 +142,10 @@ tasks:
           live:tailwind \
           live:assets \
           live:server
+
+  kill:
+    cmds:
+      - kill $(pgrep -f $(readlink -f {{ .RUN_BIN }}))
 
   build:
     cmds:

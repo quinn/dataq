@@ -1,6 +1,7 @@
 package boot
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os/exec"
@@ -53,16 +54,63 @@ func (pm *PluginManager) AddPlugin(pluginID string, conn *grpc.ClientConn, proce
 }
 
 // Shutdown gracefully stops all plugin processes
-func (pm *PluginManager) Shutdown() {
+func (pm *PluginManager) Shutdown(ctx context.Context) error {
 	pm.Lock()
 	defer pm.Unlock()
 
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(pm.processes))
+
 	for id, proc := range pm.processes {
-		if proc != nil && proc.Process != nil {
+		if proc == nil || proc.Process == nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(id string, proc *exec.Cmd) {
+			defer wg.Done()
+
+			// First try SIGTERM
 			if err := proc.Process.Signal(syscall.SIGTERM); err != nil {
 				log.Printf("Failed to send SIGTERM to plugin %s: %v", id, err)
-				proc.Process.Kill()
+				if err := proc.Process.Kill(); err != nil {
+					errChan <- fmt.Errorf("failed to kill plugin %s: %w", id, err)
+				}
+				return
 			}
-		}
+
+			// Wait for process to exit with timeout
+			done := make(chan error, 1)
+			go func() {
+				done <- proc.Wait()
+			}()
+
+			select {
+			case err := <-done:
+				if err != nil {
+					errChan <- fmt.Errorf("plugin %s exit error: %w", id, err)
+				}
+			case <-ctx.Done():
+				// Context timeout - force kill
+				if err := proc.Process.Kill(); err != nil {
+					errChan <- fmt.Errorf("failed to kill plugin %s after timeout: %w", id, err)
+				}
+			}
+		}(id, proc)
 	}
+
+	// Wait for all processes
+	wg.Wait()
+	close(errChan)
+
+	// Collect errors
+	var errs []error
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("plugin shutdown errors: %v", errs)
+	}
+	return nil
 }
