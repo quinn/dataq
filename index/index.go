@@ -72,7 +72,11 @@ func (i *Index) CreatePermanode(ctx context.Context, content Indexable) (string,
 		return "", err
 	}
 
-	return i.UpdatePermanode(ctx, permanodeHash, content)
+	if _, err := i.UpdatePermanode(ctx, permanodeHash, content); err != nil {
+		return "", err
+	}
+
+	return permanodeHash, nil
 }
 
 func (i *Index) UpdatePermanode(ctx context.Context, permanodeHash string, content Indexable) (string, error) {
@@ -82,11 +86,16 @@ func (i *Index) UpdatePermanode(ctx context.Context, permanodeHash string, conte
 	}
 
 	permanodeVersion := schema.NewPermanodeVersion(permanodeHash, contentHash)
-	if _, err := i.marshalToCAS(ctx, permanodeVersion); err != nil {
+	permanodeVersionHash, err := i.marshalToCAS(ctx, permanodeVersion)
+	if err != nil {
 		return "", err
 	}
 
-	return contentHash, nil
+	return permanodeVersionHash, nil
+}
+
+func (i *Index) GetPermanode(ctx context.Context, permanodeHash string, result Indexable) error {
+	return i.Get(ctx, result, "permanode_hash = ?", permanodeHash)
 }
 
 func (i *Index) Rebuild(ctx context.Context) error {

@@ -12,6 +12,7 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/content", ContentHandler)
 	e.GET("/", IndexHandler)
 	e.GET("/plugin/:id/extract/:hash", PluginIdExtractHashHandler)
+	e.GET("/plugin/:id/oauth/begin", PluginIdOauthBeginHandler)
 	e.GET("/plugin/:id", PluginIdHandler)
 	e.GET("/plugin/:id/transform/:hash", PluginIdTransformHashHandler)
 	e.GET("/plugin/install", PluginInstallHandler)
@@ -51,6 +52,15 @@ func PluginIdExtractHashHandler(c echo.Context) error {
 		return err
 	}
 	return pages.PluginIdExtractHash(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// PluginIdOauthBeginHandler handles requests to /plugin/:id/oauth/begin
+func PluginIdOauthBeginHandler(c echo.Context) error {
+	result, err := pages.PluginIdOauthBeginHandler(c, c.Param("id"))
+	if err != nil {
+		return err
+	}
+	return pages.PluginIdOauthBegin(result).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // PluginIdHandler handles requests to /plugin/:id
