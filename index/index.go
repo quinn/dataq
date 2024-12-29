@@ -120,7 +120,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			return fmt.Errorf("claim missing schema kind: %w", err)
 		}
 
-		slog.Info("rebuilding claim", "hash", claim.Hash, "kind", claim.SchemaKind)
+		slog.Info("rebuilding claim", "hash", claim.ContentHash, "kind", claim.SchemaKind)
 
 		var data Indexable
 		switch claim.SchemaKind {
@@ -373,7 +373,7 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 				}
 			case "hash":
 				if v, ok := val.(string); ok {
-					result.Hash = v
+					result.ContentHash = v
 				}
 			default:
 				result.Metadata[col] = val

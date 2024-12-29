@@ -38,8 +38,8 @@ func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtrac
 
 	for _, claim := range claims {
 		var r rpc.ExtractResponse
-		if err := b.Index.Get(c.Request().Context(), &r, "hash = ?", claim.Hash); err != nil {
-			return data, fmt.Errorf("extract response not found (%s): %w", claim.Hash, err)
+		if err := b.Index.Get(c.Request().Context(), &r, "hash = ?", claim.ContentHash); err != nil {
+			return data, fmt.Errorf("extract response not found (%s): %w", claim.ContentHash, err)
 		}
 		data.res = append(data.res, &r)
 	}
