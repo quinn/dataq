@@ -6,6 +6,7 @@ import (
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
+	"strings"
 )
 
 type PluginInstallData struct {
@@ -58,7 +59,7 @@ templ PluginInstall(data PluginInstallData) {
 			<hr/>
 			if data.install != nil {
 				<div class="font-bold">Config</div>
-				<form>
+				<form method="post">
 					<input type="hidden" name="plugin_id" value={ data.selected }/>
 					for _, config := range data.install.Configs {
 						<div class="space-y-1">
@@ -71,18 +72,13 @@ templ PluginInstall(data PluginInstallData) {
 						</div>
 					}
 					if data.install.OauthConfig != nil {
+						<input type="hidden" name="auth_url" value={ data.install.OauthConfig.AuthUrl }/>
+						<input type="hidden" name="token_url" value={ data.install.OauthConfig.TokenUrl }/>
+						<input type="hidden" name="scopes" value={ strings.Join(data.install.OauthConfig.Scopes, ",") }/>
 						<label class="block" for="client_id">Client ID</label>
-						<input
-							class="input mb-3"
-							type="text"
-							name="client_id"
-						/>
+						<input class="input mb-3" type="text" name="client_id"/>
 						<label class="block" for="client_secret">Client Secret</label>
-						<input
-							class="input mb-3"
-							type="text"
-							name="client_secret"
-						/>
+						<input class="input mb-3" type="text" name="client_secret"/>
 						<button class="underline block" type="submit">Install & Connect Oauth</button>
 					} else {
 						<button class="underline block" type="submit">Install</button>

@@ -23,9 +23,10 @@ type Index struct {
 }
 
 type Claim struct {
-	SchemaKind string                 `json:"dataq_schema_kind"`
-	Hash       string                 `json:"hash"`
-	Metadata   map[string]interface{} `json:"-"` // Not stored in CAS
+	DataQType   string                 `json:"dataq_type"`
+	SchemaKind  string                 `json:"schema_kind"`
+	ContentHash string                 `json:"content_hash"`
+	Metadata    map[string]interface{} `json:"-"` // Not stored in CAS
 }
 
 func NewIndex(cas cas.Storage, db *sql.DB) *Index {
@@ -58,8 +59,8 @@ func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
 	}
 
 	claim := Claim{
-		SchemaKind: data.SchemaKind(),
-		Hash:       hash,
+		SchemaKind:  data.SchemaKind(),
+		ContentHash: hash,
 	}
 
 	claimBytes, err := json.Marshal(claim)
@@ -73,6 +74,10 @@ func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
 
 	err = i.Index(hash, data)
 	return hash, err
+}
+
+func (i *Index) CreatePermanode(ctx context.Context, data Indexable) (string, error) {
+	return "", nil
 }
 
 func (i *Index) Rebuild(ctx context.Context) error {
@@ -128,7 +133,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 		}
 
 		// Get the data from CAS
-		r, err = i.cas.Retrieve(ctx, claim.Hash)
+		r, err = i.cas.Retrieve(ctx, claim.ContentHash)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve CAS object: %w", err)
 		}
@@ -142,7 +147,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			return fmt.Errorf("failed to unmarshal data: %w", err)
 		}
 
-		if err := i.Index(claim.Hash, data); err != nil {
+		if err := i.Index(claim.ContentHash, data); err != nil {
 			return fmt.Errorf("failed to index data: %w", err)
 		}
 	}

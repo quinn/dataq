@@ -1,50 +1,44 @@
 package schema
 
-// Task represents the database model for tasks.
-type Task struct {
-	UID            string            `json:"uid"`
-	ClaimTimestamp int64             `json:"claim_timestamp"`
-	PluginID       string            `json:"plugin_id"`
-	ActionUID      string            `json:"action_uid"`
-	DataItemUID    string            `json:"data_item_uid"`
-	Status         string            `json:"status"`
-	Error          string            `json:"error"`
-	CreatedAt      int64             `json:"created_at"`
-	UpdatedAt      int64             `json:"updated_at"`
-	PluginConfig   map[string]string `json:"plugin_config"`
+import (
+	"time"
+
+	"golang.org/x/oauth2"
+)
+
+// contains schema not in protobuf format
+
+// PluginInstance
+type PluginInstance struct {
+	PluginID    string         `json:"plugin_id"`
+	Label       string         `json:"label"`
+	OauthConfig *oauth2.Config `json:"oauth_config,omitempty"`
+	OauthToken  *oauth2.Token  `json:"oauth_token,omitempty"`
 }
 
-// Email represents a generic email entity within dataq.
-type Email struct {
-	From        string `json:"from"`
-	To          string `json:"to"`
-	Subject     string `json:"subject"`
-	Body        string `json:"body"`
-	Date        string `json:"date"`
-	MessageID   string `json:"message_id"`
-	ThreadID    string `json:"thread_id"`
-	InReplyTo   string `json:"in_reply_to"`
-	References  string `json:"references"`
-	Cc          string `json:"cc"`
-	Bcc         string `json:"bcc"`
-	Attachments string `json:"attachments"`
-	MimeType    string `json:"mime_type"`
-	ContentType string `json:"content_type"`
-	Content     string `json:"content"`
-	HTML        string `json:"html"`
-	Text        string `json:"text"`
+func (p *PluginInstance) SchemaMetadata() map[string]interface{} {
+	return map[string]interface{}{
+		"plugin_id": p.PluginID,
+		"label":     p.Label,
+	}
 }
 
-// FinancialTransaction represents a financial transaction entity within dataq.
-type FinancialTransaction struct {
-	ID          string `json:"id"`
-	Date        string `json:"date"`
-	Description string `json:"description"`
-	Amount      string `json:"amount"`
-	Currency    string `json:"currency"`
-	Category    string `json:"category"`
-	Account     string `json:"account"`
-	Subcategory string `json:"subcategory"`
-	Notes       string `json:"notes"`
-	Type        string `json:"type"`
+func (p *PluginInstance) SchemaKind() string {
+	return "PluginInstance"
+}
+
+type Permanode struct {
+	Nonce      string `json:"nonce"`
+	SchemaKind string `json:"kind"`
+}
+
+type PermanodeVersion struct {
+	PermanodeHash string    `json:"permanode_hash"`
+	Timestamp     time.Time `json:"timestamp"`
+	ContentHash   string    `json:"content_hash"`
+
+	// This applies to content from a plugin
+	// these values will be blank if permanode is managed by dataq
+	PluginID  string `json:"plugin_id,omitempty"`
+	PluginKey string `json:"plugin_key,omitempty"`
 }
