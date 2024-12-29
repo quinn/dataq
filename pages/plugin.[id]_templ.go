@@ -12,15 +12,15 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/config"
-	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
 )
 
 type PluginIdData struct {
 	cfg        *config.Plugin
-	extracts   []index.Claim
-	transforms []index.Claim
+	extracts   []schema.Claim
+	transforms []schema.Claim
 }
 
 func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
@@ -84,7 +84,6 @@ func PluginId(data PluginIdData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		plugin := data.cfg
 		templ_7745c5c3_Var2 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -102,9 +101,9 @@ func PluginId(data PluginIdData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.ID)
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.cfg.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 64, Col: 19}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 63, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -115,9 +114,9 @@ func PluginId(data PluginIdData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.Name)
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.cfg.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 66, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 65, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -128,9 +127,9 @@ func PluginId(data PluginIdData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.BinaryPath)
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.cfg.BinaryPath)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 68, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 67, Col: 29}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -140,7 +139,7 @@ func PluginId(data PluginIdData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for key, value := range plugin.Config {
+			for key, value := range data.cfg.Config {
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<dt>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -148,7 +147,7 @@ func PluginId(data PluginIdData) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 73, Col: 16}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 72, Col: 16}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -161,7 +160,7 @@ func PluginId(data PluginIdData) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 74, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 73, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -177,9 +176,9 @@ func PluginId(data PluginIdData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%t", plugin.Enabled))
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%t", data.cfg.Enabled))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 79, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 78, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -194,7 +193,7 @@ func PluginId(data PluginIdData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var9 templ.SafeURL = templ.URL("/plugin/" + plugin.ID + "/extract/" + extract.ContentHash)
+				var templ_7745c5c3_Var9 templ.SafeURL = templ.URL("/plugin/" + data.cfg.ID + "/extract/" + extract.ContentHash)
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var9)))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -206,7 +205,7 @@ func PluginId(data PluginIdData) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(extract.Metadata["kind"].(string))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 88, Col: 41}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 87, Col: 41}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -228,7 +227,7 @@ func PluginId(data PluginIdData) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(extract.ContentHash)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 92, Col: 20}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 91, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
@@ -248,7 +247,7 @@ func PluginId(data PluginIdData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var13 templ.SafeURL = templ.URL("/plugin/" + plugin.ID + "/transform/" + transform.ContentHash)
+				var templ_7745c5c3_Var13 templ.SafeURL = templ.URL("/plugin/" + data.cfg.ID + "/transform/" + transform.ContentHash)
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var13)))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -260,7 +259,7 @@ func PluginId(data PluginIdData) templ.Component {
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(transform.Metadata["kind"].(string))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 103, Col: 43}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 102, Col: 43}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -282,7 +281,7 @@ func PluginId(data PluginIdData) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(transform.ContentHash)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 107, Col: 22}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 106, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -298,9 +297,9 @@ func PluginId(data PluginIdData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var17 string
-			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs("/plugin/" + plugin.ID + "/extract/initial")
+			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs("/plugin/" + data.cfg.ID + "/extract/initial")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 116, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].templ`, Line: 115, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {

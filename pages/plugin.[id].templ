@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/config"
-	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
 )
 
 type PluginIdData struct {
 	cfg        *config.Plugin
-	extracts   []index.Claim
-	transforms []index.Claim
+	extracts   []schema.Claim
+	transforms []schema.Claim
 }
 
 func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
@@ -56,27 +56,26 @@ func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
 // 	Enabled    bool              `yaml:"enabled"`
 // }
 templ PluginId(data PluginIdData) {
-	{{ plugin := data.cfg }}
 	@ui.Layout() {
 		<h1 class="font-bold inline-block mb-3">
 			<dl class="inline-grid grid-cols-[min-content,1fr] gap-x-3 whitespace-nowrap">
 				<dt>ID</dt>
-				<dd>{ plugin.ID }</dd>
+				<dd>{ data.cfg.ID }</dd>
 				<dt>Name</dt>
-				<dd>{ plugin.Name }</dd>
+				<dd>{ data.cfg.Name }</dd>
 				<dt>Binary Path</dt>
-				<dd>{ plugin.BinaryPath }</dd>
+				<dd>{ data.cfg.BinaryPath }</dd>
 				<dt>Config</dt>
 				<dd>
 					<dl class="inline-grid grid-cols-[min-content,1fr] gap-x-3">
-						for key, value := range plugin.Config {
+						for key, value := range data.cfg.Config {
 							<dt>{ key }</dt>
 							<dd>{ value }</dd>
 						}
 					</dl>
 				</dd>
 				<dt>Enabled</dt>
-				<dd>{ fmt.Sprintf("%t", plugin.Enabled) }</dd>
+				<dd>{ fmt.Sprintf("%t", data.cfg.Enabled) }</dd>
 			</dl>
 		</h1>
 		<hr class="mb-3"/>
@@ -84,12 +83,12 @@ templ PluginId(data PluginIdData) {
 		<ul class="list-disc list-inside mb-3">
 			for _, extract := range data.extracts {
 				<li class="list-item">
-					<a href={ templ.URL("/plugin/" + plugin.ID + "/extract/" + extract.Hash) } class="underline">
+					<a href={ templ.URL("/plugin/" + data.cfg.ID + "/extract/" + extract.ContentHash) } class="underline">
 						{ extract.Metadata["kind"].(string) }
 					</a>
 					<span>- </span>
-					<a href={ templ.URL("/content/" + extract.Hash) } class="underline">
-						{ extract.Hash }
+					<a href={ templ.URL("/content/" + extract.ContentHash) } class="underline">
+						{ extract.ContentHash }
 					</a>
 				</li>
 			}
@@ -99,12 +98,12 @@ templ PluginId(data PluginIdData) {
 		<ul class="list-disc list-inside mb-3">
 			for _, transform := range data.transforms {
 				<li class="list-item">
-					<a href={ templ.URL("/plugin/" + plugin.ID + "/transform/" + transform.Hash) } class="underline">
+					<a href={ templ.URL("/plugin/" + data.cfg.ID + "/transform/" + transform.ContentHash) } class="underline">
 						{ transform.Metadata["kind"].(string) }
 					</a>
 					<span>- </span>
-					<a href={ templ.URL("/content/" + transform.Hash) } class="underline">
-						{ transform.Hash }
+					<a href={ templ.URL("/content/" + transform.ContentHash) } class="underline">
+						{ transform.ContentHash }
 					</a>
 				</li>
 			}
@@ -113,7 +112,7 @@ templ PluginId(data PluginIdData) {
 		<h2 class="font-bold mb-3">Actions</h2>
 		<ul class="list-disc list-inside">
 			<li class="list-item">
-				<button hx-post={ "/plugin/" + plugin.ID + "/extract/initial" } class="underline cursor-pointer">
+				<button hx-post={ "/plugin/" + data.cfg.ID + "/extract/initial" } class="underline cursor-pointer">
 					Send Initial Event
 				</button>
 			</li>
