@@ -37,30 +37,24 @@ func NewIndex(cas cas.Storage, db *sql.DB) *Index {
 }
 
 type Indexable interface {
-	protoreflect.ProtoMessage
 	SchemaMetadata() map[string]interface{}
 	SchemaKind() string
 }
 
-func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
-	// Trying to make this as deterministic as possible
-	b, err := protojson.MarshalOptions{
-		Multiline:     true,
-		Indent:        "\t",
-		UseProtoNames: true,
-	}.Marshal(data)
-	if err != nil {
-		return "", err
-	}
+type IndexableProto interface {
+	protoreflect.ProtoMessage
+	Indexable
+}
 
-	hash, err := i.cas.Store(ctx, bytes.NewReader(b))
+func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
+	contentHash, err := i.marshalToCAS(ctx, data)
 	if err != nil {
 		return "", err
 	}
 
 	claim := Claim{
 		SchemaKind:  data.SchemaKind(),
-		ContentHash: hash,
+		ContentHash: contentHash,
 	}
 
 	claimBytes, err := json.Marshal(claim)
@@ -72,8 +66,8 @@ func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
 		return "", err
 	}
 
-	err = i.Index(hash, data)
-	return hash, err
+	err = i.index("", contentHash, data)
+	return contentHash, err
 }
 
 func (i *Index) CreatePermanode(ctx context.Context, data Indexable) (string, error) {
@@ -104,7 +98,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			return fmt.Errorf("failed to read CAS object: %w", err)
 		}
 
-		if !strings.HasPrefix(string(b), "{\"dataq_schema_kind\":") {
+		if !strings.HasPrefix(string(b), "{\"dataq_type\":") {
 			log.Println("skipping non-claim object: ", hash)
 			continue
 		} else {
@@ -133,21 +127,11 @@ func (i *Index) Rebuild(ctx context.Context) error {
 		}
 
 		// Get the data from CAS
-		r, err = i.cas.Retrieve(ctx, claim.ContentHash)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve CAS object: %w", err)
-		}
-
-		b, err = io.ReadAll(r)
-		if err != nil {
-			return fmt.Errorf("failed to read CAS object: %w", err)
-		}
-
-		if err := protojson.Unmarshal(b, data); err != nil {
+		if err := i.unmarshalFromCAS(ctx, claim.ContentHash, data); err != nil {
 			return fmt.Errorf("failed to unmarshal data: %w", err)
 		}
 
-		if err := i.Index(claim.ContentHash, data); err != nil {
+		if err := i.index("", claim.ContentHash, data); err != nil {
 			return fmt.Errorf("failed to index data: %w", err)
 		}
 	}
@@ -155,14 +139,17 @@ func (i *Index) Rebuild(ctx context.Context) error {
 	return nil
 }
 
-func (i *Index) Index(hash string, data Indexable) error {
+func (i *Index) index(permanodeHash, contentHash string, data Indexable) error {
 	metadata := data.SchemaMetadata()
 	schemaKind := data.SchemaKind()
 
 	// Create base table if not exists
+	// it is possible to index and store content that is not part of a permanode.
+	// This content cannot be edited
 	createTableSQL := `CREATE TABLE IF NOT EXISTS index_data (
 		schema_kind TEXT NOT NULL,
-		hash TEXT PRIMARY KEY
+		permanode_hash TEXT,
+		content_hash TEXT PRIMARY KEY
 	)`
 
 	if _, err := i.db.Exec(createTableSQL); err != nil {
@@ -215,9 +202,9 @@ func (i *Index) Index(hash string, data Indexable) error {
 	}
 
 	// Build insert statement
-	insertColumns := []string{"schema_kind", "hash"}
-	placeholders := []string{"?", "?"}
-	values := []interface{}{schemaKind, hash}
+	insertColumns := []string{"schema_kind", "permanode_hash", "content_hash"}
+	placeholders := []string{"?", "?", "?"}
+	values := []interface{}{schemaKind, permanodeHash, contentHash}
 
 	for key, value := range metadata {
 		switch v := value.(type) {
@@ -249,7 +236,7 @@ func (i *Index) Index(hash string, data Indexable) error {
 // The caller must provide a concrete type T that implements Indexable.
 func (i *Index) Get(ctx context.Context, result Indexable, whereClause string, args ...interface{}) error {
 	// Query the index to get the hash
-	query := "SELECT schema_kind, hash FROM index_data"
+	query := "SELECT schema_kind, content_hash FROM index_data"
 	if whereClause != "" {
 		query += " WHERE " + whereClause
 	}
@@ -261,14 +248,14 @@ func (i *Index) Get(ctx context.Context, result Indexable, whereClause string, a
 	}
 	defer rows.Close()
 
-	var hash, schemaKind string
+	var contentHash, schemaKind string
 	var found bool
 
 	for rows.Next() {
 		if found {
 			return fmt.Errorf("multiple records found for query")
 		}
-		if err := rows.Scan(&schemaKind, &hash); err != nil {
+		if err := rows.Scan(&schemaKind, &contentHash); err != nil {
 			return err
 		}
 		found = true
@@ -286,20 +273,7 @@ func (i *Index) Get(ctx context.Context, result Indexable, whereClause string, a
 	}
 
 	// Retrieve from CAS
-	r, err := i.cas.Retrieve(ctx, hash)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve CAS object: %w", err)
-	}
-	defer r.Close()
-
-	b, err := io.ReadAll(r)
-	if err != nil {
-		return fmt.Errorf("failed to read CAS object: %w", err)
-	}
-
-	// Decode into result object
-
-	return protojson.Unmarshal(b, result)
+	return i.unmarshalFromCAS(ctx, contentHash, result)
 }
 
 // Query executes a SQL query against the index and returns matching rows
@@ -388,4 +362,55 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 	}
 
 	return results, nil
+}
+
+// unmarshalFromCAS reads and unmarshals data from CAS storage into the provided object
+func (i *Index) unmarshalFromCAS(ctx context.Context, contentHash string, result Indexable) error {
+	r, err := i.cas.Retrieve(ctx, contentHash)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve CAS object: %w", err)
+	}
+	defer r.Close()
+
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("failed to read CAS object: %w", err)
+	}
+
+	if presult, ok := result.(IndexableProto); ok {
+		err = protojson.Unmarshal(b, presult)
+	} else {
+		err = json.Unmarshal(b, result)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal data: %w", err)
+	}
+	return nil
+}
+
+// marshalToCAS marshals the provided object and stores it in CAS storage
+func (i *Index) marshalToCAS(ctx context.Context, data Indexable) (string, error) {
+	var b []byte
+	var err error
+
+	if pdata, ok := data.(IndexableProto); ok {
+		// Trying to make this as deterministic as possible
+		b, err = protojson.MarshalOptions{
+			Multiline:     true,
+			Indent:        "\t",
+			UseProtoNames: true,
+		}.Marshal(pdata)
+	} else {
+		b, err = json.Marshal(data)
+	}
+	if err != nil {
+		return "", err
+	}
+
+	hash, err := i.cas.Store(ctx, bytes.NewReader(b))
+	if err != nil {
+		return "", err
+	}
+
+	return hash, nil
 }
