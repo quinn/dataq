@@ -11,7 +11,7 @@ type PluginIdOauthBeginData struct {
 	plugin schema.PluginInstance
 }
 
-func PluginIdOauthBeginHandler(c echo.Context, id string) (PluginIdOauthBeginData, error) {
+func PluginIdOauthBeginGET(c echo.Context, id string) (PluginIdOauthBeginData, error) {
 	b := middleware.GetBoot(c)
 	var data PluginIdOauthBeginData
 

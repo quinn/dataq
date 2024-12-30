@@ -23,7 +23,7 @@ type PluginIdTransformHashData struct {
 	id   string
 }
 
-func PluginIdTransformHashHandler(c echo.Context, id, hash string) (PluginIdTransformHashData, error) {
+func PluginIdTransformHashGET(c echo.Context, id, hash string) (PluginIdTransformHashData, error) {
 	var data PluginIdTransformHashData
 	b := middleware.GetBoot(c)
 
@@ -33,7 +33,8 @@ func PluginIdTransformHashHandler(c echo.Context, id, hash string) (PluginIdTran
 		return data, fmt.Errorf("transform request not found: %w", err)
 	}
 
-	claims, err := b.Index.Query(c.Request().Context(), "request_hash = ?", hash)
+	sel = b.Index.Q.Where("request_hash = ?", hash)
+	claims, err := b.Index.Query(c.Request().Context(), sel)
 	if err != nil {
 		return data, fmt.Errorf("failed to query response claims: %w", err)
 	}
@@ -119,7 +120,7 @@ func PluginIdTransformHash(data PluginIdTransformHashData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(middleware.Reverse(ctx, "plugin.transform.send", data.id, data.hash))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].transform.[hash].templ`, Line: 65, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].transform.[hash].templ`, Line: 66, Col: 91}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {

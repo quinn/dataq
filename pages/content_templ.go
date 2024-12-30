@@ -19,7 +19,7 @@ type ContentData struct {
 	Plugins []string
 }
 
-func ContentHandler(c echo.Context) (ContentData, error) {
+func ContentGET(c echo.Context) (ContentData, error) {
 	b := middleware.GetBoot(c)
 
 	hashes, err := b.CAS.Iterate(c.Request().Context())

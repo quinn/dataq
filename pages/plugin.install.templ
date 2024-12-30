@@ -15,7 +15,7 @@ type PluginInstallData struct {
 	selected string
 }
 
-func PluginInstallHandler(c echo.Context) (PluginInstallData, error) {
+func PluginInstallGET(c echo.Context) (PluginInstallData, error) {
 	b := middleware.GetBoot(c)
 	data := PluginInstallData{}
 	pluginID := c.QueryParam("plugin")

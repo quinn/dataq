@@ -11,23 +11,26 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
-	"slices"
 )
 
 type IndexData struct {
 	Hashes  []string
-	Plugins []string
+	Plugins []schema.Claim
 }
 
-func IndexHandler(c echo.Context) (*IndexData, error) {
+func IndexGET(c echo.Context) (*IndexData, error) {
 	b := middleware.GetBoot(c)
-	var plugins []string
-	for key := range b.Plugins.Clients {
-		plugins = append(plugins, key)
-	}
 
-	slices.Sort(plugins)
+	sel := b.Index.Q.
+		GroupBy("permanode_hash").
+		Where("schema_kind = ?", "PluginInstance").
+		OrderBy("timestamp DESC")
+	plugins, err := b.Index.Query(c.Request().Context(), sel)
+	if err != nil {
+		return nil, err
+	}
 
 	hashes, err := b.CAS.Iterate(c.Request().Context())
 	// items, err := b.Tree.Children("")
@@ -88,7 +91,7 @@ func Index(data *IndexData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var3 templ.SafeURL = templ.URL("/plugin/" + plugin)
+				var templ_7745c5c3_Var3 templ.SafeURL = templ.URL("/plugin/" + plugin.PermanodeHash + "/edit")
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var3)))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -98,9 +101,9 @@ func Index(data *IndexData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin)
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.Metadata["label"].(string))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 49, Col: 15}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 52, Col: 42}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -132,7 +135,7 @@ func Index(data *IndexData) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(hash)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 60, Col: 13}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 63, Col: 13}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {

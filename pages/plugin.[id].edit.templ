@@ -1,0 +1,64 @@
+package pages
+
+import (
+	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/schema"
+	"go.quinn.io/dataq/ui"
+	"net/http"
+	"fmt"
+)
+
+type PluginIdEditData = schema.PluginInstance
+
+func PluginIdEditGET(c echo.Context, id string) (PluginIdEditData, error) {
+	b := middleware.GetBoot(c)
+
+	var plugin schema.PluginInstance
+	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
+		return plugin, fmt.Errorf("failed to get plugin: %w", err)
+	}
+
+	return plugin, nil
+}
+
+func PluginIdEditPOST(c echo.Context, id string) error {
+	b := middleware.GetBoot(c)
+
+	var plugin schema.PluginInstance
+	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
+		return fmt.Errorf("failed to get plugin: %w", err)
+	}
+
+	var form struct {
+		ClientID     string `form:"client_id"`
+		ClientSecret string `form:"client_secret"`
+	}
+
+	if err := c.Bind(&form); err != nil {
+		return fmt.Errorf("failed to bind form: %w", err)
+	}
+
+	plugin.OauthConfig.ClientID = form.ClientID
+	plugin.OauthConfig.ClientSecret = form.ClientSecret
+
+	if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &plugin); err != nil {
+		return fmt.Errorf("failed to update plugin: %w", err)
+	}
+
+	return c.Redirect(http.StatusFound, c.Request().RequestURI)
+}
+
+templ PluginIdEdit(plugin PluginIdEditData) {
+	@ui.Layout() {
+		<h2>Edit Plugin</h2>
+		<div class="space-y-3">
+			@ui.JsonBrowser(plugin)
+			<form method="post">
+				<input type="hidden" name="client_id" value={ plugin.OauthConfig.ClientID }/>
+				<input type="hidden" name="client_secret" value={ plugin.OauthConfig.ClientSecret }/>
+				<button type="submit">Save</button>
+			</form>
+		</div>
+	}
+}

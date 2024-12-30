@@ -52,14 +52,14 @@ type Claim struct {
 
 // Content is immutable content. Exclusive to permanode.
 type Content struct {
-	DataQType   string `json:"dataq_type"` // "claim"
+	DataQType   string `json:"dataq_type"` // "content"
 	SchemaKind  string `json:"schema_kind"`
 	ContentHash string `json:"content_hash"`
 }
 
 func NewContent(schemaKind, contentHash string) *Claim {
 	return &Claim{
-		Type:        "claim",
+		Type:        "content",
 		SchemaKind:  schemaKind,
 		ContentHash: contentHash,
 	}

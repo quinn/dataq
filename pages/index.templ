@@ -3,23 +3,26 @@ package pages
 import (
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
-	"slices"
 )
 
 type IndexData struct {
 	Hashes  []string
-	Plugins []string
+	Plugins []schema.Claim
 }
 
-func IndexHandler(c echo.Context) (*IndexData, error) {
+func IndexGET(c echo.Context) (*IndexData, error) {
 	b := middleware.GetBoot(c)
-	var plugins []string
-	for key := range b.Plugins.Clients {
-		plugins = append(plugins, key)
-	}
 
-	slices.Sort(plugins)
+	sel := b.Index.Q.
+		GroupBy("permanode_hash").
+		Where("schema_kind = ?", "PluginInstance").
+		OrderBy("timestamp DESC")
+	plugins, err := b.Index.Query(c.Request().Context(), sel)
+	if err != nil {
+		return nil, err
+	}
 
 	hashes, err := b.CAS.Iterate(c.Request().Context())
 	// items, err := b.Tree.Children("")
@@ -45,8 +48,8 @@ templ Index(data *IndexData) {
 			<ul class="list-disc list-inside">
 				for _, plugin := range data.Plugins {
 					<li class="list-item">
-						<a href={ templ.URL("/plugin/" + plugin) } class="underline">
-							{ plugin }
+						<a href={ templ.URL("/plugin/" + plugin.PermanodeHash + "/edit") } class="underline">
+							{ plugin.Metadata["label"].(string) }
 						</a>
 					</li>
 				}

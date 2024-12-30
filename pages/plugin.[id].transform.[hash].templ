@@ -15,7 +15,7 @@ type PluginIdTransformHashData struct {
 	id   string
 }
 
-func PluginIdTransformHashHandler(c echo.Context, id, hash string) (PluginIdTransformHashData, error) {
+func PluginIdTransformHashGET(c echo.Context, id, hash string) (PluginIdTransformHashData, error) {
 	var data PluginIdTransformHashData
 	b := middleware.GetBoot(c)
 
@@ -25,7 +25,8 @@ func PluginIdTransformHashHandler(c echo.Context, id, hash string) (PluginIdTran
 		return data, fmt.Errorf("transform request not found: %w", err)
 	}
 
-	claims, err := b.Index.Query(c.Request().Context(), "request_hash = ?", hash)
+	sel = b.Index.Q.Where("request_hash = ?", hash)
+	claims, err := b.Index.Query(c.Request().Context(), sel)
 	if err != nil {
 		return data, fmt.Errorf("failed to query response claims: %w", err)
 	}

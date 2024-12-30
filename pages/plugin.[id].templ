@@ -15,7 +15,7 @@ type PluginIdData struct {
 	transforms []schema.Claim
 }
 
-func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
+func PluginIdGET(c echo.Context, id string) (PluginIdData, error) {
 	b := middleware.GetBoot(c)
 
 	var data PluginIdData
@@ -35,12 +35,14 @@ func PluginIdHandler(c echo.Context, id string) (PluginIdData, error) {
 	data.cfg = plugin
 
 	var err error
-	data.extracts, err = b.Index.Query(c.Request().Context(), "plugin_id = ? AND schema_kind = ?", id, "ExtractRequest")
+	sel := b.Index.Q.Where("plugin_id = ? AND schema_kind = ?", id, "ExtractRequest")
+	data.extracts, err = b.Index.Query(c.Request().Context(), sel)
 	if err != nil {
 		return data, err
 	}
 
-	data.transforms, err = b.Index.Query(c.Request().Context(), "plugin_id = ? AND schema_kind = ?", id, "TransformRequest")
+	sel = b.Index.Q.Where("plugin_id = ? AND schema_kind = ?", id, "TransformRequest")
+	data.transforms, err = b.Index.Query(c.Request().Context(), sel)
 	if err != nil {
 		return data, err
 	}

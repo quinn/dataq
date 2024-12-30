@@ -14,7 +14,7 @@ type PluginIdExtractHashData struct {
 	hash string
 }
 
-func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
+func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
 	var data PluginIdExtractHashData
 	b := middleware.GetBoot(c)
 
@@ -24,7 +24,8 @@ func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtrac
 		return data, fmt.Errorf("extract request not found: %w", err)
 	}
 
-	claims, err := b.Index.Query(c.Request().Context(), "request_hash = ?", hash)
+	sel = b.Index.Q.Where("request_hash = ?", hash)
+	claims, err := b.Index.Query(c.Request().Context(), sel)
 	if err != nil {
 		return data, fmt.Errorf("failed to query response claims: %w", err)
 	}

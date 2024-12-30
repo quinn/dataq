@@ -15,7 +15,7 @@ type ContentHashData struct {
 	content     any
 }
 
-func ContentHashHandler(c echo.Context, hash string) (ContentHashData, error) {
+func ContentHashGET(c echo.Context, hash string) (ContentHashData, error) {
 	b := middleware.GetBoot(c)
 	r, err := b.CAS.Retrieve(c.Request().Context(), hash)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"go.quinn.io/dataq/cas"
@@ -29,7 +30,7 @@ func NewIndex(cas cas.Storage, db *sql.DB) *Index {
 	return &Index{
 		cas: cas,
 		db:  db,
-		Q:   sq.Select("schema_kind", "content_hash").From("index_data"),
+		Q:   sq.Select("*").From("index_data"),
 	}
 }
 
@@ -49,22 +50,12 @@ func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
 		return "", err
 	}
 
-	claim := schema.Claim{
-		Type:        "content",
-		SchemaKind:  data.SchemaKind(),
-		ContentHash: contentHash,
-	}
-
-	claimBytes, err := json.Marshal(claim)
-	if err != nil {
+	claim := schema.NewContent(data.SchemaKind(), contentHash)
+	if _, err := i.marshalToCAS(ctx, claim); err != nil {
 		return "", err
 	}
 
-	if _, err := i.cas.Store(ctx, bytes.NewReader(claimBytes)); err != nil {
-		return "", err
-	}
-
-	err = i.index(claim, data)
+	err = i.index(*claim, data)
 	return contentHash, err
 }
 
@@ -177,7 +168,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			return fmt.Errorf("unknown schema kind: %s", claim.SchemaKind)
 		}
 
-		// Get the data from CAS
+		// Get the content from CAS
 		if err := i.unmarshalFromCAS(ctx, claim.ContentHash, content); err != nil {
 			return fmt.Errorf("failed to unmarshal data: %w", err)
 		}
@@ -193,9 +184,10 @@ func (i *Index) Rebuild(ctx context.Context) error {
 // Get retrieves a single object from the index and CAS store.
 // The caller must provide a concrete type T that implements Indexable.
 func (i *Index) Get(ctx context.Context, result Indexable, query sq.SelectBuilder) error {
+	query = query.RemoveColumns().Columns("schema_kind", "content_hash")
 	rows, err := query.RunWith(i.db).Query()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to query index: %w", err)
 	}
 	defer rows.Close()
 
@@ -207,12 +199,12 @@ func (i *Index) Get(ctx context.Context, result Indexable, query sq.SelectBuilde
 			return fmt.Errorf("multiple records found for query")
 		}
 		if err := rows.Scan(&schemaKind, &contentHash); err != nil {
-			return err
+			return fmt.Errorf("failed to scan row: %w", err)
 		}
 		found = true
 	}
 	if err = rows.Err(); err != nil {
-		return err
+		return fmt.Errorf("failed to iterate rows: %w", err)
 	}
 	if !found {
 		return fmt.Errorf("no record found for query")
@@ -229,7 +221,7 @@ func (i *Index) Get(ctx context.Context, result Indexable, query sq.SelectBuilde
 
 // Query executes a SQL query against the index and returns matching rows
 // The query should be a valid SQL WHERE clause
-func (i *Index) Query(ctx context.Context, whereClause string, args ...interface{}) ([]schema.Claim, error) {
+func (i *Index) Query(ctx context.Context, query sq.SelectBuilder) ([]schema.Claim, error) {
 	// Get column names first
 	rows, err := i.db.Query("PRAGMA table_info(index_data)")
 	if err != nil {
@@ -249,17 +241,10 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 		columns = append(columns, name)
 	}
 
+	// If columns is zero, it means that the table does not exist yet.
 	if len(columns) == 0 {
-		// If columns is zero, it means that the table does not exist yet.
 		return nil, nil
 	}
-
-	// Build and execute the query using Squirrel
-	query := sq.Select(columns...).From("index_data")
-	if whereClause != "" {
-		query = query.Where(whereClause, args...)
-	}
-
 	rows, err = query.RunWith(i.db).Query()
 	if err != nil {
 		if strings.Contains(err.Error(), "no such column") {
@@ -296,9 +281,17 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 				if v, ok := val.(string); ok {
 					result.SchemaKind = v
 				}
-			case "hash":
+			case "content_hash":
 				if v, ok := val.(string); ok {
 					result.ContentHash = v
+				}
+			case "permanode_hash":
+				if v, ok := val.(string); ok {
+					result.PermanodeHash = v
+				}
+			case "timestamp":
+				if v, ok := val.(int64); ok {
+					result.Timestamp = time.Unix(v, 0)
 				}
 			default:
 				result.Metadata[col] = val

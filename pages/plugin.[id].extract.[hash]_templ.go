@@ -22,7 +22,7 @@ type PluginIdExtractHashData struct {
 	hash string
 }
 
-func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
+func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
 	var data PluginIdExtractHashData
 	b := middleware.GetBoot(c)
 
@@ -32,7 +32,8 @@ func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtrac
 		return data, fmt.Errorf("extract request not found: %w", err)
 	}
 
-	claims, err := b.Index.Query(c.Request().Context(), "request_hash = ?", hash)
+	sel = b.Index.Q.Where("request_hash = ?", hash)
+	claims, err := b.Index.Query(c.Request().Context(), sel)
 	if err != nil {
 		return data, fmt.Errorf("failed to query response claims: %w", err)
 	}
@@ -117,7 +118,7 @@ func PluginIdExtractHash(data PluginIdExtractHashData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(middleware.Reverse(ctx, "plugin.extract.send", data.req.PluginId, data.hash))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].extract.[hash].templ`, Line: 63, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].extract.[hash].templ`, Line: 64, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
