@@ -25,6 +25,14 @@ func PluginIdEditGET(c echo.Context, id string) (PluginIdEditData, error) {
 func PluginIdEditPOST(c echo.Context, id string) error {
 	b := middleware.GetBoot(c)
 
+	if c.FormValue("delete") == "true" {
+		if err := b.Index.Delete(c.Request().Context(), id); err != nil {
+			return fmt.Errorf("failed to delete plugin: %w", err)
+		}
+
+		return c.Redirect(http.StatusFound, "/")
+	}
+
 	var plugin schema.PluginInstance
 	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
 		return fmt.Errorf("failed to get plugin: %w", err)
@@ -57,7 +65,11 @@ templ PluginIdEdit(plugin PluginIdEditData) {
 			<form method="post">
 				<input type="hidden" name="client_id" value={ plugin.OauthConfig.ClientID }/>
 				<input type="hidden" name="client_secret" value={ plugin.OauthConfig.ClientSecret }/>
-				<button type="submit">Save</button>
+				<button class="underline" type="submit">Save</button>
+			</form>
+			<form method="post">
+				<input type="hidden" name="delete" value="true"/>
+				<button class="underline text-red-700" type="submit">Delete</button>
 			</form>
 		</div>
 	}

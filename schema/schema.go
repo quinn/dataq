@@ -110,5 +110,6 @@ func Delete(hash string) *Claim {
 	return &Claim{
 		Type:       "delete",
 		DeleteHash: hash,
+		Timestamp:  time.Now(),
 	}
 }

@@ -33,6 +33,14 @@ func PluginIdEditGET(c echo.Context, id string) (PluginIdEditData, error) {
 func PluginIdEditPOST(c echo.Context, id string) error {
 	b := middleware.GetBoot(c)
 
+	if c.FormValue("delete") == "true" {
+		if err := b.Index.Delete(c.Request().Context(), id); err != nil {
+			return fmt.Errorf("failed to delete plugin: %w", err)
+		}
+
+		return c.Redirect(http.StatusFound, "/")
+	}
+
 	var plugin schema.PluginInstance
 	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
 		return fmt.Errorf("failed to get plugin: %w", err)
@@ -105,7 +113,7 @@ func PluginIdEdit(plugin PluginIdEditData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.OauthConfig.ClientID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 58, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 66, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -118,13 +126,13 @@ func PluginIdEdit(plugin PluginIdEditData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.OauthConfig.ClientSecret)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 59, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 67, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"> <button type=\"submit\">Save</button></form></div>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"> <button class=\"underline\" type=\"submit\">Save</button></form><form method=\"post\"><input type=\"hidden\" name=\"delete\" value=\"true\"> <button class=\"underline text-red-700\" type=\"submit\">Delete</button></form></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

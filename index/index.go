@@ -85,7 +85,24 @@ func (i *Index) UpdatePermanode(ctx context.Context, permanodeHash string, conte
 		return "", err
 	}
 
+	if err := i.index(*permanodeVersion, content); err != nil {
+		return "", err
+	}
+
 	return permanodeVersionHash, nil
+}
+
+func (i *Index) Delete(ctx context.Context, hash string) error {
+	del := schema.Delete(hash)
+	if _, err := i.marshalToCAS(ctx, del); err != nil {
+		return err
+	}
+
+	if err := i.index(*del, nil); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *Index) GetPermanode(ctx context.Context, permanodeHash string, result Indexable) error {
@@ -136,6 +153,13 @@ func (i *Index) Rebuild(ctx context.Context) error {
 		if claim.Type == "permanode" {
 			slog.Info("skipping permanode", "hash", hash)
 			continue
+		}
+
+		if claim.Type == "delete" {
+			if claim.DeleteHash == "" {
+				return fmt.Errorf("delete claim missing delete hash")
+			}
+			slog.Info("processing delete claim", "delete_hash", claim.DeleteHash)
 		}
 
 		if claim.Type == "permanode_version" {
@@ -293,6 +317,10 @@ func (i *Index) Query(ctx context.Context, query sq.SelectBuilder) ([]schema.Cla
 				if v, ok := val.(int64); ok {
 					result.Timestamp = time.Unix(v, 0)
 				}
+			case "delete_hash":
+				if v, ok := val.(string); ok {
+					result.DeleteHash = v
+				}
 			default:
 				result.Metadata[col] = val
 			}
@@ -333,9 +361,6 @@ func (i *Index) unmarshalFromCAS(ctx context.Context, contentHash string, result
 }
 
 func (i *Index) index(claim schema.Claim, data Indexable) error {
-	metadata := data.SchemaMetadata()
-	schemaKind := data.SchemaKind()
-
 	// Create base table if not exists
 	// it is possible to index and store content that is not part of a permanode.
 	// This content cannot be edited
@@ -343,7 +368,8 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 		schema_kind TEXT NOT NULL,
 		permanode_hash TEXT,
 		timestamp INTEGER,
-		content_hash TEXT PRIMARY KEY
+		content_hash TEXT,
+		delete_hash TEXT
 	)`
 
 	if _, err := i.db.Exec(createTableSQL); err != nil {
@@ -368,6 +394,9 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 		}
 		existingColumns[name] = true
 	}
+
+	metadata := data.SchemaMetadata()
+	schemaKind := data.SchemaKind()
 
 	// Add new columns as needed
 	for key, value := range metadata {
@@ -407,6 +436,11 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 		values = append(values, claim.Timestamp.UnixMilli())
 	}
 
+	if claim.DeleteHash != "" {
+		insertBuilder = insertBuilder.Columns("delete_hash")
+		values = append(values, claim.DeleteHash)
+	}
+
 	for key, value := range metadata {
 		switch v := value.(type) {
 		case int, int32, int64, float32, float64, bool, string:
@@ -426,14 +460,67 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 	// Add all values at once
 	insertBuilder = insertBuilder.Values(values...)
 
-	// Use SQLite's INSERT OR IGNORE
-	sql, args, err := insertBuilder.ToSql()
-	if err != nil {
-		return err
-	}
-	sql = strings.Replace(sql, "INSERT INTO", "INSERT OR IGNORE INTO", 1)
+	if claim.Type == "delete" {
+		if claim.DeleteHash == "" {
+			return fmt.Errorf("delete claim must have a delete_hash")
+		}
 
-	_, err = i.db.Exec(sql, args...)
+		// First delete existing entries if the delete claim is newer
+		_, err := sq.Delete("index_data").
+			Where(sq.Or{
+				sq.Eq{"content_hash": claim.DeleteHash},
+				sq.Eq{"permanode_hash": claim.DeleteHash},
+			}).
+			Where(sq.Or{
+				sq.Eq{"timestamp": nil},
+				sq.Lt{"timestamp": claim.Timestamp.UnixMilli()},
+			}).
+			RunWith(i.db).
+			Exec()
+		if err != nil {
+			return fmt.Errorf("failed to delete entries: %w", err)
+		}
+	} else {
+		// Check if content_hash already exists
+		var contentHash string
+		err := sq.Select("content_hash").
+			From("index_data").
+			Where(sq.Eq{"content_hash": claim.ContentHash}).
+			RunWith(i.db).
+			QueryRow().
+			Scan(&contentHash)
+		if err != nil && err != sql.ErrNoRows {
+			return fmt.Errorf("failed to check for existing content: %w", err)
+		}
+		if err != sql.ErrNoRows {
+			return fmt.Errorf("content hash %s already exists in index", claim.ContentHash)
+		}
+
+		// Check if there's a newer delete claim for this content or permanode
+		var deleteTimestamp int64
+		err = sq.Select("timestamp").
+			From("index_data").
+			Where(sq.And{
+				sq.Or{
+					sq.Eq{"delete_hash": claim.ContentHash},
+					sq.Eq{"delete_hash": claim.PermanodeHash},
+				},
+			}).
+			OrderBy("timestamp DESC").
+			Limit(1).
+			RunWith(i.db).
+			QueryRow().
+			Scan(&deleteTimestamp)
+		if err != nil && err != sql.ErrNoRows {
+			return fmt.Errorf("failed to check for delete claims: %w", err)
+		}
+		if err != sql.ErrNoRows && deleteTimestamp > claim.Timestamp.UnixMilli() {
+			// Skip this claim as there's a newer delete
+			return nil
+		}
+	}
+
+	_, err = insertBuilder.RunWith(i.db).Exec()
 	return err
 }
 
