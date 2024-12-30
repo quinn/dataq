@@ -37,6 +37,9 @@ type Claim struct {
 	PermanodeHash string    `json:"permanode_hash,omitempty"`
 	Timestamp     time.Time `json:"timestamp,omitzero"`
 
+	// Used for deleting
+	DeleteHash string `json:"delete_hash,omitempty"`
+
 	// This applies to content from a plugin
 	// these values will be blank if permanode is managed by dataq
 	PluginID              string `json:"plugin_id,omitempty"`
@@ -100,5 +103,12 @@ func NewPermanodeVersion(permanodeHash, contentHash string) *Claim {
 		PermanodeHash: permanodeHash,
 		ContentHash:   contentHash,
 		Timestamp:     time.Now(),
+	}
+}
+
+func Delete(hash string) *Claim {
+	return &Claim{
+		Type:       "delete",
+		DeleteHash: hash,
 	}
 }
