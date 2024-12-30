@@ -67,7 +67,7 @@ func JsonBrowser(data any) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</div><script src=\"https://cdn.jsdelivr.net/npm/@textea/json-viewer@3\"></script><div role=\"json-viewer\"></div><script>\n\t\t\t{\n\t\t\t\tconst jsonViewer = me('[role=\"json-viewer\"]', me())\n\t\t\t\tconst dataContainer = me('[role=\"data-container\"]', me())\n\t\t\t\tconst script = dataContainer.querySelector('script')\n\t\t\t\tconst jsonData = dataContainer.dataset.isEncoded === 'false'\n\t\t\t\t\t? script.textContent\n\t\t\t\t\t: JSON.parse(script.textContent)\n\n\t\t\t\tconst data = JSON.parse(jsonData)\n\t\t\t\tnew JsonViewer({ value: data }).render(jsonViewer)\n\t\t\t}\n\t\t</script></div>")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</div><div role=\"json-viewer\"></div><script>\n\t\t\t{\n\t\t\t\tconst jsonViewer = me('[role=\"json-viewer\"]', me())\n\t\t\t\tconst dataContainer = me('[role=\"data-container\"]', me())\n\t\t\t\tconst script = dataContainer.querySelector('script')\n\t\t\t\tconst jsonData = dataContainer.dataset.isEncoded === 'false'\n\t\t\t\t\t? script.textContent\n\t\t\t\t\t: JSON.parse(script.textContent)\n\n\t\t\t\tconst data = JSON.parse(jsonData)\n\t\t\t\tnew JsonViewer({ value: data, theme: 'auto' }).render(jsonViewer)\n\t\t\t}\n\t\t</script></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

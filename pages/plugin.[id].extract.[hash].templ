@@ -19,7 +19,8 @@ func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtrac
 	b := middleware.GetBoot(c)
 
 	var req rpc.ExtractRequest
-	if err := b.Index.Get(c.Request().Context(), &req, "hash = ?", hash); err != nil {
+	sel := b.Index.Q.Where("hash = ?", hash)
+	if err := b.Index.Get(c.Request().Context(), &req, sel); err != nil {
 		return data, fmt.Errorf("extract request not found: %w", err)
 	}
 
@@ -30,7 +31,8 @@ func PluginIdExtractHashHandler(c echo.Context, id, hash string) (PluginIdExtrac
 
 	for _, claim := range claims {
 		var r rpc.ExtractResponse
-		if err := b.Index.Get(c.Request().Context(), &r, "hash = ?", claim.ContentHash); err != nil {
+		sel := b.Index.Q.Where("hash = ?", claim.ContentHash)
+		if err := b.Index.Get(c.Request().Context(), &r, sel); err != nil {
 			return data, fmt.Errorf("extract response not found (%s): %w", claim.ContentHash, err)
 		}
 		data.res = append(data.res, &r)

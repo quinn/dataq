@@ -20,7 +20,8 @@ func PluginTransformSendCreate(c echo.Context) error {
 	}
 
 	var req rpc.TransformRequest
-	if err := b.Index.Get(c.Request().Context(), &req, "hash = ?", c.Param("hash")); err != nil {
+	sel := b.Index.Q.Where("hash = ?", c.Param("hash"))
+	if err := b.Index.Get(c.Request().Context(), &req, sel); err != nil {
 		return fmt.Errorf("error getting request from index: %w", err)
 	}
 

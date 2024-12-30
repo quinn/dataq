@@ -26,6 +26,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	filippo.io/edwards25519 v1.0.0 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
+	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/adrg/frontmatter v0.2.0 // indirect
 	github.com/akutz/memconn v0.1.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.2.0 // indirect
@@ -49,6 +50,8 @@ require (
 	github.com/josharian/native v1.1.1-0.20230202152459-5c7d0dd6ab86 // indirect
 	github.com/jsimonetti/rtnetlink v1.3.5 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
+	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
+	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect

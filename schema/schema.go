@@ -35,7 +35,7 @@ type Claim struct {
 	ContentHash   string    `json:"content_hash,omitempty"`
 	Nonce         string    `json:"nonce,omitempty"`
 	PermanodeHash string    `json:"permanode_hash,omitempty"`
-	Timestamp     time.Time `json:"timestamp,omitempty"`
+	Timestamp     time.Time `json:"timestamp,omitzero"`
 
 	// This applies to content from a plugin
 	// these values will be blank if permanode is managed by dataq

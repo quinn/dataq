@@ -23,7 +23,9 @@ func PluginIdOauthBeginHandler(c echo.Context, id string) (PluginIdOauthBeginDat
 	b := middleware.GetBoot(c)
 	var data PluginIdOauthBeginData
 
-	b.I
+	if err := b.Index.GetPermanode(c.Request().Context(), id, &data.plugin); err != nil {
+		return data, err
+	}
 
 	return data, nil
 }

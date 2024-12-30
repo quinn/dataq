@@ -591,6 +591,10 @@ video {
   display: inline-block;
 }
 
+.flex {
+  display: flex;
+}
+
 .inline-grid {
   display: inline-grid;
 }
@@ -633,6 +637,10 @@ video {
 
 .grid-cols-\[min-content\2c 1fr\] {
   grid-template-columns: min-content 1fr;
+}
+
+.justify-between {
+  justify-content: space-between;
 }
 
 .gap-x-3 {

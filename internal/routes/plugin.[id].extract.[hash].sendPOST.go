@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Masterminds/squirrel"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/htmx"
@@ -13,6 +14,8 @@ import (
 func PluginExtractSendCreate(c echo.Context) error {
 	b := c.Get("boot").(*boot.Boot)
 
+	squirrel.Select("hash").From("requests").Where(squirrel.Eq{"hash": c.Param("hash")})
+
 	id := c.Param("id")
 	plugin, ok := b.Plugins.Clients[id]
 	if !ok {
@@ -20,7 +23,8 @@ func PluginExtractSendCreate(c echo.Context) error {
 	}
 
 	var req rpc.ExtractRequest
-	if err := b.Index.Get(c.Request().Context(), &req, "hash = ?", c.Param("hash")); err != nil {
+	sel := b.Index.Q.Where(squirrel.Eq{"hash": c.Param("hash")})
+	if err := b.Index.Get(c.Request().Context(), &req, sel); err != nil {
 		return fmt.Errorf("error getting request from index: %w", err)
 	}
 

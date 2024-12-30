@@ -20,7 +20,6 @@ templ JsonBrowser(data any) {
 				@templ.JSONScript(uuid.NewString(), data)
 			}
 		</div>
-		<script src="https://cdn.jsdelivr.net/npm/@textea/json-viewer@3"></script>
 		<div role="json-viewer"></div>
 		<script>
 			{
@@ -32,7 +31,7 @@ templ JsonBrowser(data any) {
 					: JSON.parse(script.textContent)
 
 				const data = JSON.parse(jsonData)
-				new JsonViewer({ value: data }).render(jsonViewer)
+				new JsonViewer({ value: data, theme: 'auto' }).render(jsonViewer)
 			}
 		</script>
 	</div>

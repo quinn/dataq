@@ -10,12 +10,16 @@ templ Layout() {
 			<title>DataQ</title>
 			<script src="https://unpkg.com/htmx.org@1.9.11" integrity="sha384-0gxUXCCR8yv9FM2b+U3FDbsKthCI66oH5IA9fHppQq9DDMHuMauqq1ZHBpJxQ0J0" crossorigin="anonymous"></script>
 			<script src="https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js"></script>
+			<script src="https://cdn.jsdelivr.net/npm/@textea/json-viewer@3"></script>
 			<script src={ assets.Path("toast.js") } defer></script>
 			<link rel="stylesheet" href={ assets.Path("styles.css") }/>
 		</head>
 		<body class="font-mono dark:bg-black dark:text-white">
-			<div class="bg-slate-400 p-3">
+			<div class="bg-slate-400 p-3 flex justify-between">
 				<a href="/">dataq</a>
+				<nav>
+					<a href="/plugin/install" class="underline">install plugin</a>
+				</nav>
 			</div>
 			<div class="p-3">
 				{ children... }

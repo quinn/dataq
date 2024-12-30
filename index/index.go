@@ -10,6 +10,7 @@ import (
 	"log"
 	"strings"
 
+	sq "github.com/Masterminds/squirrel"
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/schema"
@@ -21,12 +22,14 @@ import (
 type Index struct {
 	cas cas.Storage
 	db  *sql.DB
+	Q   sq.SelectBuilder
 }
 
 func NewIndex(cas cas.Storage, db *sql.DB) *Index {
 	return &Index{
 		cas: cas,
 		db:  db,
+		Q:   sq.Select("schema_kind", "content_hash").From("index_data"),
 	}
 }
 
@@ -95,7 +98,11 @@ func (i *Index) UpdatePermanode(ctx context.Context, permanodeHash string, conte
 }
 
 func (i *Index) GetPermanode(ctx context.Context, permanodeHash string, result Indexable) error {
-	return i.Get(ctx, result, "permanode_hash = ?", permanodeHash)
+	sel := i.Q.
+		Where("permanode_hash = ?", permanodeHash).
+		OrderBy("timestamp DESC").
+		Limit(1)
+	return i.Get(ctx, result, sel)
 }
 
 func (i *Index) Rebuild(ctx context.Context) error {
@@ -109,6 +116,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 		return fmt.Errorf("failed to get hashes: %w", err)
 	}
 
+	log.Println("rebuilding index")
 	// Index each hash
 	for hash := range hashes {
 		r, err := i.cas.Retrieve(ctx, hash)
@@ -132,6 +140,11 @@ func (i *Index) Rebuild(ctx context.Context) error {
 		var claim schema.Claim
 		if err := json.Unmarshal(b, &claim); err != nil {
 			return fmt.Errorf("failed to unmarshal typecheck: %w", err)
+		}
+
+		if claim.Type == "permanode" {
+			slog.Info("skipping permanode", "hash", hash)
+			continue
 		}
 
 		if claim.Type == "permanode_version" {
@@ -158,6 +171,8 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			content = &rpc.ExtractRequest{}
 		case "ExtractResponse":
 			content = &rpc.ExtractResponse{}
+		case "PluginInstance":
+			content = &schema.PluginInstance{}
 		default:
 			return fmt.Errorf("unknown schema kind: %s", claim.SchemaKind)
 		}
@@ -177,15 +192,8 @@ func (i *Index) Rebuild(ctx context.Context) error {
 
 // Get retrieves a single object from the index and CAS store.
 // The caller must provide a concrete type T that implements Indexable.
-func (i *Index) Get(ctx context.Context, result Indexable, whereClause string, args ...interface{}) error {
-	// Query the index to get the hash
-	query := "SELECT schema_kind, content_hash FROM index_data"
-	if whereClause != "" {
-		query += " WHERE " + whereClause
-	}
-	query += " LIMIT 2" // Get 2 to check for multiple matches
-
-	rows, err := i.db.Query(query, args...)
+func (i *Index) Get(ctx context.Context, result Indexable, query sq.SelectBuilder) error {
+	rows, err := query.RunWith(i.db).Query()
 	if err != nil {
 		return err
 	}
@@ -246,19 +254,19 @@ func (i *Index) Query(ctx context.Context, whereClause string, args ...interface
 		return nil, nil
 	}
 
-	// Build and execute the query
-	query := "SELECT " + strings.Join(columns, ", ") + " FROM index_data"
+	// Build and execute the query using Squirrel
+	query := sq.Select(columns...).From("index_data")
 	if whereClause != "" {
-		query += " WHERE " + whereClause
+		query = query.Where(whereClause, args...)
 	}
 
-	rows, err = i.db.Query(query, args...)
+	rows, err = query.RunWith(i.db).Query()
 	if err != nil {
 		if strings.Contains(err.Error(), "no such column") {
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("failed to execute query (%s): %w", query, err)
+		return nil, fmt.Errorf("failed to execute query (%v): %w", query, err)
 	}
 	defer rows.Close()
 
@@ -394,10 +402,17 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 		}
 	}
 
-	// Build insert statement
-	insertColumns := []string{"schema_kind", "permanode_hash", "content_hash", "timestamp"}
-	placeholders := []string{"?", "?", "?", "?"}
-	values := []interface{}{schemaKind, claim.PermanodeHash, claim.ContentHash, claim.Timestamp.UnixMilli()}
+	var values []interface{}
+
+	// Build insert statement using Squirrel
+	insertBuilder := sq.Insert("index_data").
+		Columns("schema_kind", "permanode_hash", "content_hash")
+	values = append(values, schemaKind, claim.PermanodeHash, claim.ContentHash)
+
+	if !claim.Timestamp.IsZero() {
+		insertBuilder = insertBuilder.Columns("timestamp")
+		values = append(values, claim.Timestamp.UnixMilli())
+	}
 
 	for key, value := range metadata {
 		switch v := value.(type) {
@@ -411,17 +426,21 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 			}
 			value = string(b)
 		}
-		insertColumns = append(insertColumns, key)
-		placeholders = append(placeholders, "?")
+		insertBuilder = insertBuilder.Columns(key)
 		values = append(values, value)
 	}
 
-	// Insert the data
-	insertSQL := "INSERT OR IGNORE INTO index_data (" +
-		strings.Join(insertColumns, ", ") +
-		") VALUES (" + strings.Join(placeholders, ", ") + ")"
+	// Add all values at once
+	insertBuilder = insertBuilder.Values(values...)
 
-	_, err = i.db.Exec(insertSQL, values...)
+	// Use SQLite's INSERT OR IGNORE
+	sql, args, err := insertBuilder.ToSql()
+	if err != nil {
+		return err
+	}
+	sql = strings.Replace(sql, "INSERT INTO", "INSERT OR IGNORE INTO", 1)
+
+	_, err = i.db.Exec(sql, args...)
 	return err
 }
 
