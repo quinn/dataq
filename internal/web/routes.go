@@ -11,5 +11,6 @@ func addRoutes(e *echo.Echo) {
 	e.DELETE("/content/:hash", routes.ContentDelete).Name = "content.delete"
 	e.POST("/plugin/:id/transform/:hash/send", routes.PluginTransformSendCreate).Name = "plugin.transform.send"
 	e.POST("/plugin/install", routes.PluginInstallCreate).Name = "plugin.install"
+	e.GET("/plugin/:id/oauth/complete", routes.PluginOauthComplete).Name = "plugin.oauth.complete"
 	/* insert new routes here */
 }

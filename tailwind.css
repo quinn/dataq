@@ -6,4 +6,8 @@
   .input {
     @apply border border-slate-300 rounded-md dark:bg-slate-900 dark:border-slate-600;
   }
+
+  .card {
+    @apply border border-slate-300 rounded-md dark:bg-slate-900 dark:border-slate-600;
+  }
 }

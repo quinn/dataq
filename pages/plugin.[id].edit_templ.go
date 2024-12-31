@@ -17,17 +17,22 @@ import (
 	"net/http"
 )
 
-type PluginIdEditData = schema.PluginInstance
+type PluginIdEditData struct {
+	plugin schema.PluginInstance
+	id     string
+}
 
 func PluginIdEditGET(c echo.Context, id string) (PluginIdEditData, error) {
 	b := middleware.GetBoot(c)
 
-	var plugin schema.PluginInstance
-	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
-		return plugin, fmt.Errorf("failed to get plugin: %w", err)
+	var data PluginIdEditData
+	data.id = id
+
+	if err := b.Index.GetPermanode(c.Request().Context(), id, &data.plugin); err != nil {
+		return data, fmt.Errorf("failed to get plugin: %w", err)
 	}
 
-	return plugin, nil
+	return data, nil
 }
 
 func PluginIdEditPOST(c echo.Context, id string) error {
@@ -65,7 +70,7 @@ func PluginIdEditPOST(c echo.Context, id string) error {
 	return c.Redirect(http.StatusFound, c.Request().RequestURI)
 }
 
-func PluginIdEdit(plugin PluginIdEditData) templ.Component {
+func PluginIdEdit(data PluginIdEditData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -86,6 +91,7 @@ func PluginIdEdit(plugin PluginIdEditData) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
+		plugin := data.plugin
 		templ_7745c5c3_Var2 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -106,33 +112,42 @@ func PluginIdEdit(plugin PluginIdEditData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<form method=\"post\"><input type=\"hidden\" name=\"client_id\" value=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<form method=\"post\" class=\"space-y-3\"><div><label for=\"client_id\">Client ID</label><br><input class=\"input\" type=\"text\" name=\"client_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.OauthConfig.ClientID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 66, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 74, Col: 90}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"> <input type=\"hidden\" name=\"client_secret\" value=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"></div><div><label for=\"client_secret\">Client Secret</label><br><input class=\"input\" type=\"text\" name=\"client_secret\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.OauthConfig.ClientSecret)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 67, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 78, Col: 98}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"> <button class=\"underline\" type=\"submit\">Save</button></form><form method=\"post\"><input type=\"hidden\" name=\"delete\" value=\"true\"> <button class=\"underline text-red-700\" type=\"submit\">Delete</button></form></div>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\"></div><button class=\"underline\" type=\"submit\">Save</button></form><form method=\"post\"><input type=\"hidden\" name=\"delete\" value=\"true\"> <button class=\"underline text-red-700\" type=\"submit\">Delete</button></form><a class=\"underline block\" href=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var5 templ.SafeURL = templ.URL("/plugin/" + data.id + "/oauth/begin")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var5)))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("\">Connect Oauth</a></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

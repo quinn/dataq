@@ -13,10 +13,13 @@ import (
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
+	"golang.org/x/oauth2"
+	"net/http"
 )
 
 type PluginIdOauthBeginData struct {
-	plugin schema.PluginInstance
+	plugin      schema.PluginInstance
+	redirectURL string
 }
 
 func PluginIdOauthBeginGET(c echo.Context, id string) (PluginIdOauthBeginData, error) {
@@ -27,7 +30,33 @@ func PluginIdOauthBeginGET(c echo.Context, id string) (PluginIdOauthBeginData, e
 		return data, err
 	}
 
+	if data.plugin.OauthConfig.RedirectURL == "" {
+		redirectURL := middleware.FullURL(c)
+		redirectURL.Path = "/plugin/" + id + "/oauth/complete"
+		data.redirectURL = redirectURL.String()
+
+		data.plugin.OauthConfig.RedirectURL = redirectURL.String()
+		if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &data.plugin); err != nil {
+			return data, err
+		}
+	} else {
+		data.redirectURL = data.plugin.OauthConfig.RedirectURL
+	}
+
 	return data, nil
+}
+
+func PluginIdOauthBeginPOST(c echo.Context, id string) error {
+	b := middleware.GetBoot(c)
+
+	var plugin schema.PluginInstance
+	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
+		return err
+	}
+
+	authURL := plugin.OauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+
+	return c.Redirect(http.StatusFound, authURL)
 }
 
 func PluginIdOauthBegin(data PluginIdOauthBeginData) templ.Component {
@@ -63,6 +92,36 @@ func PluginIdOauthBegin(data PluginIdOauthBeginData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("<div class=\"space-y-3\"><div class=\"font-bold\">Connect Oauth</div><p>Click \"Connect Oauth\" below to connect DataQ to your ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var3 string
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.plugin.Label)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 58, Col: 78}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(" instance.</p><p>Before continuing, please copy and paste the following URL into your oauth app settings:</p><pre class=\"card p-3\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.redirectURL)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 60, Col: 43}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString("</pre><form method=\"post\"><button class=\"underline block\" type=\"submit\">Connect Oauth</button></form></div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 			return templ_7745c5c3_Err
 		})
 		templ_7745c5c3_Err = ui.Layout().Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)

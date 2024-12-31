@@ -160,6 +160,12 @@ func (i *Index) Rebuild(ctx context.Context) error {
 				return fmt.Errorf("delete claim missing delete hash")
 			}
 			slog.Info("processing delete claim", "delete_hash", claim.DeleteHash)
+
+			if err := i.index(claim, nil); err != nil {
+				return fmt.Errorf("failed to index data: %w", err)
+			}
+
+			continue
 		}
 
 		if claim.Type == "permanode_version" {
@@ -175,7 +181,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			claim.SchemaKind = permanode.SchemaKind
 		}
 		if claim.SchemaKind == "" {
-			return fmt.Errorf("claim missing schema kind: %w", err)
+			return fmt.Errorf("claim missing schema kind: (%v) %w", claim, err)
 		}
 
 		slog.Info("rebuilding claim", "hash", claim.ContentHash, "kind", claim.SchemaKind)
@@ -361,6 +367,20 @@ func (i *Index) unmarshalFromCAS(ctx context.Context, contentHash string, result
 }
 
 func (i *Index) index(claim schema.Claim, data Indexable) error {
+	var metadata map[string]interface{}
+	var schemaKind string
+
+	if data != nil {
+		metadata = data.SchemaMetadata()
+		schemaKind = data.SchemaKind()
+	} else if claim.Type == "delete" && claim.DeleteHash != "" {
+		// For delete claims, we don't need the data
+		metadata = make(map[string]interface{})
+		schemaKind = "delete"
+	} else {
+		return fmt.Errorf("data cannot be nil for non-delete claims")
+	}
+
 	// Create base table if not exists
 	// it is possible to index and store content that is not part of a permanode.
 	// This content cannot be edited
@@ -394,9 +414,6 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 		}
 		existingColumns[name] = true
 	}
-
-	metadata := data.SchemaMetadata()
-	schemaKind := data.SchemaKind()
 
 	// Add new columns as needed
 	for key, value := range metadata {

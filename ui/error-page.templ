@@ -1,28 +1,10 @@
 package ui
 
-import "go.quinn.io/ccf/assets"
-
 templ ErrorPage(errorMsg string) {
-	<!DOCTYPE html>
-	<html lang="en" class="h-full bg-gray-10">
-		<head>
-			<meta charset="UTF-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<title>DataQ</title>
-			<script src="https://unpkg.com/htmx.org@1.9.11" integrity="sha384-0gxUXCCR8yv9FM2b+U3FDbsKthCI66oH5IA9fHppQq9DDMHuMauqq1ZHBpJxQ0J0" crossorigin="anonymous"></script>
-			<link rel="stylesheet" href={ assets.Path("styles.css") }/>
-		</head>
-		<body class="h-full">
-			<div class="min-h-full">
-				<div class="p-6">
-					<main>
-						<div class="bg-white mx-auto max-w-7xl p-6 rounded-sm border">
-							<h1>Error</h1>
-							<p>{ errorMsg }</p>
-						</div>
-					</main>
-				</div>
-			</div>
-		</body>
-	</html>
+	@Layout() {
+		<div class="card p-6">
+			<h1>Error</h1>
+			<p>{ errorMsg }</p>
+		</div>
+	}
 }
