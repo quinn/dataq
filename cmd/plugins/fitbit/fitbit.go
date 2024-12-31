@@ -183,3 +183,21 @@ func (c *FitbitClient) GetTodaySteps(ctx context.Context) ([]byte, error) {
 
 	return io.ReadAll(resp.Body)
 }
+
+func (c *FitbitClient) MakeRequest(ctx context.Context, path string) ([]byte, error) {
+	var oauth2Token oauth2.Token
+	if err := json.Unmarshal([]byte(c.config.Token), &oauth2Token); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal token: %v. (%s)", err, c.config.ClientSecret)
+	}
+
+	client := c.oauthConfig.Client(ctx, &oauth2Token)
+
+	url := fmt.Sprintf("https://api.fitbit.com%s", path)
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch steps data: %v", err)
+	}
+	defer resp.Body.Close()
+	return io.ReadAll(resp.Body)
+}

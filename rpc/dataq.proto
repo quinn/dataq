@@ -24,6 +24,13 @@ message InstallResponse {
   string plugin_id = 1;
   repeated PluginConfig configs = 2;
   OauthConfig oauth_config = 3;
+
+  message Extract {
+    string kind = 1;
+    repeated PluginConfig configs = 2;
+  }
+
+  repeated Extract extracts = 4;
 }
 
 message PluginConfig {

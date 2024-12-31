@@ -33,6 +33,17 @@ func (s *server) Install(ctx context.Context, req *rpc.InstallRequest) (*rpc.Ins
 				"weight",
 			},
 		},
+		Extracts: []*rpc.InstallResponse_Extract{
+			{
+				Kind: "make_request",
+				Configs: []*rpc.PluginConfig{
+					{
+						Key:   "request_path",
+						Label: "Request Path",
+					},
+				},
+			},
+		},
 	}, nil
 }
 

@@ -31,6 +31,9 @@ func (m *InstallResponse) SchemaMetadata() map[string]interface{} {
 	if m.OauthConfig != nil {
 		metadata["oauth_config"] = m.OauthConfig
 	}
+	if len(m.Extracts) > 0 {
+		metadata["extracts"] = m.Extracts
+	}
 	return metadata
 }
 
