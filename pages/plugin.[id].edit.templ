@@ -70,11 +70,13 @@ templ PluginIdEdit(data PluginIdEditData) {
 			@ui.JsonBrowser(plugin)
 			<form method="post" class="space-y-3">
 				<div>
-					<label for="client_id">Client ID</label><br/>
+					<label for="client_id">Client ID</label>
+					<br/>
 					<input class="input" type="text" name="client_id" value={ plugin.OauthConfig.ClientID }/>
 				</div>
 				<div>
-					<label for="client_secret">Client Secret</label><br/>
+					<label for="client_secret">Client Secret</label>
+					<br/>
 					<input class="input" type="text" name="client_secret" value={ plugin.OauthConfig.ClientSecret }/>
 				</div>
 				<button class="underline" type="submit">Save</button>

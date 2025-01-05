@@ -4,7 +4,7 @@ import "go.quinn.io/ccf/assets"
 
 templ Layout() {
 	<!DOCTYPE html>
-	<html lang="en">
+	<html lang="en" class="h-full">
 		<head>
 			<meta charset="UTF-8"/>
 			<title>DataQ</title>
@@ -14,7 +14,7 @@ templ Layout() {
 			<script src={ assets.Path("toast.js") } defer></script>
 			<link rel="stylesheet" href={ assets.Path("styles.css") }/>
 		</head>
-		<body class="font-mono dark:bg-black dark:text-white">
+		<body class="font-mono dark:bg-black dark:text-white min-h-full">
 			<div class="bg-slate-400 p-3 flex justify-between">
 				<a href="/">dataq</a>
 				<nav>
