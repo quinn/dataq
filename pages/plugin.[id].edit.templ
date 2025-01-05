@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
 	"net/http"
@@ -30,30 +31,43 @@ func PluginIdEditGET(c echo.Context, id string) (PluginIdEditData, error) {
 func PluginIdEditPOST(c echo.Context, id string) error {
 	b := middleware.GetBoot(c)
 
-	if c.FormValue("delete") == "true" {
-		if err := b.Index.Delete(c.Request().Context(), id); err != nil {
-			return fmt.Errorf("failed to delete plugin: %w", err)
-		}
-
-		return c.Redirect(http.StatusFound, "/")
-	}
-
 	var plugin schema.PluginInstance
 	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
 		return fmt.Errorf("failed to get plugin: %w", err)
 	}
 
-	var form struct {
-		ClientID     string `form:"client_id"`
-		ClientSecret string `form:"client_secret"`
-	}
+	switch c.FormValue("form_action") {
+	case "delete":
+		if err := b.Index.Delete(c.Request().Context(), id); err != nil {
+			return fmt.Errorf("failed to delete plugin: %w", err)
+		}
 
-	if err := c.Bind(&form); err != nil {
-		return fmt.Errorf("failed to bind form: %w", err)
-	}
+		return c.Redirect(http.StatusFound, "/")
+	case "reinstall":
+		client, ok := b.Plugins.Clients[plugin.PluginID]
+		if !ok {
+			return fmt.Errorf("plugin not found: %s", plugin.PluginID)
+		}
 
-	plugin.OauthConfig.ClientID = form.ClientID
-	plugin.OauthConfig.ClientSecret = form.ClientSecret
+		install, err := client.Install(c.Request().Context(), &rpc.InstallRequest{PluginId: plugin.PluginID})
+		if err != nil {
+			return fmt.Errorf("failed to install plugin: %w", err)
+		}
+
+		plugin.InstallResponse = install
+	default:
+		var form struct {
+			ClientID     string `form:"client_id"`
+			ClientSecret string `form:"client_secret"`
+		}
+
+		if err := c.Bind(&form); err != nil {
+			return fmt.Errorf("failed to bind form: %w", err)
+		}
+
+		plugin.OauthConfig.ClientID = form.ClientID
+		plugin.OauthConfig.ClientSecret = form.ClientSecret
+	}
 
 	if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &plugin); err != nil {
 		return fmt.Errorf("failed to update plugin: %w", err)
@@ -82,10 +96,24 @@ templ PluginIdEdit(data PluginIdEditData) {
 				<button class="underline" type="submit">Save</button>
 			</form>
 			<form method="post">
-				<input type="hidden" name="delete" value="true"/>
+				<input type="hidden" name="form_action" value="delete"/>
 				<button class="underline text-red-700" type="submit">Delete</button>
 			</form>
 			<a class="underline block" href={ templ.URL("/plugin/" + data.id + "/oauth/begin") }>Connect Oauth</a>
+			<form method="post">
+				<input type="hidden" name="form_action" value="reinstall"/>
+				<button class="underline block" type="submit">Reinstall</button>
+			</form>
+			<h2 class="font-bold">Initial Requests</h2>
+			<ul class="list-disc list-inside">
+				for _, req := range plugin.InstallResponse.Extracts {
+					<li>
+						<a class="underline" href={ templ.URL("/plugin/" + data.id + "/send/extract/" + req.Kind) }>{ req.Label }</a>
+						-
+						{ req.Description }
+					</li>
+				}
+			</ul>
 		</div>
 	}
 }

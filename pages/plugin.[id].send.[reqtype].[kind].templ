@@ -1,0 +1,17 @@
+package pages
+
+import (
+	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/ui"
+)
+
+type PluginIdSendReqtypeKindData = []string
+
+func PluginIdSendReqtypeKindHandler(c echo.Context, id, reqtype, kind string) (PluginIdSendReqtypeKindData, error) {
+	return []string{}, nil
+}
+
+templ PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) {
+	@ui.Layout() {
+	}
+}

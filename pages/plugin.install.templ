@@ -35,7 +35,6 @@ func PluginInstallGET(c echo.Context) (PluginInstallData, error) {
 		if err != nil {
 			return data, fmt.Errorf("failed to install plugin: %w", err)
 		}
-
 	}
 	return data, nil
 }

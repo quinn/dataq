@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
 	"net/http"
@@ -38,30 +39,43 @@ func PluginIdEditGET(c echo.Context, id string) (PluginIdEditData, error) {
 func PluginIdEditPOST(c echo.Context, id string) error {
 	b := middleware.GetBoot(c)
 
-	if c.FormValue("delete") == "true" {
-		if err := b.Index.Delete(c.Request().Context(), id); err != nil {
-			return fmt.Errorf("failed to delete plugin: %w", err)
-		}
-
-		return c.Redirect(http.StatusFound, "/")
-	}
-
 	var plugin schema.PluginInstance
 	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
 		return fmt.Errorf("failed to get plugin: %w", err)
 	}
 
-	var form struct {
-		ClientID     string `form:"client_id"`
-		ClientSecret string `form:"client_secret"`
-	}
+	switch c.FormValue("form_action") {
+	case "delete":
+		if err := b.Index.Delete(c.Request().Context(), id); err != nil {
+			return fmt.Errorf("failed to delete plugin: %w", err)
+		}
 
-	if err := c.Bind(&form); err != nil {
-		return fmt.Errorf("failed to bind form: %w", err)
-	}
+		return c.Redirect(http.StatusFound, "/")
+	case "reinstall":
+		client, ok := b.Plugins.Clients[plugin.PluginID]
+		if !ok {
+			return fmt.Errorf("plugin not found: %s", plugin.PluginID)
+		}
 
-	plugin.OauthConfig.ClientID = form.ClientID
-	plugin.OauthConfig.ClientSecret = form.ClientSecret
+		install, err := client.Install(c.Request().Context(), &rpc.InstallRequest{PluginId: plugin.PluginID})
+		if err != nil {
+			return fmt.Errorf("failed to install plugin: %w", err)
+		}
+
+		plugin.InstallResponse = install
+	default:
+		var form struct {
+			ClientID     string `form:"client_id"`
+			ClientSecret string `form:"client_secret"`
+		}
+
+		if err := c.Bind(&form); err != nil {
+			return fmt.Errorf("failed to bind form: %w", err)
+		}
+
+		plugin.OauthConfig.ClientID = form.ClientID
+		plugin.OauthConfig.ClientSecret = form.ClientSecret
+	}
 
 	if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &plugin); err != nil {
 		return fmt.Errorf("failed to update plugin: %w", err)
@@ -119,7 +133,7 @@ func PluginIdEdit(data PluginIdEditData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.OauthConfig.ClientID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 75, Col: 90}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 89, Col: 90}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -132,13 +146,13 @@ func PluginIdEdit(data PluginIdEditData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.OauthConfig.ClientSecret)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 80, Col: 98}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 94, Col: 98}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"></div><button class=\"underline\" type=\"submit\">Save</button></form><form method=\"post\"><input type=\"hidden\" name=\"delete\" value=\"true\"> <button class=\"underline text-red-700\" type=\"submit\">Delete</button></form><a class=\"underline block\" href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"></div><button class=\"underline\" type=\"submit\">Save</button></form><form method=\"post\"><input type=\"hidden\" name=\"form_action\" value=\"delete\"> <button class=\"underline text-red-700\" type=\"submit\">Delete</button></form><a class=\"underline block\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -147,7 +161,52 @@ func PluginIdEdit(data PluginIdEditData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\">Connect Oauth</a></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\">Connect Oauth</a><form method=\"post\"><input type=\"hidden\" name=\"form_action\" value=\"reinstall\"> <button class=\"underline block\" type=\"submit\">Reinstall</button></form><h2 class=\"font-bold\">Initial Requests</h2><ul class=\"list-disc list-inside\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for _, req := range plugin.InstallResponse.Extracts {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<li><a class=\"underline\" href=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var6 templ.SafeURL = templ.URL("/plugin/" + data.id + "/send/extract/" + req.Kind)
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var6)))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var7 string
+				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(req.Label)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 111, Col: 109}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</a> - ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(req.Description)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 113, Col: 23}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</li>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</ul></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

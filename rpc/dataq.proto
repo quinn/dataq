@@ -27,6 +27,9 @@ message InstallResponse {
 
   message Extract {
     string kind = 1;
+    string label = 3;
+    string description = 4;
+
     repeated PluginConfig configs = 2;
   }
 

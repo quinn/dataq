@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"go.quinn.io/dataq/hash"
+	"go.quinn.io/dataq/rpc"
 	"golang.org/x/oauth2"
 )
 
@@ -11,10 +12,11 @@ import (
 
 // PluginInstance
 type PluginInstance struct {
-	PluginID    string         `json:"plugin_id"`
-	Label       string         `json:"label"`
-	OauthConfig *oauth2.Config `json:"oauth_config,omitempty"`
-	OauthToken  *oauth2.Token  `json:"oauth_token,omitempty"`
+	PluginID        string               `json:"plugin_id"`
+	Label           string               `json:"label"`
+	OauthConfig     *oauth2.Config       `json:"oauth_config,omitempty"`
+	OauthToken      *oauth2.Token        `json:"oauth_token,omitempty"`
+	InstallResponse *rpc.InstallResponse `json:"install_response,omitempty"`
 }
 
 func (p *PluginInstance) SchemaMetadata() map[string]interface{} {

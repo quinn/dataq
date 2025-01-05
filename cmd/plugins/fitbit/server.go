@@ -35,7 +35,9 @@ func (s *server) Install(ctx context.Context, req *rpc.InstallRequest) (*rpc.Ins
 		},
 		Extracts: []*rpc.InstallResponse_Extract{
 			{
-				Kind: "make_request",
+				Kind:        "make_request",
+				Label:       "Make a Request",
+				Description: "Make a request to the Fitbit API by specifing the request path",
 				Configs: []*rpc.PluginConfig{
 					{
 						Key:   "request_path",
