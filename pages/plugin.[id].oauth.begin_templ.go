@@ -9,6 +9,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/schema"
@@ -27,7 +28,7 @@ func PluginIdOauthBeginGET(c echo.Context, id string) (PluginIdOauthBeginData, e
 	var data PluginIdOauthBeginData
 
 	if err := b.Index.GetPermanode(c.Request().Context(), id, &data.plugin); err != nil {
-		return data, err
+		return data, fmt.Errorf("failed to get plugin: %w", err)
 	}
 
 	if data.plugin.OauthConfig.RedirectURL == "" {
@@ -51,7 +52,7 @@ func PluginIdOauthBeginPOST(c echo.Context, id string) error {
 
 	var plugin schema.PluginInstance
 	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
-		return err
+		return fmt.Errorf("failed to get plugin: %w", err)
 	}
 
 	authURL := plugin.OauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
@@ -99,7 +100,7 @@ func PluginIdOauthBegin(data PluginIdOauthBeginData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.plugin.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 58, Col: 78}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 59, Col: 78}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -112,7 +113,7 @@ func PluginIdOauthBegin(data PluginIdOauthBeginData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.redirectURL)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 60, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 61, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {

@@ -14,11 +14,15 @@ import (
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
+	"io"
 )
 
 type PluginIdExtractHashData struct {
-	req  *rpc.ExtractRequest
-	res  []*rpc.ExtractResponse
+	req *rpc.ExtractRequest
+	res []struct {
+		res  *rpc.ExtractResponse
+		data []byte
+	}
 	hash string
 }
 
@@ -27,7 +31,7 @@ func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHas
 	b := middleware.GetBoot(c)
 
 	var req rpc.ExtractRequest
-	sel := b.Index.Q.Where("hash = ?", hash)
+	sel := b.Index.Q.Where("content_hash = ?", hash)
 	if err := b.Index.Get(c.Request().Context(), &req, sel); err != nil {
 		return data, fmt.Errorf("extract request not found: %w", err)
 	}
@@ -39,12 +43,24 @@ func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHas
 	}
 
 	for _, claim := range claims {
-		var r rpc.ExtractResponse
-		sel := b.Index.Q.Where("hash = ?", claim.ContentHash)
-		if err := b.Index.Get(c.Request().Context(), &r, sel); err != nil {
+		var res rpc.ExtractResponse
+		sel := b.Index.Q.Where("content_hash = ?", claim.ContentHash)
+		if err := b.Index.Get(c.Request().Context(), &res, sel); err != nil {
 			return data, fmt.Errorf("extract response not found (%s): %w", claim.ContentHash, err)
 		}
-		data.res = append(data.res, &r)
+
+		r, err := b.CAS.Retrieve(c.Request().Context(), res.GetHash())
+		if err != nil {
+			return data, fmt.Errorf("failed to retrieve response data: %w", err)
+		}
+		d, err := io.ReadAll(r)
+		if err != nil {
+			return data, fmt.Errorf("failed to read response data: %w", err)
+		}
+		data.res = append(data.res, struct {
+			res  *rpc.ExtractResponse
+			data []byte
+		}{res: &res, data: d})
 	}
 
 	data.req = &req
@@ -102,29 +118,37 @@ func PluginIdExtractHash(data PluginIdExtractHashData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = ui.JsonBrowser(res).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ui.JsonBrowser(res.res).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</li>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "Data")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = ui.JsonBrowser(res.data).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</ul><hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-post=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</ul><hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(middleware.Reverse(ctx, "plugin.extract.send", data.req.PluginId, data.hash))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].extract.[hash].templ`, Line: 64, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].extract.[hash].templ`, Line: 82, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" class=\"underline\">Send</button></li></ul></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" class=\"underline\">Send</button></li></ul></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

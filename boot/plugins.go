@@ -2,15 +2,21 @@ package boot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"syscall"
 
 	"go.quinn.io/dataq/cas"
+	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/index"
+	"go.quinn.io/dataq/schema"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // PluginManager manages plugin processes and their gRPC clients
@@ -20,6 +26,7 @@ type PluginManager struct {
 	processes map[string]*exec.Cmd
 	index     *index.Index
 	cas       cas.Storage
+	basePort  int
 }
 
 // NewPluginManager creates a new plugin manager
@@ -29,6 +36,7 @@ func NewPluginManager(idx *index.Index, cas cas.Storage) *PluginManager {
 		processes: make(map[string]*exec.Cmd),
 		index:     idx,
 		cas:       cas,
+		basePort:  50051,
 	}
 }
 
@@ -43,14 +51,64 @@ func (pm *PluginManager) GetClient(pluginID string) (*DataQClient, error) {
 	}
 	return client, nil
 }
+func (pm *PluginManager) startPlugin(cfg *config.Plugin, plugin schema.PluginInstance) (*exec.Cmd, *grpc.ClientConn, error) {
+	port := fmt.Sprintf("%d", pm.basePort)
+
+	// Create plugin state directory if it doesn't exist
+	pluginStateDir := filepath.Join(config.StateDir(), cfg.ID)
+	if err := os.MkdirAll(pluginStateDir, 0755); err != nil {
+		return nil, nil, fmt.Errorf("failed to create plugin state directory: %w", err)
+	}
+
+	// Start the plugin process
+	cmd := exec.Command(filepath.Join(config.StateDir(), "bin", cfg.BinaryPath))
+	cmd.Dir = pluginStateDir
+
+	configJSON, err := json.Marshal(map[string]interface{}{
+		"oauth_config": plugin.OauthConfig,
+		"oauth_token":  plugin.OauthToken,
+		"config":       plugin.Config,
+	})
+
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("PORT=%s", port),
+		fmt.Sprintf("CONFIG=%s", string(configJSON)),
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		return nil, nil, fmt.Errorf("failed to start plugin process: %w", err)
+	}
+
+	// Connect to the plugin
+	conn, err := grpc.NewClient(
+		fmt.Sprintf("localhost:%s", port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		cmd.Process.Kill()
+		return nil, nil, fmt.Errorf("failed to connect to plugin: %w", err)
+	}
+
+	pm.basePort++
+	return cmd, conn, nil
+}
 
 // AddPlugin adds a new plugin process and client
-func (pm *PluginManager) AddPlugin(pluginID string, conn *grpc.ClientConn, process *exec.Cmd) {
+func (pm *PluginManager) AddPlugin(pluginID string, cfg *config.Plugin, plugin schema.PluginInstance) error {
 	pm.Lock()
 	defer pm.Unlock()
 
+	process, conn, err := pm.startPlugin(cfg, plugin)
+	if err != nil {
+		return fmt.Errorf("failed to start plugin %s - %s: %w", cfg.ID, pluginID, err)
+	}
+
 	pm.Clients[pluginID] = NewDataQClient(conn, pm.index, pm.cas)
 	pm.processes[pluginID] = process
+
+	return nil
 }
 
 // Shutdown gracefully stops all plugin processes

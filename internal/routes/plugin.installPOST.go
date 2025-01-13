@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/schema"
 	"golang.org/x/oauth2"
 )
@@ -27,9 +28,27 @@ func PluginInstallCreate(c echo.Context) error {
 		return fmt.Errorf("failed to bind form: %v", err)
 	}
 
+	client, ok := b.Plugins.Clients[form.PluginID]
+	if !ok {
+		return fmt.Errorf("plugin not found: %s", form.PluginID)
+	}
+
+	install, err := client.Install(c.Request().Context(), &rpc.InstallRequest{PluginId: form.PluginID})
+	if err != nil {
+		return fmt.Errorf("failed to install plugin: %w", err)
+	}
+
+	config := make(map[string]string)
+	for _, configField := range install.Configs {
+		val := c.FormValue(configField.Key)
+		config[configField.Key] = val
+	}
+
 	pluginInstance := schema.PluginInstance{
-		PluginID: form.PluginID,
-		Label:    form.PluginID,
+		PluginID:        form.PluginID,
+		Label:           form.PluginID,
+		Config:          config,
+		InstallResponse: install,
 		OauthConfig: &oauth2.Config{
 			Scopes:       strings.Split(form.Scopes, ","),
 			ClientID:     form.ClientID,

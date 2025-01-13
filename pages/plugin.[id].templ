@@ -11,6 +11,7 @@ import (
 
 type PluginIdData struct {
 	cfg        *config.Plugin
+	plugin     *schema.PluginInstance
 	extracts   []schema.Claim
 	transforms []schema.Claim
 }
@@ -20,21 +21,22 @@ func PluginIdGET(c echo.Context, id string) (PluginIdData, error) {
 
 	var data PluginIdData
 
-	var plugin *config.Plugin
+	data.plugin = new(schema.PluginInstance)
+	err := b.Index.GetPermanode(c.Request().Context(), id, data.plugin)
+	if err != nil {
+		return data, fmt.Errorf("failed to get plugin: %w", err)
+	}
+
 	for _, p := range b.Config.Plugins {
-		if p.ID == id {
-			plugin = p
+		if p.ID == data.plugin.PluginID {
+			data.cfg = p
 			break
 		}
 	}
-
-	if plugin == nil {
+	if data.cfg == nil {
 		return data, echo.ErrNotFound
 	}
 
-	data.cfg = plugin
-
-	var err error
 	sel := b.Index.Q.Where("plugin_id = ? AND schema_kind = ?", id, "ExtractRequest")
 	data.extracts, err = b.Index.Query(c.Request().Context(), sel)
 	if err != nil {

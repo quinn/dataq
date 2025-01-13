@@ -11,16 +11,12 @@ import (
 	"time"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/fitbit"
 )
 
 type Config struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	RedirectURL  string `json:"redirect_url"`
-
-	// These come from the authed Oauth2 token
-	Token string `json:"token"`
+	OauthConfig *oauth2.Config    `json:"oauth_config,omitempty"`
+	OauthToken  *oauth2.Token     `json:"oauth_token,omitempty"`
+	Config      map[string]string `json:"config,omitempty"`
 }
 
 // FitbitClient represents a client for Fitbit API
@@ -48,23 +44,19 @@ func NewFitbitClient() *FitbitClient {
 		log.Fatalf("Error parsing CONFIG: %v", err)
 	}
 
+	if config.OauthConfig == nil {
+		log.Fatal("OauthConfig not set in CONFIG")
+	}
+
+	if config.OauthToken == nil {
+		log.Fatal("OauthToken not set in CONFIG")
+	}
+
 	log.Println("Using config:", config)
 
 	client := &FitbitClient{
-		oauthConfig: &oauth2.Config{
-			ClientID:     config.ClientID,
-			ClientSecret: config.ClientSecret,
-			RedirectURL:  config.RedirectURL,
-			Scopes: []string{
-				"activity",
-				"heartrate",
-				"profile",
-				"sleep",
-				"weight",
-			},
-			Endpoint: fitbit.Endpoint,
-		},
-		config: config,
+		oauthConfig: config.OauthConfig,
+		config:      config,
 	}
 
 	// Try to load existing token
@@ -158,12 +150,7 @@ func (c *FitbitClient) GetTodaySteps(ctx context.Context) ([]byte, error) {
 	// 	return nil, fmt.Errorf("no valid token available")
 	// }
 
-	var oauth2Token oauth2.Token
-	if err := json.Unmarshal([]byte(c.config.Token), &oauth2Token); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal token: %v. (%s)", err, c.config.ClientSecret)
-	}
-
-	client := c.oauthConfig.Client(ctx, &oauth2Token)
+	client := c.oauthConfig.Client(ctx, c.config.OauthToken)
 
 	// Format today's date in the required format (YYYY-MM-DD)
 	today := time.Now().Format("2006-01-02")
@@ -185,12 +172,7 @@ func (c *FitbitClient) GetTodaySteps(ctx context.Context) ([]byte, error) {
 }
 
 func (c *FitbitClient) MakeRequest(ctx context.Context, path string) ([]byte, error) {
-	var oauth2Token oauth2.Token
-	if err := json.Unmarshal([]byte(c.config.Token), &oauth2Token); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal token: %v. (%s)", err, c.config.ClientSecret)
-	}
-
-	client := c.oauthConfig.Client(ctx, &oauth2Token)
+	client := c.oauthConfig.Client(ctx, c.config.OauthToken)
 
 	url := fmt.Sprintf("https://api.fitbit.com%s", path)
 

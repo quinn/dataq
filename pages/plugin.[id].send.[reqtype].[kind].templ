@@ -1,17 +1,94 @@
 package pages
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/rpc"
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
+	"net/http"
 )
 
-type PluginIdSendReqtypeKindData = []string
+type PluginIdSendReqtypeKindData struct {
+	id      string
+	plugin  schema.PluginInstance
+	extract *rpc.InstallResponse_Extract
+}
 
-func PluginIdSendReqtypeKindHandler(c echo.Context, id, reqtype, kind string) (PluginIdSendReqtypeKindData, error) {
-	return []string{}, nil
+func PluginIdSendReqtypeKindGET(c echo.Context, id, reqtype, kind string) (PluginIdSendReqtypeKindData, error) {
+	b := middleware.GetBoot(c)
+
+	var data PluginIdSendReqtypeKindData
+	data.id = id
+
+	if err := b.Index.GetPermanode(c.Request().Context(), id, &data.plugin); err != nil {
+		return data, fmt.Errorf("failed to get plugin: %w", err)
+	}
+
+	if data.plugin.InstallResponse == nil {
+		return data, fmt.Errorf("plugin has no install response")
+	}
+
+	for _, e := range data.plugin.InstallResponse.Extracts {
+		if e.Kind == kind {
+			data.extract = e
+			break
+		}
+	}
+
+	if data.extract == nil {
+		return data, fmt.Errorf("extract not found")
+	}
+
+	return data, nil
+}
+
+func PluginIdSendReqtypeKindPOST(c echo.Context, id, reqtype, kind string) error {
+	b := middleware.GetBoot(c)
+
+	data, err := PluginIdSendReqtypeKindGET(c, id, reqtype, kind)
+	if err != nil {
+		return err
+	}
+
+	config := make(map[string]string)
+	for _, field := range data.extract.Configs {
+		config[field.Key] = c.FormValue(field.Key)
+	}
+
+	client, ok := b.Plugins.Clients[id]
+	if !ok {
+		return fmt.Errorf("plugin not found: %s", id)
+	}
+
+	_, err = client.Extract(c.Request().Context(), &rpc.ExtractRequest{
+		PluginId: id,
+		Kind:     kind,
+		Metadata: config,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to send extract request: %w", err)
+	}
+
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/plugin/%s", id))
 }
 
 templ PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) {
 	@ui.Layout() {
+		<h2 class="font-bold">{ data.plugin.PluginID } - { data.extract.Label }</h2>
+		<p>{ data.extract.Description }</p>
+		<hr class="my-3"/>
+		<form method="post">
+			for _, field := range data.extract.Configs {
+				<div>
+					<label for={ field.Key }>{ field.Label }</label>
+					<br/>
+					<input class="input" type="text" id={ field.Key } name={ field.Key }/>
+					<br/>
+					<button type="submit" class="underline">Send</button>
+				</div>
+			}
+		</form>
 	}
 }

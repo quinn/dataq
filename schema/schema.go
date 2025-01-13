@@ -17,6 +17,7 @@ type PluginInstance struct {
 	OauthConfig     *oauth2.Config       `json:"oauth_config,omitempty"`
 	OauthToken      *oauth2.Token        `json:"oauth_token,omitempty"`
 	InstallResponse *rpc.InstallResponse `json:"install_response,omitempty"`
+	Config          map[string]string    `json:"config,omitempty"`
 }
 
 func (p *PluginInstance) SchemaMetadata() map[string]interface{} {

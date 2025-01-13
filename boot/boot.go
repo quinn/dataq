@@ -3,18 +3,14 @@ package boot
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/index"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"go.quinn.io/dataq/internal/repo"
+	"go.quinn.io/dataq/schema"
 )
 
 type Boot struct {
@@ -25,6 +21,7 @@ type Boot struct {
 	CAS cas.Storage
 	// Claim   *claims.ClaimsService
 	Index   *index.Index
+	Repo    *repo.Repo
 	Plugins *PluginManager
 }
 
@@ -78,6 +75,8 @@ func New() (*Boot, error) {
 	// 	}
 	// }
 
+	repo := repo.NewRepo(idx)
+
 	return &Boot{
 		Config: cfg,
 		Index:  idx,
@@ -86,65 +85,47 @@ func New() (*Boot, error) {
 		// Worker:  wrkr,
 		CAS:     pk,
 		Plugins: NewPluginManager(idx, pk),
+		Repo:    repo,
 	}, nil
 }
 
 // StartPlugins initializes and starts all enabled plugins
-func (b *Boot) StartPlugins() error {
-	basePort := 50051
-	for _, plugin := range b.Config.Plugins {
-		if !plugin.Enabled {
+func (b *Boot) StartPlugins(ctx context.Context) error {
+	claims, err := b.Repo.PluginClaims(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get plugins: %w", err)
+	}
+
+	for _, claim := range claims {
+		var cfg *config.Plugin
+		pluginID := claim.Metadata["plugin_id"]
+		permanodeHash := claim.PermanodeHash
+
+		for _, c := range b.Config.Plugins {
+			if c.ID == pluginID {
+				cfg = c
+				break
+			}
+		}
+
+		if cfg == nil {
+			return fmt.Errorf("plugin %s not found in config", pluginID)
+		}
+
+		if !cfg.Enabled {
 			continue
 		}
 
-		port := fmt.Sprintf("%d", basePort)
-		if err := b.startPlugin(plugin, port); err != nil {
-			return fmt.Errorf("failed to start plugin %s: %w", plugin.ID, err)
+		var plugin schema.PluginInstance
+		if err := b.Index.GetPermanode(ctx, claim.PermanodeHash, &plugin); err != nil {
+			return err
 		}
-		basePort++
-	}
-	return nil
-}
 
-func (b *Boot) startPlugin(plugin *config.Plugin, port string) error {
-	// Create plugin state directory if it doesn't exist
-	pluginStateDir := filepath.Join(config.StateDir(), plugin.ID)
-	if err := os.MkdirAll(pluginStateDir, 0755); err != nil {
-		return fmt.Errorf("failed to create plugin state directory: %w", err)
+		if err := b.Plugins.AddPlugin(permanodeHash, cfg, plugin); err != nil {
+			return fmt.Errorf("failed to start plugin %s: %w", pluginID, err)
+		}
 	}
 
-	// Start the plugin process
-	cmd := exec.Command(filepath.Join(config.StateDir(), "bin", plugin.BinaryPath))
-	cmd.Dir = pluginStateDir
-
-	// Create plugin config
-	configJSON, err := json.Marshal(plugin.Config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal plugin config: %w", err)
-	}
-
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("PORT=%s", port),
-		fmt.Sprintf("CONFIG=%s", string(configJSON)),
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start plugin process: %w", err)
-	}
-
-	// Connect to the plugin
-	conn, err := grpc.NewClient(
-		fmt.Sprintf("localhost:%s", port),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		cmd.Process.Kill()
-		return fmt.Errorf("failed to connect to plugin: %w", err)
-	}
-
-	b.Plugins.AddPlugin(plugin.ID, conn, cmd)
 	return nil
 }
 

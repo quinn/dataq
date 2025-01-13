@@ -6,11 +6,15 @@ import (
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
+	"io"
 )
 
 type PluginIdExtractHashData struct {
-	req  *rpc.ExtractRequest
-	res  []*rpc.ExtractResponse
+	req *rpc.ExtractRequest
+	res []struct {
+		res  *rpc.ExtractResponse
+		data []byte
+	}
 	hash string
 }
 
@@ -19,7 +23,7 @@ func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHas
 	b := middleware.GetBoot(c)
 
 	var req rpc.ExtractRequest
-	sel := b.Index.Q.Where("hash = ?", hash)
+	sel := b.Index.Q.Where("content_hash = ?", hash)
 	if err := b.Index.Get(c.Request().Context(), &req, sel); err != nil {
 		return data, fmt.Errorf("extract request not found: %w", err)
 	}
@@ -31,12 +35,24 @@ func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHas
 	}
 
 	for _, claim := range claims {
-		var r rpc.ExtractResponse
-		sel := b.Index.Q.Where("hash = ?", claim.ContentHash)
-		if err := b.Index.Get(c.Request().Context(), &r, sel); err != nil {
+		var res rpc.ExtractResponse
+		sel := b.Index.Q.Where("content_hash = ?", claim.ContentHash)
+		if err := b.Index.Get(c.Request().Context(), &res, sel); err != nil {
 			return data, fmt.Errorf("extract response not found (%s): %w", claim.ContentHash, err)
 		}
-		data.res = append(data.res, &r)
+
+		r, err := b.CAS.Retrieve(c.Request().Context(), res.GetHash())
+		if err != nil {
+			return data, fmt.Errorf("failed to retrieve response data: %w", err)
+		}
+		d, err := io.ReadAll(r)
+		if err != nil {
+			return data, fmt.Errorf("failed to read response data: %w", err)
+		}
+		data.res = append(data.res, struct {
+			res  *rpc.ExtractResponse
+			data []byte
+		}{res: &res, data: d})
 	}
 
 	data.req = &req
@@ -53,7 +69,9 @@ templ PluginIdExtractHash(data PluginIdExtractHashData) {
 			<ul class="list-disc list-inside">
 				for _, res := range data.res {
 					<li class="list-item">
-						@ui.JsonBrowser(res)
+						@ui.JsonBrowser(res.res)
+						Data
+						@ui.JsonBrowser(res.data)
 					</li>
 				}
 			</ul>

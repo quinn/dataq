@@ -26,7 +26,7 @@ func main() {
 	defer cancel()
 
 	// Start all plugins
-	if err := b.StartPlugins(); err != nil {
+	if err := b.StartPlugins(ctx); err != nil {
 		log.Fatalf("Failed to start plugins: %v", err)
 	}
 

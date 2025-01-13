@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
@@ -11,6 +12,7 @@ import (
 
 type PluginInstallData struct {
 	install  *rpc.InstallResponse
+	cfg      *config.Plugin
 	plugins  []string
 	selected string
 }
@@ -19,11 +21,18 @@ func PluginInstallGET(c echo.Context) (PluginInstallData, error) {
 	b := middleware.GetBoot(c)
 	data := PluginInstallData{}
 	pluginID := c.QueryParam("plugin")
-	for key := range b.Plugins.Clients {
-		data.plugins = append(data.plugins, key)
+
+	for _, plugin := range b.Config.Plugins {
+		data.plugins = append(data.plugins, plugin.ID)
 	}
 
 	if pluginID != "" {
+		for _, plugin := range b.Config.Plugins {
+			if plugin.ID == pluginID {
+				data.cfg = plugin
+			}
+		}
+
 		client, ok := b.Plugins.Clients[pluginID]
 		if !ok {
 			return data, fmt.Errorf("plugin not found: %s", pluginID)
@@ -36,6 +45,7 @@ func PluginInstallGET(c echo.Context) (PluginInstallData, error) {
 			return data, fmt.Errorf("failed to install plugin: %w", err)
 		}
 	}
+
 	return data, nil
 }
 
@@ -56,7 +66,7 @@ templ PluginInstall(data PluginInstallData) {
 				</select>
 			</form>
 			<hr/>
-			if data.install != nil {
+			if data.cfg != nil {
 				<div class="font-bold">Config</div>
 				<form method="post">
 					<input type="hidden" name="plugin_id" value={ data.selected }/>

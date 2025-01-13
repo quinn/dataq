@@ -7,8 +7,8 @@ import (
 	"github.com/Masterminds/squirrel"
 	"github.com/labstack/echo/v4"
 	"go.quinn.io/dataq/boot"
-	"go.quinn.io/dataq/htmx"
 	"go.quinn.io/dataq/rpc"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func PluginExtractSendCreate(c echo.Context) error {
@@ -23,14 +23,17 @@ func PluginExtractSendCreate(c echo.Context) error {
 	}
 
 	var req rpc.ExtractRequest
-	sel := b.Index.Q.Where(squirrel.Eq{"hash": c.Param("hash")})
+	sel := b.Index.Q.Where(squirrel.Eq{"content_hash": c.Param("hash")})
 	if err := b.Index.Get(c.Request().Context(), &req, sel); err != nil {
 		return fmt.Errorf("error getting request from index: %w", err)
 	}
 
-	if _, err := plugin.Extract(c.Request().Context(), &req); err != nil {
+	if resp, err := plugin.Extract(c.Request().Context(), &req); err != nil {
 		return fmt.Errorf("error extracting: %w", err)
+	} else {
+		x, _ := protojson.Marshal(resp)
+		return fmt.Errorf("extracted: %s", string(x))
 	}
 
-	return htmx.Refresh(c)
+	// return htmx.Refresh(c)
 }

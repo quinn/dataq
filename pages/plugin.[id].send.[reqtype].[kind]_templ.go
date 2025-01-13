@@ -9,14 +9,77 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"fmt"
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/internal/middleware"
+	"go.quinn.io/dataq/rpc"
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
+	"net/http"
 )
 
-type PluginIdSendReqtypeKindData = []string
+type PluginIdSendReqtypeKindData struct {
+	id      string
+	plugin  schema.PluginInstance
+	extract *rpc.InstallResponse_Extract
+}
 
-func PluginIdSendReqtypeKindHandler(c echo.Context, id, reqtype, kind string) (PluginIdSendReqtypeKindData, error) {
-	return []string{}, nil
+func PluginIdSendReqtypeKindGET(c echo.Context, id, reqtype, kind string) (PluginIdSendReqtypeKindData, error) {
+	b := middleware.GetBoot(c)
+
+	var data PluginIdSendReqtypeKindData
+	data.id = id
+
+	if err := b.Index.GetPermanode(c.Request().Context(), id, &data.plugin); err != nil {
+		return data, fmt.Errorf("failed to get plugin: %w", err)
+	}
+
+	if data.plugin.InstallResponse == nil {
+		return data, fmt.Errorf("plugin has no install response")
+	}
+
+	for _, e := range data.plugin.InstallResponse.Extracts {
+		if e.Kind == kind {
+			data.extract = e
+			break
+		}
+	}
+
+	if data.extract == nil {
+		return data, fmt.Errorf("extract not found")
+	}
+
+	return data, nil
+}
+
+func PluginIdSendReqtypeKindPOST(c echo.Context, id, reqtype, kind string) error {
+	b := middleware.GetBoot(c)
+
+	data, err := PluginIdSendReqtypeKindGET(c, id, reqtype, kind)
+	if err != nil {
+		return err
+	}
+
+	config := make(map[string]string)
+	for _, field := range data.extract.Configs {
+		config[field.Key] = c.FormValue(field.Key)
+	}
+
+	client, ok := b.Plugins.Clients[id]
+	if !ok {
+		return fmt.Errorf("plugin not found: %s", id)
+	}
+
+	_, err = client.Extract(c.Request().Context(), &rpc.ExtractRequest{
+		PluginId: id,
+		Kind:     kind,
+		Metadata: config,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to send extract request: %w", err)
+	}
+
+	return c.Redirect(http.StatusFound, fmt.Sprintf("/plugin/%s", id))
 }
 
 func PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) templ.Component {
@@ -52,6 +115,111 @@ func PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<h2 class=\"font-bold\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var3 string
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.plugin.PluginID)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 79, Col: 46}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " - ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.extract.Label)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 79, Col: 71}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</h2><p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var5 string
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.extract.Description)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 80, Col: 31}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</p><hr class=\"my-3\"><form method=\"post\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for _, field := range data.extract.Configs {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div><label for=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var6 string
+				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(field.Key)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 85, Col: 27}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var7 string
+				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(field.Label)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 85, Col: 43}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</label><br><input class=\"input\" type=\"text\" id=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(field.Key)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 87, Col: 52}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" name=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var9 string
+				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(field.Key)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 87, Col: 71}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\"><br><button type=\"submit\" class=\"underline\">Send</button></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</form>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 			return nil
 		})
 		templ_7745c5c3_Err = ui.Layout().Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)

@@ -110,7 +110,11 @@ func (i *Index) GetPermanode(ctx context.Context, permanodeHash string, result I
 		Where("permanode_hash = ?", permanodeHash).
 		OrderBy("timestamp DESC").
 		Limit(1)
-	return i.Get(ctx, result, sel)
+	if err := i.Get(ctx, result, sel); err != nil {
+		return fmt.Errorf("failed to get permanode: %w", err)
+	}
+
+	return nil
 }
 
 func (i *Index) Rebuild(ctx context.Context) error {
@@ -510,7 +514,8 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 			return fmt.Errorf("failed to check for existing content: %w", err)
 		}
 		if err != sql.ErrNoRows {
-			return fmt.Errorf("content hash %s already exists in index", claim.ContentHash)
+			slog.Warn("content hash already exists in index", "hash", claim.ContentHash)
+			return nil
 		}
 
 		// Check if there's a newer delete claim for this content or permanode

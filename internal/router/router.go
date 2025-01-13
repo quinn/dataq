@@ -3,6 +3,7 @@ package router
 
 import (
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/pages"
 )
 
 // RegisterRoutes adds all page routes to the Echo instance
@@ -16,6 +17,7 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/plugin/:id/oauth/begin", PluginIdOauthBeginGET)
 	e.POST("/plugin/:id/oauth/begin", PluginIdOauthBeginPOST)
 	e.GET("/plugin/:id/send/:reqtype/:kind", PluginIdSendReqtypeKindGET)
+	e.POST("/plugin/:id/send/:reqtype/:kind", PluginIdSendReqtypeKindPOST)
 	e.GET("/plugin/:id", PluginIdGET)
 	e.GET("/plugin/:id/transform/:hash", PluginIdTransformHashGET)
 	e.GET("/plugin/install", PluginInstallGET)
@@ -92,6 +94,11 @@ func PluginIdSendReqtypeKindGET(c echo.Context) error {
 		return err
 	}
 	return pages.PluginIdSendReqtypeKind(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// PluginIdSendReqtypeKindPOST handles POST requests to /plugin/:id/send/:reqtype/:kind
+func PluginIdSendReqtypeKindPOST(c echo.Context) error {
+	return pages.PluginIdSendReqtypeKindPOST(c, c.Param("id"), c.Param("reqtype"), c.Param("kind"))
 }
 
 // PluginIdGET handles GET requests to /plugin/:id
