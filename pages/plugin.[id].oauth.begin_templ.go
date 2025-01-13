@@ -31,17 +31,17 @@ func PluginIdOauthBeginGET(c echo.Context, id string) (PluginIdOauthBeginData, e
 		return data, fmt.Errorf("failed to get plugin: %w", err)
 	}
 
-	if data.plugin.OauthConfig.RedirectURL == "" {
+	if data.plugin.Oauth.Config.RedirectUrl == "" {
 		redirectURL := middleware.FullURL(c)
 		redirectURL.Path = "/plugin/" + id + "/oauth/complete"
 		data.redirectURL = redirectURL.String()
 
-		data.plugin.OauthConfig.RedirectURL = redirectURL.String()
+		data.plugin.Oauth.Config.RedirectUrl = redirectURL.String()
 		if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &data.plugin); err != nil {
 			return data, err
 		}
 	} else {
-		data.redirectURL = data.plugin.OauthConfig.RedirectURL
+		data.redirectURL = data.plugin.Oauth.Config.RedirectUrl
 	}
 
 	return data, nil
@@ -55,7 +55,8 @@ func PluginIdOauthBeginPOST(c echo.Context, id string) error {
 		return fmt.Errorf("failed to get plugin: %w", err)
 	}
 
-	authURL := plugin.OauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	oauthConfig := schema.NewOauthConfig(plugin.Oauth)
+	authURL := oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 
 	return c.Redirect(http.StatusFound, authURL)
 }
@@ -100,7 +101,7 @@ func PluginIdOauthBegin(data PluginIdOauthBeginData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.plugin.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 59, Col: 78}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 60, Col: 78}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -113,7 +114,7 @@ func PluginIdOauthBegin(data PluginIdOauthBeginData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.redirectURL)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 61, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].oauth.begin.templ`, Line: 62, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {

@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package dataq;
+option go_package = "go.quinn.io/dataq/rpc";
+
+message OAuth2 {
+    Config config = 1;
+    Token token = 2;
+
+    // Config represents the OAuth2 configuration
+    message Config {
+        // ClientID is the application's ID.
+        string client_id = 1;
+
+        // ClientSecret is the application's secret.
+        string client_secret = 2;
+
+        // Endpoint contains the resource server's token endpoint
+        // URLs. These are constants specific to each server and are
+        // often available via site-specific packages, such as
+        // google.Endpoint or github.Endpoint.
+        Endpoint endpoint = 3;
+
+        // RedirectURL is the URL to redirect users going through
+        // the OAuth flow, after the resource owner's URLs.
+        string redirect_url = 4;
+
+        // Scope specifies optional requested permissions.
+        repeated string scopes = 5;
+    }
+
+    // Endpoint represents an OAuth 2.0 provider's authorization and token
+    // endpoint URLs.
+    message Endpoint {
+        string auth_url = 1;
+        string device_auth_url = 2;
+        string token_url = 3;
+
+        // AuthStyle optionally specifies how the endpoint wants the
+        // client ID & client secret sent. The zero value means to
+        // auto-detect.
+        AuthStyle auth_style = 4;
+    }
+
+    // AuthStyle represents different styles of authentication
+    enum AuthStyle {
+        AUTH_STYLE_UNSPECIFIED = 0;
+        AUTH_STYLE_AUTO_DETECT = 1;
+        AUTH_STYLE_IN_HEADER = 2;
+        AUTH_STYLE_IN_PARAMS = 3;
+    }
+
+    // Token represents the credentials used to authorize
+    // the requests to access protected resources on the OAuth 2.0
+    // provider's backend.
+    //
+    // Most users of this package should not access fields of Token
+    // directly. They're exported mostly for use by related packages
+    // implementing derivative OAuth2 flows.
+    message Token {
+        // AccessToken is the token that authorizes and authenticates
+        // the requests.
+        string access_token = 1;
+
+        // TokenType is the type of token.
+        // The Type method returns either this or "Bearer", the default.
+        string token_type = 2;
+
+        // RefreshToken is a token that's used by the application
+        // (as opposed to the user) to refresh the access token
+        // if it expires.
+        string refresh_token = 3;
+
+        // Expiry is the optional expiration time of the access token.
+        //
+        // If zero, TokenSource implementations will reuse the same
+        // token forever and RefreshToken or equivalent
+        // mechanisms for that TokenSource will not be used.
+        int64 expiry = 4;
+
+        // ExpiresIn is the OAuth2 wire format "expires_in" field,
+        // which specifies how many seconds later the token expires,
+        // relative to an unknown time base approximately around "now".
+        // It is the application's responsibility to populate
+        // `Expiry` from `ExpiresIn` when required.
+        int64 expires_in = 5;
+    }
+}

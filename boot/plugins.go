@@ -2,7 +2,6 @@ package boot
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -14,7 +13,7 @@ import (
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/index"
-	"go.quinn.io/dataq/schema"
+	"go.quinn.io/dataq/internal/repo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -26,16 +25,18 @@ type PluginManager struct {
 	processes map[string]*exec.Cmd
 	index     *index.Index
 	cas       cas.Storage
+	repo      *repo.Repo
 	basePort  int
 }
 
 // NewPluginManager creates a new plugin manager
-func NewPluginManager(idx *index.Index, cas cas.Storage) *PluginManager {
+func NewPluginManager(idx *index.Index, cas cas.Storage, repo *repo.Repo) *PluginManager {
 	return &PluginManager{
 		Clients:   make(map[string]*DataQClient),
 		processes: make(map[string]*exec.Cmd),
 		index:     idx,
 		cas:       cas,
+		repo:      repo,
 		basePort:  50051,
 	}
 }
@@ -51,7 +52,7 @@ func (pm *PluginManager) GetClient(pluginID string) (*DataQClient, error) {
 	}
 	return client, nil
 }
-func (pm *PluginManager) startPlugin(cfg *config.Plugin, plugin schema.PluginInstance) (*exec.Cmd, *grpc.ClientConn, error) {
+func (pm *PluginManager) startPlugin(cfg *config.Plugin) (*exec.Cmd, *grpc.ClientConn, error) {
 	port := fmt.Sprintf("%d", pm.basePort)
 
 	// Create plugin state directory if it doesn't exist
@@ -64,15 +65,15 @@ func (pm *PluginManager) startPlugin(cfg *config.Plugin, plugin schema.PluginIns
 	cmd := exec.Command(filepath.Join(config.StateDir(), "bin", cfg.BinaryPath))
 	cmd.Dir = pluginStateDir
 
-	configJSON, err := json.Marshal(map[string]interface{}{
-		"oauth_config": plugin.OauthConfig,
-		"oauth_token":  plugin.OauthToken,
-		"config":       plugin.Config,
-	})
+	// configJSON, err := json.Marshal(map[string]interface{}{
+	// 	"oauth_config": plugin.OauthConfig,
+	// 	"oauth_token":  plugin.OauthToken,
+	// 	"config":       plugin.Config,
+	// })
 
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("PORT=%s", port),
-		fmt.Sprintf("CONFIG=%s", string(configJSON)),
+		// fmt.Sprintf("CONFIG=%s", string(configJSON)),
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -96,17 +97,17 @@ func (pm *PluginManager) startPlugin(cfg *config.Plugin, plugin schema.PluginIns
 }
 
 // AddPlugin adds a new plugin process and client
-func (pm *PluginManager) AddPlugin(pluginID string, cfg *config.Plugin, plugin schema.PluginInstance) error {
+func (pm *PluginManager) AddPlugin(cfg *config.Plugin) error {
 	pm.Lock()
 	defer pm.Unlock()
 
-	process, conn, err := pm.startPlugin(cfg, plugin)
+	process, conn, err := pm.startPlugin(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to start plugin %s - %s: %w", cfg.ID, pluginID, err)
+		return fmt.Errorf("failed to start plugin %s: %w", cfg.ID, err)
 	}
 
-	pm.Clients[pluginID] = NewDataQClient(conn, pm.index, pm.cas)
-	pm.processes[pluginID] = process
+	pm.Clients[cfg.ID] = NewDataQClient(conn, pm.index, pm.cas, pm.repo)
+	pm.processes[cfg.ID] = process
 
 	return nil
 }

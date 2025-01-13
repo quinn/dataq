@@ -28,8 +28,8 @@ func (m *InstallResponse) SchemaMetadata() map[string]interface{} {
 	if len(m.Configs) > 0 {
 		metadata["configs"] = m.Configs
 	}
-	if m.OauthConfig != nil {
-		metadata["oauth_config"] = m.OauthConfig
+	if m.Oauth != nil {
+		metadata["oauth"] = m.Oauth
 	}
 	if len(m.Extracts) > 0 {
 		metadata["extracts"] = m.Extracts
@@ -53,34 +53,6 @@ func (m *PluginConfig) SchemaMetadata() map[string]interface{} {
 	return metadata
 }
 
-func (m *OauthConfig) SchemaKind() string {
-	return "OauthConfig"
-}
-
-func (m *OauthConfig) SchemaMetadata() map[string]interface{} {
-	metadata := make(map[string]interface{})
-
-	if m.ClientId != "" {
-		metadata["client_id"] = m.ClientId
-	}
-	if m.ClientSecret != "" {
-		metadata["client_secret"] = m.ClientSecret
-	}
-	if m.RedirectUri != "" {
-		metadata["redirect_uri"] = m.RedirectUri
-	}
-	if len(m.Scopes) > 0 {
-		metadata["scopes"] = m.Scopes
-	}
-	if m.AuthUrl != "" {
-		metadata["auth_url"] = m.AuthUrl
-	}
-	if m.TokenUrl != "" {
-		metadata["token_url"] = m.TokenUrl
-	}
-	return metadata
-}
-
 func (m *ExtractRequest) SchemaKind() string {
 	return "ExtractRequest"
 }
@@ -88,6 +60,9 @@ func (m *ExtractRequest) SchemaKind() string {
 func (m *ExtractRequest) SchemaMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
 
+	if m.Oauth != nil {
+		metadata["oauth"] = m.Oauth
+	}
 	if m.PluginId != "" {
 		metadata["plugin_id"] = m.PluginId
 	}

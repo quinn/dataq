@@ -23,11 +23,8 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	// pass fitbit object to server
-	fb := NewFitbitClient()
-
 	s := grpc.NewServer()
-	rpc.RegisterDataQPluginServer(s, NewServer(fb))
+	rpc.RegisterDataQPluginServer(s, NewServer())
 	reflection.Register(s)
 
 	log.Printf("server listening at %v", lis.Addr())

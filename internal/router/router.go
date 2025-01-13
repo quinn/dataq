@@ -21,6 +21,7 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/plugin/:id", PluginIdGET)
 	e.GET("/plugin/:id/transform/:hash", PluginIdTransformHashGET)
 	e.GET("/plugin/install", PluginInstallGET)
+	e.POST("/plugin/install", PluginInstallPOST)
 }
 
 // ContentHashGET handles GET requests to /content/:hash
@@ -126,4 +127,9 @@ func PluginInstallGET(c echo.Context) error {
 		return err
 	}
 	return pages.PluginInstall(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// PluginInstallPOST handles POST requests to /plugin/install
+func PluginInstallPOST(c echo.Context) error {
+	return pages.PluginInstallPOST(c)
 }

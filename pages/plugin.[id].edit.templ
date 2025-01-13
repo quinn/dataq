@@ -65,8 +65,8 @@ func PluginIdEditPOST(c echo.Context, id string) error {
 			return fmt.Errorf("failed to bind form: %w", err)
 		}
 
-		plugin.OauthConfig.ClientID = form.ClientID
-		plugin.OauthConfig.ClientSecret = form.ClientSecret
+		plugin.Oauth.Config.ClientId = form.ClientID
+		plugin.Oauth.Config.ClientSecret = form.ClientSecret
 	}
 
 	if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &plugin); err != nil {
@@ -86,12 +86,12 @@ templ PluginIdEdit(data PluginIdEditData) {
 				<div>
 					<label for="client_id">Client ID</label>
 					<br/>
-					<input class="input" type="text" name="client_id" value={ plugin.OauthConfig.ClientID }/>
+					<input class="input" type="text" name="client_id" value={ plugin.Oauth.Config.ClientId }/>
 				</div>
 				<div>
 					<label for="client_secret">Client Secret</label>
 					<br/>
-					<input class="input" type="text" name="client_secret" value={ plugin.OauthConfig.ClientSecret }/>
+					<input class="input" type="text" name="client_secret" value={ plugin.Oauth.Config.ClientSecret }/>
 				</div>
 				<button class="underline" type="submit">Save</button>
 			</form>

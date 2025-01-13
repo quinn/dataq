@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"go.quinn.io/dataq/index"
+	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/schema"
+	"google.golang.org/protobuf/proto"
 )
 
 type Repo struct {
@@ -44,4 +46,16 @@ func (r *Repo) Plugins(ctx context.Context) ([]schema.PluginInstance, error) {
 	}
 
 	return plugins, nil
+}
+
+func (r *Repo) StoreExtractRequest(ctx context.Context, fullReq *rpc.ExtractRequest) (string, error) {
+	// need to copy value to avoid modifying the original
+	req := proto.Clone(fullReq).(*rpc.ExtractRequest)
+	req.Oauth = nil
+	hash, err := r.index.Store(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	return hash, nil
 }

@@ -23,17 +23,17 @@ func PluginIdOauthBeginGET(c echo.Context, id string) (PluginIdOauthBeginData, e
 		return data, fmt.Errorf("failed to get plugin: %w", err)
 	}
 
-	if data.plugin.OauthConfig.RedirectURL == "" {
+	if data.plugin.Oauth.Config.RedirectUrl == "" {
 		redirectURL := middleware.FullURL(c)
 		redirectURL.Path = "/plugin/" + id + "/oauth/complete"
 		data.redirectURL = redirectURL.String()
 
-		data.plugin.OauthConfig.RedirectURL = redirectURL.String()
+		data.plugin.Oauth.Config.RedirectUrl = redirectURL.String()
 		if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &data.plugin); err != nil {
 			return data, err
 		}
 	} else {
-		data.redirectURL = data.plugin.OauthConfig.RedirectURL
+		data.redirectURL = data.plugin.Oauth.Config.RedirectUrl
 	}
 
 	return data, nil
@@ -47,7 +47,8 @@ func PluginIdOauthBeginPOST(c echo.Context, id string) error {
 		return fmt.Errorf("failed to get plugin: %w", err)
 	}
 
-	authURL := plugin.OauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	oauthConfig := schema.NewOauthConfig(plugin.Oauth)
+	authURL := oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 
 	return c.Redirect(http.StatusFound, authURL)
 }

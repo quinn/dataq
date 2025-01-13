@@ -10,7 +10,6 @@ import (
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/internal/repo"
-	"go.quinn.io/dataq/schema"
 )
 
 type Boot struct {
@@ -84,45 +83,46 @@ func New() (*Boot, error) {
 		// Tree:   t,
 		// Worker:  wrkr,
 		CAS:     pk,
-		Plugins: NewPluginManager(idx, pk),
+		Plugins: NewPluginManager(idx, pk, repo),
 		Repo:    repo,
 	}, nil
 }
 
 // StartPlugins initializes and starts all enabled plugins
 func (b *Boot) StartPlugins(ctx context.Context) error {
-	claims, err := b.Repo.PluginClaims(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get plugins: %w", err)
-	}
+	// claims, err := b.Repo.PluginClaims(ctx)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get plugins: %w", err)
+	// }
 
-	for _, claim := range claims {
-		var cfg *config.Plugin
-		pluginID := claim.Metadata["plugin_id"]
-		permanodeHash := claim.PermanodeHash
+	// for _, claim := range claims {
+	// 	var cfg *config.Plugin
+	// 	pluginID := claim.Metadata["plugin_id"]
+	// 	permanodeHash := claim.PermanodeHash
 
-		for _, c := range b.Config.Plugins {
-			if c.ID == pluginID {
-				cfg = c
-				break
-			}
-		}
+	// 	for _, c := range b.Config.Plugins {
+	// 		if c.ID == pluginID {
+	// 			cfg = c
+	// 			break
+	// 		}
+	// 	}
 
-		if cfg == nil {
-			return fmt.Errorf("plugin %s not found in config", pluginID)
-		}
+	// if cfg == nil {
+	// 	return fmt.Errorf("plugin %s not found in config", pluginID)
+	// }
 
+	for _, cfg := range b.Config.Plugins {
 		if !cfg.Enabled {
 			continue
 		}
 
-		var plugin schema.PluginInstance
-		if err := b.Index.GetPermanode(ctx, claim.PermanodeHash, &plugin); err != nil {
-			return err
-		}
+		// var plugin schema.PluginInstance
+		// if err := b.Index.GetPermanode(ctx, claim.PermanodeHash, &plugin); err != nil {
+		// 	return err
+		// }
 
-		if err := b.Plugins.AddPlugin(permanodeHash, cfg, plugin); err != nil {
-			return fmt.Errorf("failed to start plugin %s: %w", pluginID, err)
+		if err := b.Plugins.AddPlugin( /*permanodeHash, */ cfg); err != nil {
+			return fmt.Errorf("failed to start plugin %s: %w", cfg.ID, err)
 		}
 	}
 

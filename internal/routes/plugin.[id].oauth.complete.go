@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -20,13 +19,14 @@ func PluginOauthComplete(c echo.Context) error {
 		return fmt.Errorf("failed to get plugin: %w", err)
 	}
 
-	token, err := plugin.OauthConfig.Exchange(context.Background(), code)
+	oauthConfig := schema.NewOauthConfig(plugin.Oauth)
+	token, err := oauthConfig.Exchange(c.Request().Context(), code)
 	if err != nil {
-		return fmt.Errorf("unable to retrieve token from web: (%v) %w", plugin.OauthConfig, err)
+		return fmt.Errorf("unable to retrieve token from web: (%v) %w", plugin.Oauth.Config, err)
 	}
 
 	// Save the token
-	plugin.OauthToken = token
+	plugin.Oauth.Token = schema.NewRPCOauthToken(token)
 	if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &plugin); err != nil {
 		return fmt.Errorf("failed to update plugin: %w", err)
 	}

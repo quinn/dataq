@@ -4,6 +4,7 @@ package dataq;
 option go_package = "go.quinn.io/dataq/rpc";
 
 import "rpc/schema.proto";
+import "rpc/oauth2.proto";
 
 // Service definition for DataQ plugin interface
 service DataQPlugin {
@@ -23,7 +24,7 @@ message InstallRequest {
 message InstallResponse {
   string plugin_id = 1;
   repeated PluginConfig configs = 2;
-  OauthConfig oauth_config = 3;
+  OAuth2 oauth = 3;
 
   message Extract {
     string kind = 1;
@@ -41,17 +42,9 @@ message PluginConfig {
   string label = 2;
 }
 
-message OauthConfig {
-  string client_id = 1;
-  string client_secret = 2;
-  string redirect_uri = 3;
-  repeated string scopes = 4;
-  string auth_url = 5;
-  string token_url = 6;
-}
-
 // ExtractRequest contains information about what data to extract
 message ExtractRequest {
+  OAuth2 oauth = 5 [json_name = ""];
   string plugin_id = 4; // Plugin to use for extraction
   string parent_hash = 1; // Content address of the object responsible for creating the Extract
   string kind = 2; // Operation to be performed that will produce data

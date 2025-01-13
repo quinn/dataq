@@ -2,61 +2,53 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
+	"go.quinn.io/dataq/rpc"
 	"golang.org/x/oauth2"
 )
-
-type Config struct {
-	OauthConfig *oauth2.Config    `json:"oauth_config,omitempty"`
-	OauthToken  *oauth2.Token     `json:"oauth_token,omitempty"`
-	Config      map[string]string `json:"config,omitempty"`
-}
 
 // FitbitClient represents a client for Fitbit API
 type FitbitClient struct {
 	oauthConfig *oauth2.Config
-	config      Config
+	oauthToken  *oauth2.Token
 }
 
 // NewFitbitClient initializes a new FitbitClient with the given credentials
-func NewFitbitClient() *FitbitClient {
-	// homeDir, err := os.UserHomeDir()
-	// if err != nil {
-	// 	homeDir = "."
-	// }
-	// tokenPath := filepath.Join(homeDir, ".dataq", "fitbit_token.json")
-
-	// Load config from environment
-	configJSON := os.Getenv("CONFIG")
-	if configJSON == "" {
-		log.Fatal("CONFIG environment variable not set")
-	}
-
-	var config Config
-	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
-		log.Fatalf("Error parsing CONFIG: %v", err)
-	}
-
-	if config.OauthConfig == nil {
+func NewFitbitClient(oauth *rpc.OAuth2) *FitbitClient {
+	if oauth.Config == nil {
 		log.Fatal("OauthConfig not set in CONFIG")
 	}
 
-	if config.OauthToken == nil {
+	if oauth.Token == nil {
 		log.Fatal("OauthToken not set in CONFIG")
 	}
 
-	log.Println("Using config:", config)
+	log.Println("Using config:", oauth)
 
 	client := &FitbitClient{
-		oauthConfig: config.OauthConfig,
-		config:      config,
+		oauthConfig: &oauth2.Config{
+			ClientID:     oauth.Config.ClientId,
+			ClientSecret: oauth.Config.ClientSecret,
+			RedirectURL:  oauth.Config.RedirectUrl,
+			Scopes:       oauth.Config.Scopes,
+
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  oauth.Config.Endpoint.AuthUrl,
+				TokenURL: oauth.Config.Endpoint.TokenUrl,
+			},
+		},
+		oauthToken: &oauth2.Token{
+			AccessToken:  oauth.Token.AccessToken,
+			TokenType:    oauth.Token.TokenType,
+			RefreshToken: oauth.Token.RefreshToken,
+			ExpiresIn:    oauth.Token.ExpiresIn,
+			Expiry:       time.UnixMilli(oauth.Token.Expiry),
+		},
 	}
 
 	// Try to load existing token
@@ -150,7 +142,7 @@ func (c *FitbitClient) GetTodaySteps(ctx context.Context) ([]byte, error) {
 	// 	return nil, fmt.Errorf("no valid token available")
 	// }
 
-	client := c.oauthConfig.Client(ctx, c.config.OauthToken)
+	client := c.oauthConfig.Client(ctx, c.oauthToken)
 
 	// Format today's date in the required format (YYYY-MM-DD)
 	today := time.Now().Format("2006-01-02")
@@ -172,7 +164,7 @@ func (c *FitbitClient) GetTodaySteps(ctx context.Context) ([]byte, error) {
 }
 
 func (c *FitbitClient) MakeRequest(ctx context.Context, path string) ([]byte, error) {
-	client := c.oauthConfig.Client(ctx, c.config.OauthToken)
+	client := c.oauthConfig.Client(ctx, c.oauthToken)
 
 	url := fmt.Sprintf("https://api.fitbit.com%s", path)
 

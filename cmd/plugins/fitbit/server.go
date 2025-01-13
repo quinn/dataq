@@ -12,25 +12,29 @@ import (
 
 type server struct {
 	rpc.UnimplementedDataQPluginServer
-	client *FitbitClient
+	// client *FitbitClient
 }
 
-func NewServer(client *FitbitClient) *server {
-	return &server{client: client}
+func NewServer() *server {
+	return &server{}
 }
 
 func (s *server) Install(ctx context.Context, req *rpc.InstallRequest) (*rpc.InstallResponse, error) {
 	return &rpc.InstallResponse{
 		PluginId: "fitbit",
-		OauthConfig: &rpc.OauthConfig{
-			AuthUrl:  fitbit.Endpoint.AuthURL,
-			TokenUrl: fitbit.Endpoint.TokenURL,
-			Scopes: []string{
-				"activity",
-				"heartrate",
-				"profile",
-				"sleep",
-				"weight",
+		Oauth: &rpc.OAuth2{
+			Config: &rpc.OAuth2_Config{
+				Endpoint: &rpc.OAuth2_Endpoint{
+					AuthUrl:  fitbit.Endpoint.AuthURL,
+					TokenUrl: fitbit.Endpoint.TokenURL,
+				},
+				Scopes: []string{
+					"activity",
+					"heartrate",
+					"profile",
+					"sleep",
+					"weight",
+				},
 			},
 		},
 		Extracts: []*rpc.InstallResponse_Extract{
@@ -51,11 +55,15 @@ func (s *server) Install(ctx context.Context, req *rpc.InstallRequest) (*rpc.Ins
 
 func (s *server) Extract(ctx context.Context, req *rpc.ExtractRequest) (*rpc.ExtractResponse, error) {
 	reqHash, err := getReqHash(ctx)
+
+	// pass fitbit object to server
+	client := NewFitbitClient(req.Oauth)
+
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := s.client.GetTodaySteps(ctx)
+	data, err := client.GetTodaySteps(ctx)
 	if err != nil {
 		return nil, err
 	}

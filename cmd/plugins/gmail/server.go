@@ -15,16 +15,20 @@ import (
 
 type server struct {
 	pb.UnimplementedDataQPluginServer
-	service *gmail.Service
+	p *GmailPlugin
+	// service *gmail.Service
 }
 
 func NewServer(p *GmailPlugin) *server {
-	srv, err := p.getClient(context.Background())
-	if err != nil {
-		log.Fatalf("Error creating Gmail client: %v", err)
-	}
+	// srv, err := p.getClient(context.Background())
+	// if err != nil {
+	// 	log.Fatalf("Error creating Gmail client: %v", err)
+	// }
 
-	return &server{service: srv}
+	return &server{
+		/*service: srv,*/
+		p: p,
+	}
 }
 
 // getReqHash extracts the request hash from the context
@@ -74,7 +78,11 @@ func (s *server) Transform(ctx context.Context, req *pb.TransformRequest) (*pb.T
 }
 
 func (s *server) handlePageExtract(_ context.Context, req *pb.ExtractRequest, reqHash string) (*pb.ExtractResponse, error) {
-	gmailReq := s.service.Users.Messages.List("me").MaxResults(100)
+	srv, err := s.p.getClient(context.Background(), req.Oauth)
+	if err != nil {
+		log.Fatalf("Error creating Gmail client: %v", err)
+	}
+	gmailReq := srv.Users.Messages.List("me").MaxResults(100)
 
 	if req.Kind == "next_page" {
 		pageToken, ok := req.Metadata["next_page_token"]
@@ -117,7 +125,12 @@ func (s *server) handleMessageExtract(_ context.Context, req *pb.ExtractRequest,
 		return nil, fmt.Errorf("get_message request requires message_id in metadata")
 	}
 
-	msg, err := s.service.Users.Messages.Get("me", messageID).Do()
+	srv, err := s.p.getClient(context.Background(), req.Oauth)
+	if err != nil {
+		log.Fatalf("Error creating Gmail client: %v", err)
+	}
+
+	msg, err := srv.Users.Messages.Get("me", messageID).Do()
 	if err != nil {
 		return nil, fmt.Errorf("error getting message: %v", err)
 	}

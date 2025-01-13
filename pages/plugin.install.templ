@@ -6,14 +6,16 @@ import (
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
+	"net/http"
 	"strings"
 )
 
 type PluginInstallData struct {
 	install  *rpc.InstallResponse
 	cfg      *config.Plugin
-	plugins  []string
+	plugins  []*config.Plugin
 	selected string
 }
 
@@ -21,10 +23,7 @@ func PluginInstallGET(c echo.Context) (PluginInstallData, error) {
 	b := middleware.GetBoot(c)
 	data := PluginInstallData{}
 	pluginID := c.QueryParam("plugin")
-
-	for _, plugin := range b.Config.Plugins {
-		data.plugins = append(data.plugins, plugin.ID)
-	}
+	data.plugins = b.Config.Plugins
 
 	if pluginID != "" {
 		for _, plugin := range b.Config.Plugins {
@@ -49,6 +48,65 @@ func PluginInstallGET(c echo.Context) (PluginInstallData, error) {
 	return data, nil
 }
 
+func PluginInstallPOST(c echo.Context) error {
+	b := middleware.GetBoot(c)
+
+	var form struct {
+		AuthURL      string `form:"auth_url"`
+		TokenURL     string `form:"token_url"`
+		Scopes       string `form:"scopes"`
+		PluginID     string `form:"plugin_id"`
+		ClientID     string `form:"client_id"`
+		ClientSecret string `form:"client_secret"`
+	}
+
+	if err := c.Bind(&form); err != nil {
+		return fmt.Errorf("failed to bind form: %v", err)
+	}
+
+	client, ok := b.Plugins.Clients[form.PluginID]
+	if !ok {
+		return fmt.Errorf("plugin not found: %s", form.PluginID)
+	}
+
+	install, err := client.Install(c.Request().Context(), &rpc.InstallRequest{PluginId: form.PluginID})
+	if err != nil {
+		return fmt.Errorf("failed to install plugin: %w", err)
+	}
+
+	config := make(map[string]string)
+	for _, configField := range install.Configs {
+		val := c.FormValue(configField.Key)
+		config[configField.Key] = val
+	}
+
+	pluginInstance := schema.PluginInstance{
+		PluginID:        form.PluginID,
+		Label:           form.PluginID,
+		Config:          config,
+		InstallResponse: install,
+		Oauth: &rpc.OAuth2{
+			Config: &rpc.OAuth2_Config{
+				Scopes:       strings.Split(form.Scopes, ","),
+				ClientId:     form.ClientID,
+				ClientSecret: form.ClientSecret,
+
+				Endpoint: &rpc.OAuth2_Endpoint{
+					AuthUrl:  form.AuthURL,
+					TokenUrl: form.TokenURL,
+				},
+			},
+		},
+	}
+
+	permanodeHash, err := b.Index.CreatePermanode(c.Request().Context(), &pluginInstance)
+	if err != nil {
+		return fmt.Errorf("failed to create permanode: %v", err)
+	}
+
+	return c.Redirect(http.StatusFound, "/plugin/"+permanodeHash+"/oauth/begin")
+}
+
 templ PluginInstall(data PluginInstallData) {
 	@ui.Layout() {
 		<div class="space-y-3">
@@ -61,7 +119,7 @@ templ PluginInstall(data PluginInstallData) {
 				<select name="plugin" class="input">
 					<option value="">Select Plugin</option>
 					for _, plugin := range data.plugins {
-						<option value={ plugin } selected?={ plugin == data.selected }>{ plugin }</option>
+						<option value={ plugin.ID } selected?={ plugin.ID == data.selected } disabled?={ !plugin.Enabled }>{ plugin.ID }</option>
 					}
 				</select>
 			</form>
@@ -80,10 +138,10 @@ templ PluginInstall(data PluginInstallData) {
 							/>
 						</div>
 					}
-					if data.install.OauthConfig != nil {
-						<input type="hidden" name="auth_url" value={ data.install.OauthConfig.AuthUrl }/>
-						<input type="hidden" name="token_url" value={ data.install.OauthConfig.TokenUrl }/>
-						<input type="hidden" name="scopes" value={ strings.Join(data.install.OauthConfig.Scopes, ",") }/>
+					if data.install.Oauth.Config != nil {
+						<input type="hidden" name="auth_url" value={ data.install.Oauth.Config.Endpoint.AuthUrl }/>
+						<input type="hidden" name="token_url" value={ data.install.Oauth.Config.Endpoint.TokenUrl }/>
+						<input type="hidden" name="scopes" value={ strings.Join(data.install.Oauth.Config.Scopes, ",") }/>
 						<label class="block" for="client_id">Client ID</label>
 						<input class="input mb-3" type="text" name="client_id"/>
 						<label class="block" for="client_secret">Client Secret</label>

@@ -14,14 +14,16 @@ import (
 	"go.quinn.io/dataq/config"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
+	"go.quinn.io/dataq/schema"
 	"go.quinn.io/dataq/ui"
+	"net/http"
 	"strings"
 )
 
 type PluginInstallData struct {
 	install  *rpc.InstallResponse
 	cfg      *config.Plugin
-	plugins  []string
+	plugins  []*config.Plugin
 	selected string
 }
 
@@ -29,10 +31,7 @@ func PluginInstallGET(c echo.Context) (PluginInstallData, error) {
 	b := middleware.GetBoot(c)
 	data := PluginInstallData{}
 	pluginID := c.QueryParam("plugin")
-
-	for _, plugin := range b.Config.Plugins {
-		data.plugins = append(data.plugins, plugin.ID)
-	}
+	data.plugins = b.Config.Plugins
 
 	if pluginID != "" {
 		for _, plugin := range b.Config.Plugins {
@@ -55,6 +54,65 @@ func PluginInstallGET(c echo.Context) (PluginInstallData, error) {
 	}
 
 	return data, nil
+}
+
+func PluginInstallPOST(c echo.Context) error {
+	b := middleware.GetBoot(c)
+
+	var form struct {
+		AuthURL      string `form:"auth_url"`
+		TokenURL     string `form:"token_url"`
+		Scopes       string `form:"scopes"`
+		PluginID     string `form:"plugin_id"`
+		ClientID     string `form:"client_id"`
+		ClientSecret string `form:"client_secret"`
+	}
+
+	if err := c.Bind(&form); err != nil {
+		return fmt.Errorf("failed to bind form: %v", err)
+	}
+
+	client, ok := b.Plugins.Clients[form.PluginID]
+	if !ok {
+		return fmt.Errorf("plugin not found: %s", form.PluginID)
+	}
+
+	install, err := client.Install(c.Request().Context(), &rpc.InstallRequest{PluginId: form.PluginID})
+	if err != nil {
+		return fmt.Errorf("failed to install plugin: %w", err)
+	}
+
+	config := make(map[string]string)
+	for _, configField := range install.Configs {
+		val := c.FormValue(configField.Key)
+		config[configField.Key] = val
+	}
+
+	pluginInstance := schema.PluginInstance{
+		PluginID:        form.PluginID,
+		Label:           form.PluginID,
+		Config:          config,
+		InstallResponse: install,
+		Oauth: &rpc.OAuth2{
+			Config: &rpc.OAuth2_Config{
+				Scopes:       strings.Split(form.Scopes, ","),
+				ClientId:     form.ClientID,
+				ClientSecret: form.ClientSecret,
+
+				Endpoint: &rpc.OAuth2_Endpoint{
+					AuthUrl:  form.AuthURL,
+					TokenUrl: form.TokenURL,
+				},
+			},
+		},
+	}
+
+	permanodeHash, err := b.Index.CreatePermanode(c.Request().Context(), &pluginInstance)
+	if err != nil {
+		return fmt.Errorf("failed to create permanode: %v", err)
+	}
+
+	return c.Redirect(http.StatusFound, "/plugin/"+permanodeHash+"/oauth/begin")
 }
 
 func PluginInstall(data PluginInstallData) templ.Component {
@@ -109,9 +167,9 @@ func PluginInstall(data PluginInstallData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin)
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 64, Col: 28}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 122, Col: 31}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -121,153 +179,159 @@ func PluginInstall(data PluginInstallData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if plugin == data.selected {
+				if plugin.ID == data.selected {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, ">")
+				if !plugin.Enabled {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " disabled")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, ">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var5 string
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(plugin)
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 64, Col: 77}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 122, Col: 116}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</option>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</option>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</select></form><hr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</select></form><hr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.cfg != nil {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"font-bold\">Config</div><form method=\"post\"><input type=\"hidden\" name=\"plugin_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div class=\"font-bold\">Config</div><form method=\"post\"><input type=\"hidden\" name=\"plugin_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.selected)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 72, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 130, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, config := range data.install.Configs {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"space-y-1\"><label for=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"space-y-1\"><label for=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(config.Key)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 75, Col: 30}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 133, Col: 30}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var8 string
 					templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(config.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 75, Col: 47}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 133, Col: 47}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</label> <input class=\"input\" type=\"text\" name=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</label> <input class=\"input\" type=\"text\" name=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(config.Key)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 79, Col: 25}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 137, Col: 25}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				if data.install.OauthConfig != nil {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<input type=\"hidden\" name=\"auth_url\" value=\"")
+				if data.install.Oauth.Config != nil {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<input type=\"hidden\" name=\"auth_url\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var10 string
-					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(data.install.OauthConfig.AuthUrl)
+					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(data.install.Oauth.Config.Endpoint.AuthUrl)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 84, Col: 83}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 142, Col: 93}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"> <input type=\"hidden\" name=\"token_url\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"> <input type=\"hidden\" name=\"token_url\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var11 string
-					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(data.install.OauthConfig.TokenUrl)
+					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(data.install.Oauth.Config.Endpoint.TokenUrl)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 85, Col: 85}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 143, Col: 95}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"> <input type=\"hidden\" name=\"scopes\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"> <input type=\"hidden\" name=\"scopes\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var12 string
-					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(data.install.OauthConfig.Scopes, ","))
+					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(data.install.Oauth.Config.Scopes, ","))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 86, Col: 99}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.install.templ`, Line: 144, Col: 100}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"> <label class=\"block\" for=\"client_id\">Client ID</label> <input class=\"input mb-3\" type=\"text\" name=\"client_id\"> <label class=\"block\" for=\"client_secret\">Client Secret</label> <input class=\"input mb-3\" type=\"text\" name=\"client_secret\"> <button class=\"underline block\" type=\"submit\">Install & Connect Oauth</button>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\"> <label class=\"block\" for=\"client_id\">Client ID</label> <input class=\"input mb-3\" type=\"text\" name=\"client_id\"> <label class=\"block\" for=\"client_secret\">Client Secret</label> <input class=\"input mb-3\" type=\"text\" name=\"client_secret\"> <button class=\"underline block\" type=\"submit\">Install & Connect Oauth</button>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<button class=\"underline block\" type=\"submit\">Install</button>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<button class=\"underline block\" type=\"submit\">Install</button>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

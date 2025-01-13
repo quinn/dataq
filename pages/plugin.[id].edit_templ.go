@@ -73,8 +73,8 @@ func PluginIdEditPOST(c echo.Context, id string) error {
 			return fmt.Errorf("failed to bind form: %w", err)
 		}
 
-		plugin.OauthConfig.ClientID = form.ClientID
-		plugin.OauthConfig.ClientSecret = form.ClientSecret
+		plugin.Oauth.Config.ClientId = form.ClientID
+		plugin.Oauth.Config.ClientSecret = form.ClientSecret
 	}
 
 	if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &plugin); err != nil {
@@ -131,9 +131,9 @@ func PluginIdEdit(data PluginIdEditData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.OauthConfig.ClientID)
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.Oauth.Config.ClientId)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 89, Col: 90}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 89, Col: 91}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -144,9 +144,9 @@ func PluginIdEdit(data PluginIdEditData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.OauthConfig.ClientSecret)
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(plugin.Oauth.Config.ClientSecret)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 94, Col: 98}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].edit.templ`, Line: 94, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {

@@ -11,6 +11,7 @@ import (
 
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/index"
+	"go.quinn.io/dataq/internal/repo"
 	"go.quinn.io/dataq/rpc"
 )
 
@@ -19,14 +20,16 @@ type DataQClient struct {
 	client rpc.DataQPluginClient
 	index  *index.Index
 	cas    cas.Storage
+	repo   *repo.Repo
 }
 
 // NewDataQClient creates a new DataQClient with index-based request hash handling
-func NewDataQClient(conn *grpc.ClientConn, idx *index.Index, cas cas.Storage) *DataQClient {
+func NewDataQClient(conn *grpc.ClientConn, idx *index.Index, cas cas.Storage, repo *repo.Repo) *DataQClient {
 	return &DataQClient{
 		client: rpc.NewDataQPluginClient(conn),
 		index:  idx,
 		cas:    cas,
+		repo:   repo,
 	}
 }
 
@@ -40,7 +43,8 @@ func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts
 	// Store the request in the index to get a hash
 	// TODO: typically, the extract is called by a request that has already been stored.
 	// this may not be necessary
-	hash, err := c.index.Store(ctx, req)
+
+	hash, err := c.repo.StoreExtractRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +159,7 @@ func (c *DataQClient) Transform(ctx context.Context, req *rpc.TransformRequest, 
 		}
 
 		// Store the extract request
-		if _, err := c.index.Store(ctx, extractReq); err != nil {
+		if _, err := c.repo.StoreExtractRequest(ctx, extractReq); err != nil {
 			return nil, fmt.Errorf("failed to store extract request: %w", err)
 		}
 	}

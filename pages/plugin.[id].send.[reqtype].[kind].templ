@@ -57,15 +57,16 @@ func PluginIdSendReqtypeKindPOST(c echo.Context, id, reqtype, kind string) error
 		config[field.Key] = c.FormValue(field.Key)
 	}
 
-	client, ok := b.Plugins.Clients[id]
+	client, ok := b.Plugins.Clients[data.plugin.PluginID]
 	if !ok {
-		return fmt.Errorf("plugin not found: %s", id)
+		return fmt.Errorf("plugin not found: %s", data.plugin.PluginID)
 	}
 
 	_, err = client.Extract(c.Request().Context(), &rpc.ExtractRequest{
 		PluginId: id,
 		Kind:     kind,
 		Metadata: config,
+		Oauth:    data.plugin.Oauth,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to send extract request: %w", err)
