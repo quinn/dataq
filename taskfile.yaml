@@ -137,6 +137,7 @@ tasks:
     cmds:
       - defer: { task: kill }
       - defer: { task: gen-templ }
+      - task: build-plugins
       - |
         task -p \
           live:templ \
