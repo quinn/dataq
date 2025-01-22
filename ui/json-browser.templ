@@ -20,7 +20,7 @@ templ JsonBrowser(data any) {
 				@templ.JSONScript(uuid.NewString(), data)
 			}
 		</div>
-		<div role="json-viewer"></div>
+		<div role="json-viewer" class="p-1 rounded bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"></div>
 		<script>
 			{
 				const jsonViewer = me('[role="json-viewer"]', me())
@@ -31,7 +31,31 @@ templ JsonBrowser(data any) {
 					: JSON.parse(script.textContent)
 
 				const data = JSON.parse(jsonData)
-				new JsonViewer({ value: data, theme: 'auto' }).render(jsonViewer)
+
+				if (!window.renderJson) {
+					document.addEventListener('renderJsonReady', () => {
+						jsonViewer.appendChild(window.renderJson(data))
+					})
+				} else {
+					jsonViewer.appendChild(window.renderJson(data))
+				}
+				// new JsonViewer({ 
+				// 	value: data, 
+				// 	theme: 'auto',
+				// 	valueTypes: [
+				// 		JsonViewer.Utils.defineDataType({
+				// 			is: function(value, path) {
+				// 				// check for string
+				// 				if (typeof value === 'string') {
+				// 					if (value.startsWith('sha224-')) {
+				// 						return true;
+				// 					}
+				// 				}
+				// 			}
+				// 			// Component:
+				// 		})
+				// 	]
+				// }).render(jsonViewer)
 			}
 		</script>
 	</div>

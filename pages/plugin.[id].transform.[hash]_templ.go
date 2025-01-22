@@ -11,6 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/htmx"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
@@ -24,25 +25,24 @@ type PluginIdTransformHashData struct {
 }
 
 func PluginIdTransformHashGET(c echo.Context, id, hash string) (PluginIdTransformHashData, error) {
+	ctx := c.Request().Context()
 	var data PluginIdTransformHashData
 	b := middleware.GetBoot(c)
 
 	var req rpc.TransformRequest
-	sel := b.Index.Q.Where("hash = ?", hash)
-	if err := b.Index.Get(c.Request().Context(), &req, sel); err != nil {
+	if err := b.Repo.GetContent(ctx, hash, &req); err != nil {
 		return data, fmt.Errorf("transform request not found: %w", err)
 	}
 
-	sel = b.Index.Q.Where("request_hash = ?", hash)
-	claims, err := b.Index.Query(c.Request().Context(), sel)
+	sel := b.Index.Q.Where("request_hash = ?", hash)
+	claims, err := b.Index.Query(ctx, sel)
 	if err != nil {
 		return data, fmt.Errorf("failed to query response claims: %w", err)
 	}
 
 	for _, claim := range claims {
 		var r rpc.TransformResponse
-		sel := b.Index.Q.Where("hash = ?", claim.ContentHash)
-		if err := b.Index.Get(c.Request().Context(), &r, sel); err != nil {
+		if err := b.Repo.GetContent(ctx, claim.ContentHash, &r); err != nil {
 			return data, fmt.Errorf("transform response not found (%s): %w", claim.ContentHash, err)
 		}
 		data.res = append(data.res, &r)
@@ -52,6 +52,32 @@ func PluginIdTransformHashGET(c echo.Context, id, hash string) (PluginIdTransfor
 	data.hash = hash
 	data.id = id
 	return data, nil
+}
+
+func PluginIdTransformHashPOST(c echo.Context, id, hash string) error {
+	ctx := c.Request().Context()
+	b := middleware.GetBoot(c)
+
+	in, err := b.Repo.GetPluginInstance(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get plugin instance: %w", err)
+	}
+
+	plugin, ok := b.Plugins.Clients[in.PluginID]
+	if !ok {
+		return fmt.Errorf("plugin not found: %s", id)
+	}
+
+	var req rpc.TransformRequest
+	if err := b.Repo.GetContent(ctx, hash, &req); err != nil {
+		return fmt.Errorf("error getting request from index: %w", err)
+	}
+
+	if _, err := plugin.Transform(ctx, &req); err != nil {
+		return fmt.Errorf("error transforming: %w", err)
+	}
+
+	return htmx.Refresh(c)
 }
 
 func PluginIdTransformHash(data PluginIdTransformHashData) templ.Component {
@@ -113,20 +139,7 @@ func PluginIdTransformHash(data PluginIdTransformHashData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</ul><hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-post=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(middleware.Reverse(ctx, "plugin.transform.send", data.id, data.hash))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].transform.[hash].templ`, Line: 66, Col: 91}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" class=\"underline\">Send</button></li></ul></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</ul><hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><form method=\"post\" class=\"inline\" hx-boost=\"true\"><button type=\"submit\" class=\"underline\">Send</button></form></li></ul></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -1,6 +1,9 @@
 package ui
 
-import "go.quinn.io/ccf/assets"
+import (
+	"go.quinn.io/ccf/assets"
+	"go.quinn.io/dataq/internal/middleware"
+)
 
 templ Layout() {
 	<!DOCTYPE html>
@@ -10,7 +13,15 @@ templ Layout() {
 			<title>DataQ</title>
 			<script src="https://unpkg.com/htmx.org@1.9.11" integrity="sha384-0gxUXCCR8yv9FM2b+U3FDbsKthCI66oH5IA9fHppQq9DDMHuMauqq1ZHBpJxQ0J0" crossorigin="anonymous"></script>
 			<script src="https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js"></script>
-			<script src="https://cdn.jsdelivr.net/npm/@textea/json-viewer@3"></script>
+			// <script src="https://cdn.jsdelivr.net/npm/@textea/json-viewer@3"></script>
+			<script type="module" id="json-browser-loader">
+				import { renderJson } from 'https://esm.sh/jsr/@quinn/json-browser@0.1.3'
+				renderJson.setMaxStringLength(80)
+				renderJson.setShowToLevel(9)
+				window.renderJson = renderJson
+				let classes = "renderjson disclosure syntax string number boolean key keyword object array"
+				document.dispatchEvent(new Event('renderJsonReady'))
+			</script>
 			<script src={ assets.Path("toast.js") } defer></script>
 			<link rel="stylesheet" href={ assets.Path("styles.css") }/>
 		</head>
@@ -21,6 +32,15 @@ templ Layout() {
 					<a href="/plugin/install" class="underline">install plugin</a>
 				</nav>
 			</div>
+			<div class="p-3">
+				for i, crumb := range middleware.GetBreadcrumbs(ctx) {
+					if i != 0 {
+						&nbsp;<span class="text-slate-500">></span>
+					}
+					<a href={ templ.SafeURL(crumb.URL) }>{ crumb.Name }</a>
+				}
+			</div>
+			<hr class="mx-3"/>
 			<div class="p-3">
 				{ children... }
 			</div>

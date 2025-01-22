@@ -13,6 +13,7 @@ import (
 	"go.quinn.io/ccf/assets"
 	"go.quinn.io/dataq/boot"
 	"go.quinn.io/dataq/internal/middleware"
+	middlewareerrors "go.quinn.io/dataq/internal/middleware/errors"
 	"go.quinn.io/dataq/internal/router"
 )
 
@@ -43,7 +44,8 @@ func NewServer(b *boot.Boot) *Server {
 	e.Debug = true
 	e.Use(middleware.BootContext(b))
 	e.Use(middleware.EchoContext(e))
-	e.HTTPErrorHandler = middleware.HTTPErrorHandler
+	e.Use(middleware.Breadcrumbs)
+	e.HTTPErrorHandler = middlewareerrors.HTTPErrorHandler
 	addRoutes(e)
 
 	return &Server{e: e, b: b}

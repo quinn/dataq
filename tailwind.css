@@ -10,4 +10,38 @@
   .card {
     @apply border border-slate-300 rounded-md dark:bg-slate-900 dark:border-slate-600;
   }
+
+  hr {
+    @apply border-slate-300 dark:border-slate-700;
+  }
+
+  .renderjson {
+    .disclosure {
+      @apply text-red-600 dark:text-red-400;
+    }
+    .syntax {
+      @apply text-gray-500 dark:text-gray-400;
+    }
+    .string {
+      @apply text-red-800 dark:text-red-600;
+    }
+    .number {
+      @apply text-cyan-600 dark:text-cyan-400;
+    }
+    .boolean {
+      @apply text-violet-600 dark:text-violet-400;
+    }
+    .key {
+      @apply text-blue-900 dark:text-blue-600;
+    }
+    .keyword {
+      @apply text-blue-700 dark:text-blue-400;
+    }
+    .object.syntax {
+      @apply text-green-600 dark:text-green-400;
+    }
+    .array.syntax {
+      @apply text-orange-400 dark:text-orange-300;
+    }
+  }
 }

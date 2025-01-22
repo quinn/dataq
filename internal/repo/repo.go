@@ -59,3 +59,18 @@ func (r *Repo) StoreExtractRequest(ctx context.Context, fullReq *rpc.ExtractRequ
 
 	return hash, nil
 }
+
+func (r *Repo) GetPluginInstance(ctx context.Context, hash string) (*schema.PluginInstance, error) {
+	plugin := new(schema.PluginInstance)
+	err := r.index.GetPermanode(ctx, hash, plugin)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get plugin: %w", err)
+	}
+
+	return plugin, nil
+}
+
+func (r *Repo) GetContent(ctx context.Context, hash string, result index.Indexable) error {
+	sel := r.index.Q.Where("content_hash = ?", hash)
+	return r.index.Get(ctx, result, sel)
+}

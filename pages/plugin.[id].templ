@@ -10,6 +10,7 @@ import (
 )
 
 type PluginIdData struct {
+	id         string
 	cfg        *config.Plugin
 	plugin     *schema.PluginInstance
 	extracts   []schema.Claim
@@ -20,10 +21,10 @@ func PluginIdGET(c echo.Context, id string) (PluginIdData, error) {
 	b := middleware.GetBoot(c)
 
 	var data PluginIdData
+	var err error
 
-	data.plugin = new(schema.PluginInstance)
-	err := b.Index.GetPermanode(c.Request().Context(), id, data.plugin)
-	if err != nil {
+	data.id = id
+	if data.plugin, err = b.Repo.GetPluginInstance(c.Request().Context(), id); err != nil {
 		return data, fmt.Errorf("failed to get plugin: %w", err)
 	}
 
@@ -87,7 +88,7 @@ templ PluginId(data PluginIdData) {
 		<ul class="list-disc list-inside mb-3">
 			for _, extract := range data.extracts {
 				<li class="list-item">
-					<a href={ templ.URL("/plugin/" + data.cfg.ID + "/extract/" + extract.ContentHash) } class="underline">
+					<a href={ templ.URL("/plugin/" + data.id + "/extract/" + extract.ContentHash) } class="underline">
 						{ extract.Metadata["kind"].(string) }
 					</a>
 					<span>- </span>
@@ -102,7 +103,7 @@ templ PluginId(data PluginIdData) {
 		<ul class="list-disc list-inside mb-3">
 			for _, transform := range data.transforms {
 				<li class="list-item">
-					<a href={ templ.URL("/plugin/" + data.cfg.ID + "/transform/" + transform.ContentHash) } class="underline">
+					<a href={ templ.URL("/plugin/" + data.id + "/transform/" + transform.ContentHash) } class="underline">
 						{ transform.Metadata["kind"].(string) }
 					</a>
 					<span>- </span>
@@ -111,15 +112,6 @@ templ PluginId(data PluginIdData) {
 					</a>
 				</li>
 			}
-		</ul>
-		<hr class="mb-3"/>
-		<h2 class="font-bold mb-3">Actions</h2>
-		<ul class="list-disc list-inside">
-			<li class="list-item">
-				<button hx-post={ "/plugin/" + data.cfg.ID + "/extract/initial" } class="underline cursor-pointer">
-					Send Initial Event
-				</button>
-			</li>
 		</ul>
 	}
 }
