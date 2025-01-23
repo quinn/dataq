@@ -799,14 +799,18 @@ hr {
   border-color: rgb(226 232 240 / var(--tw-border-opacity, 1));
 }
 
+.bg-slate-100 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(241 245 249 / var(--tw-bg-opacity, 1));
+}
+
 .bg-slate-400 {
   --tw-bg-opacity: 1;
   background-color: rgb(148 163 184 / var(--tw-bg-opacity, 1));
 }
 
-.bg-slate-100 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(241 245 249 / var(--tw-bg-opacity, 1));
+.p-1 {
+  padding: 0.25rem;
 }
 
 .p-3 {
@@ -815,10 +819,6 @@ hr {
 
 .p-6 {
   padding: 1.5rem;
-}
-
-.p-1 {
-  padding: 0.25rem;
 }
 
 .font-mono {
@@ -844,11 +844,6 @@ hr {
 }
 
 @media (prefers-color-scheme: dark) {
-  .dark\:border-slate-700 {
-    --tw-border-opacity: 1;
-    border-color: rgb(51 65 85 / var(--tw-border-opacity, 1));
-  }
-
   .dark\:border-slate-800 {
     --tw-border-opacity: 1;
     border-color: rgb(30 41 59 / var(--tw-border-opacity, 1));
@@ -857,11 +852,6 @@ hr {
   .dark\:bg-black {
     --tw-bg-opacity: 1;
     background-color: rgb(0 0 0 / var(--tw-bg-opacity, 1));
-  }
-
-  .dark\:bg-slate-800 {
-    --tw-bg-opacity: 1;
-    background-color: rgb(30 41 59 / var(--tw-bg-opacity, 1));
   }
 
   .dark\:bg-slate-950 {
