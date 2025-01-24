@@ -18,8 +18,23 @@ templ Layout() {
 				import { renderJson } from 'https://esm.sh/jsr/@quinn/json-browser@0.1.3'
 				renderJson.setMaxStringLength(80)
 				renderJson.setShowToLevel(9)
-				window.renderJson = renderJson
+
+				renderJson.setReplacer((key, value) => {
+					if (typeof value === 'string' && value.startsWith('sha224-')) {
+						const anchor = document.createElement('a');
+						anchor.href = `/content/${value}`;
+						anchor.textContent = value;
+						anchor.className = 'underline text-blue-600 hover:text-blue-800';
+						return anchor;
+					}
+					return value
+				})
+
+				// tailwind hack
 				let classes = "renderjson disclosure syntax string number boolean key keyword object array"
+
+				// for surreal
+				window.renderJson = renderJson
 				document.dispatchEvent(new Event('renderJsonReady'))
 			</script>
 			<script src={ assets.Path("toast.js") } defer></script>

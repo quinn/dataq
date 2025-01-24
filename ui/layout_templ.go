@@ -34,14 +34,14 @@ func Layout() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\" class=\"h-full\"><head><meta charset=\"UTF-8\"><title>DataQ</title><script src=\"https://unpkg.com/htmx.org@1.9.11\" integrity=\"sha384-0gxUXCCR8yv9FM2b+U3FDbsKthCI66oH5IA9fHppQq9DDMHuMauqq1ZHBpJxQ0J0\" crossorigin=\"anonymous\"></script><script src=\"https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js\"></script><script type=\"module\" id=\"json-browser-loader\">\n\t\t\t\timport { renderJson } from 'https://esm.sh/jsr/@quinn/json-browser@0.1.3'\n\t\t\t\trenderJson.setMaxStringLength(80)\n\t\t\t\trenderJson.setShowToLevel(9)\n\t\t\t\twindow.renderJson = renderJson\n\t\t\t\tlet classes = \"renderjson disclosure syntax string number boolean key keyword object array\"\n\t\t\t\tdocument.dispatchEvent(new Event('renderJsonReady'))\n\t\t\t</script><script src=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\" class=\"h-full\"><head><meta charset=\"UTF-8\"><title>DataQ</title><script src=\"https://unpkg.com/htmx.org@1.9.11\" integrity=\"sha384-0gxUXCCR8yv9FM2b+U3FDbsKthCI66oH5IA9fHppQq9DDMHuMauqq1ZHBpJxQ0J0\" crossorigin=\"anonymous\"></script><script src=\"https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js\"></script><script type=\"module\" id=\"json-browser-loader\">\n\t\t\t\timport { renderJson } from 'https://esm.sh/jsr/@quinn/json-browser@0.1.3'\n\t\t\t\trenderJson.setMaxStringLength(80)\n\t\t\t\trenderJson.setShowToLevel(9)\n\n\t\t\t\trenderJson.setReplacer((key, value) => {\n\t\t\t\t\tif (typeof value === 'string' && value.startsWith('sha224-')) {\n\t\t\t\t\t\tconst anchor = document.createElement('a');\n\t\t\t\t\t\tanchor.href = `/content/${value}`;\n\t\t\t\t\t\tanchor.textContent = value;\n\t\t\t\t\t\tanchor.className = 'underline text-blue-600 hover:text-blue-800';\n\t\t\t\t\t\treturn anchor;\n\t\t\t\t\t}\n\t\t\t\t\treturn value\n\t\t\t\t})\n\n\t\t\t\t// tailwind hack\n\t\t\t\tlet classes = \"renderjson disclosure syntax string number boolean key keyword object array\"\n\n\t\t\t\t// for surreal\n\t\t\t\twindow.renderJson = renderJson\n\t\t\t\tdocument.dispatchEvent(new Event('renderJsonReady'))\n\t\t\t</script><script src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(assets.Path("toast.js"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/layout.templ`, Line: 25, Col: 40}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/layout.templ`, Line: 40, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -54,7 +54,7 @@ func Layout() templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(assets.Path("styles.css"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/layout.templ`, Line: 26, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/layout.templ`, Line: 41, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -87,7 +87,7 @@ func Layout() templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(crumb.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/layout.templ`, Line: 40, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `ui/layout.templ`, Line: 55, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {

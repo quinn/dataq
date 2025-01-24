@@ -199,6 +199,10 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			content = &rpc.ExtractResponse{}
 		case "PluginInstance":
 			content = &schema.PluginInstance{}
+		case "TransformRequest":
+			content = &rpc.TransformRequest{}
+		case "TransformResponse":
+			content = &rpc.TransformResponse{}
 		default:
 			return fmt.Errorf("unknown schema kind: %s", claim.SchemaKind)
 		}

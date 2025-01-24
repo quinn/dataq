@@ -2,7 +2,9 @@ package pages
 
 import (
 	"encoding/base64"
+	"fmt"
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/ui"
 	"io"
@@ -13,6 +15,7 @@ type ContentHashData struct {
 	hash        string
 	contentType string
 	content     any
+	rels        []index.Rel
 }
 
 func ContentHashGET(c echo.Context, hash string) (ContentHashData, error) {
@@ -43,6 +46,11 @@ func ContentHashGET(c echo.Context, hash string) (ContentHashData, error) {
 		data.content = "data:" + data.contentType + ";base64," + base64.StdEncoding.EncodeToString(bytes)
 	}
 
+	data.rels, err = b.Index.GetRels(c.Request().Context(), hash)
+	if err != nil {
+		return ContentHashData{}, fmt.Errorf("failed to get rels: %w", err)
+	}
+
 	return data, nil
 }
 
@@ -61,6 +69,15 @@ templ ContentHash(data ContentHashData) {
 			} else {
 				<img src={ data.content.(string) }/>
 			}
+			<hr/>
+			<div class="font-bold">Links</div>
+			<ul class="list-disc list-inside">
+				for _, rel := range data.rels {
+					<li class="list-item">
+						<a href={ templ.URL("/content/" + rel.Hash) }>{ rel.Type }</a>
+					</li>
+				}
+			</ul>
 			<hr/>
 			<div class="font-bold">Actions</div>
 			<ul class="list-disc list-inside">

@@ -32,12 +32,15 @@ templ JsonBrowser(data any) {
 
 				const data = JSON.parse(jsonData)
 
-				if (!window.renderJson) {
-					document.addEventListener('renderJsonReady', () => {
-						jsonViewer.appendChild(window.renderJson(data))
-					})
-				} else {
+				// not sure how scoping works for function kword
+				const init = () => {
 					jsonViewer.appendChild(window.renderJson(data))
+				}
+
+				if (!window.renderJson) {
+					document.addEventListener('renderJsonReady', init)
+				} else {
+					init()
 				}
 				// new JsonViewer({ 
 				// 	value: data, 

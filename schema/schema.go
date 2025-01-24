@@ -31,24 +31,35 @@ func (p *PluginInstance) SchemaKind() string {
 
 // Combined object for all types of claims
 type Claim struct {
-	Type          string    `json:"dataq_type"`
-	SchemaKind    string    `json:"schema_kind,omitempty"`
-	ContentHash   string    `json:"content_hash,omitempty"`
-	Nonce         string    `json:"nonce,omitempty"`
+	// Type is "content", "permanode", "permanode_version", "delete"
+	Type string `json:"dataq_type"`
+
+	// Specified struct type from rpc or schema package
+	// Used by content and permanode
+	SchemaKind string `json:"schema_kind,omitempty"`
+
+	// Used by permanode_version and content
+	ContentHash string `json:"content_hash,omitempty"`
+
+	// Used by permanode_version
 	PermanodeHash string    `json:"permanode_hash,omitempty"`
 	Timestamp     time.Time `json:"timestamp,omitzero"`
 
-	// Used for deleting
+	// Used by permanode
+	Nonce string `json:"nonce,omitempty"`
+
+	// Used by delete
 	DeleteHash string `json:"delete_hash,omitempty"`
 
 	// This applies to content from a plugin
 	// these values will be blank if permanode is managed by dataq
+	// these fields are not used yet
 	PluginID              string `json:"plugin_id,omitempty"`
 	PluginKey             string `json:"plugin_key,omitempty"`
 	TransformResponseHash string `json:"transform_response_hash,omitempty"`
 
-	// Not stored in CAS
-	// Used for returning search results
+	// Not stored in CAS, they are already stored in the referenced object
+	// Useful for using search results from the index without unmarshalling the claimed object
 	Metadata map[string]interface{} `json:"-"`
 }
 

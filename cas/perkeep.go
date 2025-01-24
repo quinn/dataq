@@ -5,11 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 
 	"perkeep.org/pkg/blob"
-	"perkeep.org/pkg/cacher"
 	"perkeep.org/pkg/client"
 	"perkeep.org/pkg/constants"
 )
@@ -69,13 +67,7 @@ func (p *Perkeep) Retrieve(ctx context.Context, hash string) (data io.ReadCloser
 		return nil, fmt.Errorf("failed to parse argument %q as a blobref", hash)
 	}
 
-	src, err := cacher.NewDiskCache(p.cl)
-	if err != nil {
-		log.Fatalf("Error setting up local disk cache: %v", err)
-	}
-	defer src.Clean()
-
-	rc, _, err := src.Fetch(ctx, br)
+	rc, _, err := p.cl.Fetch(ctx, br)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch %s: %s", br, err)
 	}
