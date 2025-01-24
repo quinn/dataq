@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"iter"
 	"log"
 	"strings"
 	"time"
@@ -55,7 +56,7 @@ func (i *Index) Store(ctx context.Context, data Indexable) (string, error) {
 		return "", err
 	}
 
-	err = i.index(*claim, data)
+	err = i.index(ctx, *claim, data)
 	return contentHash, err
 }
 
@@ -85,7 +86,7 @@ func (i *Index) UpdatePermanode(ctx context.Context, permanodeHash string, conte
 		return "", err
 	}
 
-	if err := i.index(*permanodeVersion, content); err != nil {
+	if err := i.index(ctx, *permanodeVersion, content); err != nil {
 		return "", err
 	}
 
@@ -98,7 +99,7 @@ func (i *Index) Delete(ctx context.Context, hash string) error {
 		return err
 	}
 
-	if err := i.index(*del, nil); err != nil {
+	if err := i.index(ctx, *del, nil); err != nil {
 		return err
 	}
 
@@ -165,7 +166,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			}
 			slog.Info("processing delete claim", "delete_hash", claim.DeleteHash)
 
-			if err := i.index(claim, nil); err != nil {
+			if err := i.index(ctx, claim, nil); err != nil {
 				return fmt.Errorf("failed to index data: %w", err)
 			}
 
@@ -207,7 +208,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			return fmt.Errorf("failed to unmarshal data: %w", err)
 		}
 
-		if err := i.index(claim, content); err != nil {
+		if err := i.index(ctx, claim, content); err != nil {
 			return fmt.Errorf("failed to index data: %w", err)
 		}
 	}
@@ -253,25 +254,51 @@ func (i *Index) Get(ctx context.Context, result Indexable, query sq.SelectBuilde
 	return i.unmarshalFromCAS(ctx, contentHash, result)
 }
 
+// IterateFields returns a sequence of field names for the index_data table.
+func (i *Index) IterateFields(ctx context.Context) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		rows, err := i.db.QueryContext(ctx, "PRAGMA table_info(index_data)")
+		if err != nil {
+			// For demonstration, we panic on error.
+			// In real code, you might want a different mechanism.
+			yield("", fmt.Errorf("failed to query table info: %w", err))
+			return
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var cid int
+			var name, type_ string
+			var notnull, pk int
+			var dflt_value interface{}
+
+			if err := rows.Scan(&cid, &name, &type_, &notnull, &dflt_value, &pk); err != nil {
+				yield("", err)
+				return
+			}
+
+			if !yield(name, nil) {
+				return
+			}
+		}
+
+		// Check for iteration error
+		if rowsErr := rows.Err(); rowsErr != nil {
+			yield("", rowsErr)
+			return
+		}
+	}
+}
+
 // Query executes a SQL query against the index and returns matching rows
 // The query should be a valid SQL WHERE clause
 func (i *Index) Query(ctx context.Context, query sq.SelectBuilder) ([]schema.Claim, error) {
-	// Get column names first
-	rows, err := i.db.Query("PRAGMA table_info(index_data)")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get table info: %w", err)
-	}
-	defer rows.Close()
-
 	var columns []string
-	for rows.Next() {
-		var cid int
-		var name, type_ string
-		var notnull, pk int
-		var dflt_value interface{}
-		if err := rows.Scan(&cid, &name, &type_, &notnull, &dflt_value, &pk); err != nil {
+	for name, err := range i.IterateFields(ctx) {
+		if err != nil {
 			return nil, err
 		}
+
 		columns = append(columns, name)
 	}
 
@@ -279,7 +306,7 @@ func (i *Index) Query(ctx context.Context, query sq.SelectBuilder) ([]schema.Cla
 	if len(columns) == 0 {
 		return nil, nil
 	}
-	rows, err = query.RunWith(i.db).Query()
+	rows, err := query.RunWith(i.db).Query()
 	if err != nil {
 		if strings.Contains(err.Error(), "no such column") {
 			return nil, nil
@@ -370,7 +397,7 @@ func (i *Index) unmarshalFromCAS(ctx context.Context, contentHash string, result
 	return nil
 }
 
-func (i *Index) index(claim schema.Claim, data Indexable) error {
+func (i *Index) index(ctx context.Context, claim schema.Claim, data Indexable) error {
 	var metadata map[string]interface{}
 	var schemaKind string
 
@@ -401,21 +428,12 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 	}
 
 	// Get existing columns
-	rows, err := i.db.Query("PRAGMA table_info(index_data)")
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
 	existingColumns := make(map[string]bool)
-	for rows.Next() {
-		var cid int
-		var name, type_ string
-		var notnull, pk int
-		var dflt_value interface{}
-		if err := rows.Scan(&cid, &name, &type_, &notnull, &dflt_value, &pk); err != nil {
+	for name, err := range i.IterateFields(ctx) {
+		if err != nil {
 			return err
 		}
+
 		existingColumns[name] = true
 	}
 
@@ -542,7 +560,7 @@ func (i *Index) index(claim schema.Claim, data Indexable) error {
 		}
 	}
 
-	_, err = insertBuilder.RunWith(i.db).Exec()
+	_, err := insertBuilder.RunWith(i.db).Exec()
 	return err
 }
 
