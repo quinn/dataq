@@ -19,26 +19,26 @@ import (
 	"net/http"
 )
 
-type ContentHashData struct {
+type BlobHashData struct {
 	hash        string
 	contentType string
 	content     any
 	rels        []index.Rel
 }
 
-func ContentHashGET(c echo.Context, hash string) (ContentHashData, error) {
+func BlobHashGET(c echo.Context, hash string) (BlobHashData, error) {
 	b := middleware.GetBoot(c)
 	r, err := b.CAS.Retrieve(c.Request().Context(), hash)
+	var data BlobHashData
+
 	if err != nil {
-		return ContentHashData{}, err
+		return data, err
 	}
 
 	bytes, err := io.ReadAll(r)
 	if err != nil {
-		return ContentHashData{}, err
+		return data, err
 	}
-
-	var data ContentHashData
 
 	data.contentType = http.DetectContentType(bytes)
 	data.hash = hash
@@ -56,13 +56,14 @@ func ContentHashGET(c echo.Context, hash string) (ContentHashData, error) {
 
 	data.rels, err = b.Index.GetRels(c.Request().Context(), hash)
 	if err != nil {
-		return ContentHashData{}, fmt.Errorf("failed to get rels: %w", err)
+		return data, fmt.Errorf("failed to get rels: %w", err)
 	}
 
 	return data, nil
 }
 
-func ContentHash(data ContentHashData) templ.Component {
+
+func BlobHash(data BlobHashData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -102,7 +103,7 @@ func ContentHash(data ContentHashData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.hash)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/content.[hash].templ`, Line: 60, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 60, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -115,7 +116,7 @@ func ContentHash(data ContentHashData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.contentType)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/content.[hash].templ`, Line: 62, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 62, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -138,7 +139,7 @@ func ContentHash(data ContentHashData) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.content.(string))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/content.[hash].templ`, Line: 68, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 68, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -156,7 +157,7 @@ func ContentHash(data ContentHashData) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.content.(string))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/content.[hash].templ`, Line: 70, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 70, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -188,7 +189,7 @@ func ContentHash(data ContentHashData) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(rel.Type)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/content.[hash].templ`, Line: 77, Col: 62}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 77, Col: 62}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -206,7 +207,7 @@ func ContentHash(data ContentHashData) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(middleware.Reverse(ctx, "content.delete", data.hash))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/content.[hash].templ`, Line: 85, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 85, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {

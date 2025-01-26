@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/htmx"
 	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/ui"
@@ -11,26 +12,26 @@ import (
 	"net/http"
 )
 
-type ContentHashData struct {
+type BlobHashData struct {
 	hash        string
 	contentType string
 	content     any
 	rels        []index.Rel
 }
 
-func ContentHashGET(c echo.Context, hash string) (ContentHashData, error) {
+func BlobHashGET(c echo.Context, hash string) (BlobHashData, error) {
 	b := middleware.GetBoot(c)
 	r, err := b.CAS.Retrieve(c.Request().Context(), hash)
+	var data BlobHashData
+
 	if err != nil {
-		return ContentHashData{}, err
+		return data, err
 	}
 
 	bytes, err := io.ReadAll(r)
 	if err != nil {
-		return ContentHashData{}, err
+		return data, err
 	}
-
-	var data ContentHashData
 
 	data.contentType = http.DetectContentType(bytes)
 	data.hash = hash
@@ -48,13 +49,22 @@ func ContentHashGET(c echo.Context, hash string) (ContentHashData, error) {
 
 	data.rels, err = b.Index.GetRels(c.Request().Context(), hash)
 	if err != nil {
-		return ContentHashData{}, fmt.Errorf("failed to get rels: %w", err)
+		return data, fmt.Errorf("failed to get rels: %w", err)
 	}
 
 	return data, nil
 }
 
-templ ContentHash(data ContentHashData) {
+func BlobHashDELETE(c echo.Context, hash string) error {
+	b := middleware.GetBoot(c)
+	if err := b.CAS.Delete(c.Request().Context(), hash); err != nil {
+		return fmt.Errorf("error deleting content: %w", err)
+	}
+
+	return htmx.Redirect(c, "/")
+}
+
+templ BlobHash(data BlobHashData) {
 	@ui.Layout() {
 		<div class="space-y-3">
 			<div class="font-bold">{ data.hash }</div>
