@@ -8,6 +8,7 @@ import (
 
 // RegisterRoutes adds all page routes to the Echo instance
 func RegisterRoutes(e *echo.Echo) {
+	e.GET("/blob/:hash", BlobHashGET)
 	e.GET("/content/:hash", ContentHashGET)
 	e.GET("/content", ContentGET)
 	e.GET("/", IndexGET)
@@ -23,6 +24,15 @@ func RegisterRoutes(e *echo.Echo) {
 	e.POST("/plugin/:id/transform/:hash", PluginIdTransformHashPOST)
 	e.GET("/plugin/install", PluginInstallGET)
 	e.POST("/plugin/install", PluginInstallPOST)
+}
+
+// BlobHashGET handles GET requests to /blob/:hash
+func BlobHashGET(c echo.Context) error {
+	result, err := pages.BlobHashGET(c, c.Param("hash"))
+	if err != nil {
+		return err
+	}
+	return pages.BlobHash(result).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // ContentHashGET handles GET requests to /content/:hash

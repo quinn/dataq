@@ -86,12 +86,20 @@ templ PluginIdEdit(data PluginIdEditData) {
 				<div>
 					<label for="client_id">Client ID</label>
 					<br/>
-					<input class="input" type="text" name="client_id" value={ plugin.Oauth.Config.ClientId }/>
+					if plugin.Oauth == nil || plugin.Oauth.Config == nil {
+						<input class="input" type="text" name="client_id" value=""/>
+					} else {
+						<input class="input" type="text" name="client_id" value={ plugin.Oauth.Config.ClientId }/>
+					}
 				</div>
 				<div>
 					<label for="client_secret">Client Secret</label>
 					<br/>
-					<input class="input" type="text" name="client_secret" value={ plugin.Oauth.Config.ClientSecret }/>
+					if plugin.Oauth == nil || plugin.Oauth.Config == nil {
+						<input class="input" type="text" name="client_secret" value=""/>
+					} else {
+						<input class="input" type="text" name="client_secret" value={ plugin.Oauth.Config.ClientSecret }/>
+					}
 				</div>
 				<button class="underline" type="submit">Save</button>
 			</form>
@@ -104,16 +112,18 @@ templ PluginIdEdit(data PluginIdEditData) {
 				<input type="hidden" name="form_action" value="reinstall"/>
 				<button class="underline block" type="submit">Reinstall</button>
 			</form>
-			<h2 class="font-bold">Initial Requests</h2>
-			<ul class="list-disc list-inside">
-				for _, req := range plugin.InstallResponse.Extracts {
-					<li>
-						<a class="underline" href={ templ.URL("/plugin/" + data.id + "/send/extract/" + req.Kind) }>{ req.Label }</a>
-						-
-						{ req.Description }
-					</li>
-				}
-			</ul>
+			if plugin.InstallResponse != nil {
+				<h2 class="font-bold">Initial Requests</h2>
+				<ul class="list-disc list-inside">
+					for _, req := range plugin.InstallResponse.Extracts {
+						<li>
+							<a class="underline" href={ templ.URL("/plugin/" + data.id + "/send/extract/" + req.Kind) }>{ req.Label }</a>
+							-
+							{ req.Description }
+						</li>
+					}
+				</ul>
+			}
 			<a class="underline block" href={ templ.URL("/plugin/" + data.id) }>Back</a>
 		</div>
 	}

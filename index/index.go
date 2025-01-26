@@ -118,6 +118,31 @@ func (i *Index) GetPermanode(ctx context.Context, permanodeHash string, result I
 	return nil
 }
 
+func (i *Index) UnmarshalContent(ctx context.Context, claim schema.Claim, contentHash string) (Indexable, error) {
+	var content Indexable
+	switch claim.SchemaKind {
+	case "ExtractRequest":
+		content = &rpc.ExtractRequest{}
+	case "ExtractResponse":
+		content = &rpc.ExtractResponse{}
+	case "PluginInstance":
+		content = &schema.PluginInstance{}
+	case "TransformRequest":
+		content = &rpc.TransformRequest{}
+	case "TransformResponse":
+		content = &rpc.TransformResponse{}
+	default:
+		return nil, fmt.Errorf("unknown schema kind: %s", claim.SchemaKind)
+	}
+
+	// Get the content from CAS
+	if err := i.unmarshalFromCAS(ctx, claim.ContentHash, content); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal data: %w", err)
+	}
+
+	return content, nil
+}
+
 func (i *Index) Rebuild(ctx context.Context) error {
 	if _, err := i.db.ExecContext(ctx, "DROP TABLE IF EXISTS index_data"); err != nil {
 		return fmt.Errorf("failed to drop table: %w", err)
@@ -191,25 +216,9 @@ func (i *Index) Rebuild(ctx context.Context) error {
 
 		slog.Info("rebuilding claim", "hash", claim.ContentHash, "kind", claim.SchemaKind)
 
-		var content Indexable
-		switch claim.SchemaKind {
-		case "ExtractRequest":
-			content = &rpc.ExtractRequest{}
-		case "ExtractResponse":
-			content = &rpc.ExtractResponse{}
-		case "PluginInstance":
-			content = &schema.PluginInstance{}
-		case "TransformRequest":
-			content = &rpc.TransformRequest{}
-		case "TransformResponse":
-			content = &rpc.TransformResponse{}
-		default:
-			return fmt.Errorf("unknown schema kind: %s", claim.SchemaKind)
-		}
-
-		// Get the content from CAS
-		if err := i.unmarshalFromCAS(ctx, claim.ContentHash, content); err != nil {
-			return fmt.Errorf("failed to unmarshal data: %w", err)
+		content, err := i.UnmarshalContent(ctx, claim, claim.ContentHash)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal content: %w", err)
 		}
 
 		if err := i.index(ctx, claim, content); err != nil {
