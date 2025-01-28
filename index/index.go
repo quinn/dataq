@@ -64,11 +64,11 @@ func (i *Index) CreatePermanode(ctx context.Context, content Indexable) (string,
 	permanode := schema.NewPermanode(content.SchemaKind())
 	permanodeHash, err := i.marshalToCAS(ctx, permanode)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create permanode: %w", err)
 	}
 
 	if _, err := i.UpdatePermanode(ctx, permanodeHash, content); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to update permanode: %w", err)
 	}
 
 	return permanodeHash, nil
@@ -77,20 +77,50 @@ func (i *Index) CreatePermanode(ctx context.Context, content Indexable) (string,
 func (i *Index) UpdatePermanode(ctx context.Context, permanodeHash string, content Indexable) (string, error) {
 	contentHash, err := i.marshalToCAS(ctx, content)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to marshal content to CAS: %w", err)
 	}
 
 	permanodeVersion := schema.NewPermanodeVersion(permanodeHash, contentHash)
 	permanodeVersionHash, err := i.marshalToCAS(ctx, permanodeVersion)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to marshal permanode version to CAS: %w", err)
 	}
 
 	if err := i.index(ctx, *permanodeVersion, content); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to index permanode version: %w", err)
 	}
 
 	return permanodeVersionHash, nil
+}
+
+func (i *Index) CreateDataSource(ctx context.Context, pluginID, pluginKey string, content Indexable) (string, error) {
+	sel := i.Q.
+		Where(sq.Eq{"plugin_id": pluginID}).
+		Where(sq.Eq{"plugin_key": pluginKey})
+	claims, err := i.Query(ctx, sel)
+	if err != nil {
+		return "", fmt.Errorf("failed to query index: %w", err)
+	}
+
+	if len(claims) > 0 {
+		return claims[0].PermanodeHash, nil
+	}
+
+	permanodeHash, err := i.CreatePermanode(ctx, content)
+	if err != nil {
+		return "", fmt.Errorf("failed to create permanode: %w", err)
+	}
+
+	dataSource := schema.NewDataSource(permanodeHash, pluginID, pluginKey)
+	if _, err := i.marshalToCAS(ctx, dataSource); err != nil {
+		return "", fmt.Errorf("failed to create data source: %w", err)
+	}
+
+	if err := i.index(ctx, *dataSource, content); err != nil {
+		return "", fmt.Errorf("failed to index data source: %w", err)
+	}
+
+	return permanodeHash, nil
 }
 
 func (i *Index) Delete(ctx context.Context, hash string) error {
@@ -154,6 +184,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 		return fmt.Errorf("failed to get hashes: %w", err)
 	}
 
+	deletedHashes := make(map[string]bool)
 	log.Println("rebuilding index")
 	// Index each hash
 	for hash := range hashes {
@@ -195,12 +226,61 @@ func (i *Index) Rebuild(ctx context.Context) error {
 				return fmt.Errorf("failed to index data: %w", err)
 			}
 
+			deletedHashes[claim.DeleteHash] = true
+			continue
+		}
+
+		if deletedHashes[claim.ContentHash] {
+			slog.Info("skipping deleted content", "content_hash", claim.ContentHash)
+			continue
+		}
+
+		if deletedHashes[claim.PermanodeHash] {
+			slog.Info("skipping deleted permanode", "permanode_hash", claim.PermanodeHash)
 			continue
 		}
 
 		if claim.Type == "permanode_version" {
 			if claim.PermanodeHash == "" {
 				return fmt.Errorf("permanode version missing permanode hash")
+			}
+
+			if claim.Timestamp.IsZero() {
+				return fmt.Errorf("permanode version missing timestamp")
+			}
+
+			sel := i.Q.Where("permanode_hash = ?", claim.PermanodeHash)
+			claims, err := i.Query(ctx, sel)
+			if err != nil {
+				return fmt.Errorf("failed to get claims: %w", err)
+			}
+			found := false
+			for _, c := range claims {
+				if c.Timestamp.After(claim.Timestamp) {
+					slog.Info("skipping older permanode version",
+						"permanode_hash", claim.PermanodeHash,
+						"timestamp", claim.Timestamp,
+						"content_hash", claim.ContentHash)
+					found = true
+					break
+				}
+
+				if c.Timestamp.Equal(claim.Timestamp) || c.Timestamp.Before(claim.Timestamp) {
+					if _, err := sq.Delete("index_data").
+						Where("content_hash = ?", c.ContentHash).
+						RunWith(i.db).
+						Exec(); err != nil {
+						return fmt.Errorf("failed to delete index data: %w", err)
+					}
+
+					slog.Info("deleting older permanode version",
+						"permanode_hash", claim.PermanodeHash,
+						"timestamp", claim.Timestamp,
+						"content_hash", c.ContentHash)
+				}
+			}
+			if found {
+				continue
 			}
 
 			var permanode schema.Claim
@@ -214,7 +294,7 @@ func (i *Index) Rebuild(ctx context.Context) error {
 			return fmt.Errorf("claim missing schema kind: (%v) %w", claim, err)
 		}
 
-		slog.Info("rebuilding claim", "hash", claim.ContentHash, "kind", claim.SchemaKind)
+		slog.Info("rebuilding claim", "type", claim.Type, "content_hash", claim.ContentHash, "kind", claim.SchemaKind)
 
 		content, err := i.UnmarshalContent(ctx, claim, claim.ContentHash)
 		if err != nil {
@@ -365,7 +445,7 @@ func (i *Index) Query(ctx context.Context, query sq.SelectBuilder) ([]schema.Cla
 				}
 			case "timestamp":
 				if v, ok := val.(int64); ok {
-					result.Timestamp = time.Unix(v, 0)
+					result.Timestamp = time.UnixMilli(v)
 				}
 			case "delete_hash":
 				if v, ok := val.(string); ok {
@@ -437,14 +517,14 @@ func (i *Index) index(ctx context.Context, claim schema.Claim, data Indexable) e
 	)`
 
 	if _, err := i.db.Exec(createTableSQL); err != nil {
-		return err
+		return fmt.Errorf("failed to create index table: %w", err)
 	}
 
 	// Get existing columns
 	existingColumns := make(map[string]bool)
 	for name, err := range i.IterateFields(ctx) {
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get column: %w", err)
 		}
 
 		existingColumns[name] = true
@@ -472,7 +552,7 @@ func (i *Index) index(ctx context.Context, claim schema.Claim, data Indexable) e
 
 		alterSQL := "ALTER TABLE index_data ADD COLUMN " + key + " " + colType
 		if _, err := i.db.Exec(alterSQL); err != nil {
-			return err
+			return fmt.Errorf("failed to add column: %w (%s)", err, alterSQL)
 		}
 	}
 
@@ -501,7 +581,7 @@ func (i *Index) index(ctx context.Context, claim schema.Claim, data Indexable) e
 			// Convert complex types to JSON
 			b, err := json.Marshal(v)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to marshal value: %w", err)
 			}
 			value = string(b)
 		}

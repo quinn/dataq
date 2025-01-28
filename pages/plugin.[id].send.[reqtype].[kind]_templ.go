@@ -70,11 +70,10 @@ func PluginIdSendReqtypeKindPOST(c echo.Context, id, reqtype, kind string) error
 		return fmt.Errorf("plugin not found: %s", data.plugin.PluginID)
 	}
 
-	_, err = client.Extract(c.Request().Context(), &rpc.ExtractRequest{
+	_, err = client.Extract(c.Request().Context(), &data.plugin, &rpc.ExtractRequest{
 		PluginId: id,
 		Kind:     kind,
 		Metadata: config,
-		Oauth:    data.plugin.Oauth,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to send extract request: %w", err)
@@ -123,7 +122,7 @@ func PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.plugin.PluginID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 80, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 79, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -136,7 +135,7 @@ func PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.extract.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 80, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 79, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -149,7 +148,7 @@ func PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.extract.Description)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 81, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 80, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -167,7 +166,7 @@ func PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(field.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 86, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 85, Col: 27}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -180,7 +179,7 @@ func PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(field.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 86, Col: 43}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 85, Col: 43}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -193,7 +192,7 @@ func PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(field.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 88, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 87, Col: 52}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -206,7 +205,7 @@ func PluginIdSendReqtypeKind(data PluginIdSendReqtypeKindData) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(field.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 88, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].send.[reqtype].[kind].templ`, Line: 87, Col: 71}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {

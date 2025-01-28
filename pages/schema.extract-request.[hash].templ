@@ -2,14 +2,17 @@ package pages
 
 import (
 	"fmt"
+	"github.com/Masterminds/squirrel"
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/htmx"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
 	"io"
 )
 
-type PluginIdExtractHashData struct {
+type SchemaExtractRequestHashData struct {
 	req *rpc.ExtractRequest
 	res []struct {
 		res  *rpc.ExtractResponse
@@ -18,8 +21,8 @@ type PluginIdExtractHashData struct {
 	hash string
 }
 
-func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
-	var data PluginIdExtractHashData
+func SchemaExtractRequestHashGET(c echo.Context, hash string) (SchemaExtractRequestHashData, error) {
+	var data SchemaExtractRequestHashData
 	b := middleware.GetBoot(c)
 
 	var req rpc.ExtractRequest
@@ -60,7 +63,37 @@ func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHas
 	return data, nil
 }
 
-templ PluginIdExtractHash(data PluginIdExtractHashData) {
+func SchemaExtractRequestHashPOST(c echo.Context, hash string) error {
+	b := c.Get("boot").(*boot.Boot)
+
+	var req rpc.ExtractRequest
+	sel := b.Index.Q.Where(squirrel.Eq{"content_hash": hash})
+	if err := b.Index.Get(c.Request().Context(), &req, sel); err != nil {
+		return fmt.Errorf("error getting request from index: %w", err)
+	}
+
+	plugin, err := b.Repo.GetPluginInstance(c.Request().Context(), req.PluginId)
+	if err != nil {
+		return fmt.Errorf("error getting plugin instance: %w", err)
+	}
+
+	client, ok := b.Plugins.Clients[plugin.PluginID]
+	if !ok {
+		var keys []string
+		for k := range b.Plugins.Clients {
+			keys = append(keys, k)
+		}
+		return fmt.Errorf("plugin not found: %s. Plugin IDs are: %v", plugin.PluginID, keys)
+	}
+
+	if _, err := client.Extract(c.Request().Context(), plugin, &req); err != nil {
+		return fmt.Errorf("error extracting: %w", err)
+	}
+
+	return htmx.Refresh(c)
+}
+
+templ SchemaExtractRequestHash(data SchemaExtractRequestHashData) {
 	@ui.Layout() {
 		<div class="space-y-3">
 			@ui.JsonBrowser(data.req)
@@ -79,7 +112,7 @@ templ PluginIdExtractHash(data PluginIdExtractHashData) {
 			<div class="font-bold">Actions</div>
 			<ul class="list-disc list-inside">
 				<li class="list-item">
-					<button hx-post={ middleware.Reverse(ctx, "plugin.extract.send", data.req.PluginId, data.hash) } class="underline">Send</button>
+					<button hx-post class="underline">Send</button>
 				</li>
 			</ul>
 		</div>

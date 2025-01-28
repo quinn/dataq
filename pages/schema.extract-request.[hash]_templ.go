@@ -10,14 +10,17 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
+	"github.com/Masterminds/squirrel"
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/boot"
+	"go.quinn.io/dataq/htmx"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/rpc"
 	"go.quinn.io/dataq/ui"
 	"io"
 )
 
-type PluginIdExtractHashData struct {
+type SchemaExtractRequestHashData struct {
 	req *rpc.ExtractRequest
 	res []struct {
 		res  *rpc.ExtractResponse
@@ -26,8 +29,8 @@ type PluginIdExtractHashData struct {
 	hash string
 }
 
-func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHashData, error) {
-	var data PluginIdExtractHashData
+func SchemaExtractRequestHashGET(c echo.Context, hash string) (SchemaExtractRequestHashData, error) {
+	var data SchemaExtractRequestHashData
 	b := middleware.GetBoot(c)
 
 	var req rpc.ExtractRequest
@@ -68,7 +71,37 @@ func PluginIdExtractHashGET(c echo.Context, id, hash string) (PluginIdExtractHas
 	return data, nil
 }
 
-func PluginIdExtractHash(data PluginIdExtractHashData) templ.Component {
+func SchemaExtractRequestHashPOST(c echo.Context, hash string) error {
+	b := c.Get("boot").(*boot.Boot)
+
+	var req rpc.ExtractRequest
+	sel := b.Index.Q.Where(squirrel.Eq{"content_hash": hash})
+	if err := b.Index.Get(c.Request().Context(), &req, sel); err != nil {
+		return fmt.Errorf("error getting request from index: %w", err)
+	}
+
+	plugin, err := b.Repo.GetPluginInstance(c.Request().Context(), req.PluginId)
+	if err != nil {
+		return fmt.Errorf("error getting plugin instance: %w", err)
+	}
+
+	client, ok := b.Plugins.Clients[plugin.PluginID]
+	if !ok {
+		var keys []string
+		for k := range b.Plugins.Clients {
+			keys = append(keys, k)
+		}
+		return fmt.Errorf("plugin not found: %s. Plugin IDs are: %v", plugin.PluginID, keys)
+	}
+
+	if _, err := client.Extract(c.Request().Context(), plugin, &req); err != nil {
+		return fmt.Errorf("error extracting: %w", err)
+	}
+
+	return htmx.Refresh(c)
+}
+
+func SchemaExtractRequestHash(data SchemaExtractRequestHashData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -135,20 +168,7 @@ func PluginIdExtractHash(data PluginIdExtractHashData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</ul><hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-post=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(middleware.Reverse(ctx, "plugin.extract.send", data.req.PluginId, data.hash))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/plugin.[id].extract.[hash].templ`, Line: 82, Col: 99}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" class=\"underline\">Send</button></li></ul></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</ul><hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-post class=\"underline\">Send</button></li></ul></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

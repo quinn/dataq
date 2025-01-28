@@ -6,8 +6,7 @@ import (
 )
 
 func addRoutes(e *echo.Echo) {
-	e.POST("/plugin/:id/extract/:hash/send", routes.PluginExtractSendCreate).Name = "plugin.extract.send"
-	e.DELETE("/content/:hash", routes.ContentDelete).Name = "content.delete"
-	e.GET("/plugin/:id/oauth/complete", routes.PluginOauthComplete).Name = "plugin.oauth.complete"
+	e.GET("/plugin/:hash/oauth/complete", routes.PluginOauthComplete).Name = "plugin.oauth.complete"
+	e.GET("/content/:hash", routes.Content).Name = "content"
 	/* insert new routes here */
 }

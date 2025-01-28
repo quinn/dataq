@@ -7,12 +7,12 @@ import (
 	"io"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 
 	"go.quinn.io/dataq/cas"
 	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/internal/repo"
 	"go.quinn.io/dataq/rpc"
+	"go.quinn.io/dataq/schema"
 )
 
 // DataQClient wraps the gRPC client with index-based request hash handling
@@ -39,7 +39,7 @@ func (c *DataQClient) Install(ctx context.Context, req *rpc.InstallRequest, opts
 }
 
 // Extract performs an extraction with index-based request hash
-func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts ...grpc.CallOption) (*rpc.ExtractResponse, error) {
+func (c *DataQClient) Extract(ctx context.Context, plugin *schema.PluginInstance, req *rpc.ExtractRequest, opts ...grpc.CallOption) (*rpc.ExtractResponse, error) {
 	// Store the request in the index to get a hash
 	// TODO: typically, the extract is called by a request that has already been stored.
 	// this may not be necessary
@@ -49,17 +49,14 @@ func (c *DataQClient) Extract(ctx context.Context, req *rpc.ExtractRequest, opts
 		return nil, err
 	}
 
-	// Add the hash to the context metadata
-	// TODO: is this still necessary if it is set on the response below?
-	md := metadata.Pairs("request-hash", hash)
-	newCtx := metadata.NewOutgoingContext(ctx, md)
+	// always attaching here is more explicit
+	req.Oauth = plugin.Oauth
 
-	res, err := c.client.Extract(newCtx, req, opts...)
+	res, err := c.client.Extract(ctx, req, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: since hash is assigned here, it should not be assigned in the plugin
 	res.RequestHash = hash
 
 	content := res.GetContent()
@@ -135,14 +132,12 @@ func (c *DataQClient) Transform(ctx context.Context, req *rpc.TransformRequest, 
 		return nil, fmt.Errorf("request hash is empty")
 	}
 
-	// Add the hash to the context metadata
-	md := metadata.Pairs("request-hash", hash)
-	newCtx := metadata.NewOutgoingContext(ctx, md)
-
-	res, err := c.client.Transform(newCtx, req, opts...)
+	res, err := c.client.Transform(ctx, req, opts...)
 	if err != nil {
 		return nil, err
 	}
+
+	res.RequestHash = hash
 
 	// Store the response in the index
 	if _, err = c.index.Store(ctx, res); err != nil {
@@ -166,28 +161,19 @@ func (c *DataQClient) Transform(ctx context.Context, req *rpc.TransformRequest, 
 
 	// For each permanode in the response, store the permanode version
 	for _, permanode := range res.GetPermanodes() {
-		version := &rpc.PermanodeVersion{
-			Source: &rpc.DataSource{
-				TransformResponseHash: hash,
-				Key:                   permanode.Key,
-			},
-		}
-
 		// Handle the different payload types
+		var content index.Indexable
 		switch p := permanode.Payload.(type) {
 		case *rpc.TransformResponse_Permanode_Email:
-			version.Payload = &rpc.PermanodeVersion_Email{
-				Email: p.Email,
-			}
+			content = p.Email
 		case *rpc.TransformResponse_Permanode_FinancialTransaction:
-			version.Payload = &rpc.PermanodeVersion_FinancialTransaction{
-				FinancialTransaction: p.FinancialTransaction,
-			}
+			content = p.FinancialTransaction
+		default:
+			return nil, fmt.Errorf("unknown payload type: %T", p)
 		}
 
-		// Store the permanode version in the index
-		if _, err := c.index.Store(ctx, version); err != nil {
-			return nil, fmt.Errorf("failed to store permanode version: %w", err)
+		if _, err := c.index.CreateDataSource(ctx, req.PluginId, permanode.Key, content); err != nil {
+			return nil, fmt.Errorf("failed to create data source: %w", err)
 		}
 	}
 

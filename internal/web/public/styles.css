@@ -729,6 +729,10 @@ hr {
   display: inline-grid;
 }
 
+.contents {
+  display: contents;
+}
+
 .list-item {
   display: list-item;
 }

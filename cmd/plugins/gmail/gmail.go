@@ -42,6 +42,9 @@ func (p *GmailPlugin) Description() string {
 }
 
 func (p *GmailPlugin) getClient(ctx context.Context, rpcoauth *rpc.OAuth2) (*gmail.Service, error) {
+	if rpcoauth == nil {
+		return nil, fmt.Errorf("no OAuth2 credentials provided")
+	}
 	// // Read credentials file
 	// b, err := os.ReadFile(p.credentialsPath)
 	// if err != nil {

@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/labstack/echo/v4"
+	"go.quinn.io/dataq/htmx"
 	"go.quinn.io/dataq/index"
 	"go.quinn.io/dataq/internal/middleware"
 	"go.quinn.io/dataq/ui"
@@ -62,6 +63,14 @@ func BlobHashGET(c echo.Context, hash string) (BlobHashData, error) {
 	return data, nil
 }
 
+func BlobHashDELETE(c echo.Context, hash string) error {
+	b := middleware.GetBoot(c)
+	if err := b.CAS.Delete(c.Request().Context(), hash); err != nil {
+		return fmt.Errorf("error deleting content: %w", err)
+	}
+
+	return htmx.Redirect(c, "/")
+}
 
 func BlobHash(data BlobHashData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -103,7 +112,7 @@ func BlobHash(data BlobHashData) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.hash)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 60, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 70, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -116,7 +125,7 @@ func BlobHash(data BlobHashData) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.contentType)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 62, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 72, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -139,7 +148,7 @@ func BlobHash(data BlobHashData) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(data.content.(string))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 68, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 78, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -157,7 +166,7 @@ func BlobHash(data BlobHashData) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.content.(string))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 70, Col: 36}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 80, Col: 36}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -189,7 +198,7 @@ func BlobHash(data BlobHashData) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(rel.Type)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 77, Col: 62}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 87, Col: 62}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -200,20 +209,7 @@ func BlobHash(data BlobHashData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</ul><hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-delete=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(middleware.Reverse(ctx, "content.delete", data.hash))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/blob.[hash].templ`, Line: 85, Col: 77}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" class=\"text-red-700 underline\">Delete</button></li></ul></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</ul><hr><div class=\"font-bold\">Actions</div><ul class=\"list-disc list-inside\"><li class=\"list-item\"><button hx-delete class=\"text-red-700 underline\">Delete</button></li></ul></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

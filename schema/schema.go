@@ -41,22 +41,22 @@ type Claim struct {
 	// Used by permanode_version and content
 	ContentHash string `json:"content_hash,omitempty"`
 
-	// Used by permanode_version
-	PermanodeHash string    `json:"permanode_hash,omitempty"`
-	Timestamp     time.Time `json:"timestamp,omitzero"`
+	// Used by permanode_version and data_source
+	PermanodeHash string `json:"permanode_hash,omitempty"`
 
 	// Used by permanode
 	Nonce string `json:"nonce,omitempty"`
 
+	// Used by permanode_version
+	TransformResponseHash string    `json:"transform_response_hash,omitempty"`
+	Timestamp             time.Time `json:"timestamp,omitzero"`
+
+	// Used by data_source
+	PluginID  string `json:"plugin_id,omitempty"`
+	PluginKey string `json:"plugin_key,omitempty"`
+
 	// Used by delete
 	DeleteHash string `json:"delete_hash,omitempty"`
-
-	// This applies to content from a plugin
-	// these values will be blank if permanode is managed by dataq
-	// these fields are not used yet
-	PluginID              string `json:"plugin_id,omitempty"`
-	PluginKey             string `json:"plugin_key,omitempty"`
-	TransformResponseHash string `json:"transform_response_hash,omitempty"`
 
 	// Not stored in CAS, they are already stored in the referenced object
 	// Useful for using search results from the index without unmarshalling the claimed object
@@ -115,6 +115,23 @@ func NewPermanodeVersion(permanodeHash, contentHash string) *Claim {
 		PermanodeHash: permanodeHash,
 		ContentHash:   contentHash,
 		Timestamp:     time.Now(),
+	}
+}
+
+// DataSource allows permanodes to be updated by plugins
+type DataSource struct {
+	DataQType     string `json:"dataq_type"` // "data_source"
+	PermanodeHash string `json:"permanode_hash"`
+	PluginID      string `json:"plugin_id"`
+	PluginKey     string `json:"plugin_key"`
+}
+
+func NewDataSource(permanodeHash, pluginID, pluginKey string) *Claim {
+	return &Claim{
+		Type:          "data_source",
+		PermanodeHash: permanodeHash,
+		PluginID:      pluginID,
+		PluginKey:     pluginKey,
 	}
 }
 

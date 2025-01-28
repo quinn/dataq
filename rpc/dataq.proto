@@ -105,24 +105,3 @@ message TransformResponse {
   repeated Extract extracts = 4; // List of extracts to be performed
   repeated Permanode permanodes = 5; // List of permanodes to be managed
 }
-
-// DataSource identifies an object within a specific plugin
-message DataSource {
-  string permanode_hash = 1;
-  string transform_response_hash = 2;
-  string plugin = 3; // Unique identifier for the plugin
-  string key = 4;    // Value to uniquely identify plugin's internal representation
-}
-
-// PermanodeVersion represents a versioned permanode
-message PermanodeVersion {
-  string permanode_hash = 1; // Hash of the permanode
-  int64 timestamp = 2;       // Version timestamp
-  bool deleted = 4;          // Deletion status
-  DataSource source = 5;     // Source of the permanode version
-
-  oneof payload {
-    Email email = 6;
-    FinancialTransaction financial_transaction = 7;
-  }
-}

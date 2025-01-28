@@ -92,6 +92,10 @@ func (pm *PluginManager) startPlugin(cfg *config.Plugin) (*exec.Cmd, *grpc.Clien
 		return nil, nil, fmt.Errorf("failed to connect to plugin: %w", err)
 	}
 
+	go func() {
+		cmd.Wait()
+		panic("plugin process exited")
+	}()
 	pm.basePort++
 	return cmd, conn, nil
 }

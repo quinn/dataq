@@ -544,190 +544,6 @@ func (x *TransformResponse) GetPermanodes() []*TransformResponse_Permanode {
 	return nil
 }
 
-// DataSource identifies an object within a specific plugin
-type DataSource struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	PermanodeHash         string                 `protobuf:"bytes,1,opt,name=permanode_hash,json=permanodeHash,proto3" json:"permanode_hash,omitempty"`
-	TransformResponseHash string                 `protobuf:"bytes,2,opt,name=transform_response_hash,json=transformResponseHash,proto3" json:"transform_response_hash,omitempty"`
-	Plugin                string                 `protobuf:"bytes,3,opt,name=plugin,proto3" json:"plugin,omitempty"` // Unique identifier for the plugin
-	Key                   string                 `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`       // Value to uniquely identify plugin's internal representation
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
-}
-
-func (x *DataSource) Reset() {
-	*x = DataSource{}
-	mi := &file_rpc_dataq_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DataSource) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DataSource) ProtoMessage() {}
-
-func (x *DataSource) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_dataq_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DataSource.ProtoReflect.Descriptor instead.
-func (*DataSource) Descriptor() ([]byte, []int) {
-	return file_rpc_dataq_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *DataSource) GetPermanodeHash() string {
-	if x != nil {
-		return x.PermanodeHash
-	}
-	return ""
-}
-
-func (x *DataSource) GetTransformResponseHash() string {
-	if x != nil {
-		return x.TransformResponseHash
-	}
-	return ""
-}
-
-func (x *DataSource) GetPlugin() string {
-	if x != nil {
-		return x.Plugin
-	}
-	return ""
-}
-
-func (x *DataSource) GetKey() string {
-	if x != nil {
-		return x.Key
-	}
-	return ""
-}
-
-// PermanodeVersion represents a versioned permanode
-type PermanodeVersion struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PermanodeHash string                 `protobuf:"bytes,1,opt,name=permanode_hash,json=permanodeHash,proto3" json:"permanode_hash,omitempty"` // Hash of the permanode
-	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                             // Version timestamp
-	Deleted       bool                   `protobuf:"varint,4,opt,name=deleted,proto3" json:"deleted,omitempty"`                                 // Deletion status
-	Source        *DataSource            `protobuf:"bytes,5,opt,name=source,proto3" json:"source,omitempty"`                                    // Source of the permanode version
-	// Types that are valid to be assigned to Payload:
-	//
-	//	*PermanodeVersion_Email
-	//	*PermanodeVersion_FinancialTransaction
-	Payload       isPermanodeVersion_Payload `protobuf_oneof:"payload"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PermanodeVersion) Reset() {
-	*x = PermanodeVersion{}
-	mi := &file_rpc_dataq_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PermanodeVersion) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PermanodeVersion) ProtoMessage() {}
-
-func (x *PermanodeVersion) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_dataq_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PermanodeVersion.ProtoReflect.Descriptor instead.
-func (*PermanodeVersion) Descriptor() ([]byte, []int) {
-	return file_rpc_dataq_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *PermanodeVersion) GetPermanodeHash() string {
-	if x != nil {
-		return x.PermanodeHash
-	}
-	return ""
-}
-
-func (x *PermanodeVersion) GetTimestamp() int64 {
-	if x != nil {
-		return x.Timestamp
-	}
-	return 0
-}
-
-func (x *PermanodeVersion) GetDeleted() bool {
-	if x != nil {
-		return x.Deleted
-	}
-	return false
-}
-
-func (x *PermanodeVersion) GetSource() *DataSource {
-	if x != nil {
-		return x.Source
-	}
-	return nil
-}
-
-func (x *PermanodeVersion) GetPayload() isPermanodeVersion_Payload {
-	if x != nil {
-		return x.Payload
-	}
-	return nil
-}
-
-func (x *PermanodeVersion) GetEmail() *Email {
-	if x != nil {
-		if x, ok := x.Payload.(*PermanodeVersion_Email); ok {
-			return x.Email
-		}
-	}
-	return nil
-}
-
-func (x *PermanodeVersion) GetFinancialTransaction() *FinancialTransaction {
-	if x != nil {
-		if x, ok := x.Payload.(*PermanodeVersion_FinancialTransaction); ok {
-			return x.FinancialTransaction
-		}
-	}
-	return nil
-}
-
-type isPermanodeVersion_Payload interface {
-	isPermanodeVersion_Payload()
-}
-
-type PermanodeVersion_Email struct {
-	Email *Email `protobuf:"bytes,6,opt,name=email,proto3,oneof"`
-}
-
-type PermanodeVersion_FinancialTransaction struct {
-	FinancialTransaction *FinancialTransaction `protobuf:"bytes,7,opt,name=financial_transaction,json=financialTransaction,proto3,oneof"`
-}
-
-func (*PermanodeVersion_Email) isPermanodeVersion_Payload() {}
-
-func (*PermanodeVersion_FinancialTransaction) isPermanodeVersion_Payload() {}
-
 type InstallResponse_Extract struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
@@ -740,7 +556,7 @@ type InstallResponse_Extract struct {
 
 func (x *InstallResponse_Extract) Reset() {
 	*x = InstallResponse_Extract{}
-	mi := &file_rpc_dataq_proto_msgTypes[9]
+	mi := &file_rpc_dataq_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -752,7 +568,7 @@ func (x *InstallResponse_Extract) String() string {
 func (*InstallResponse_Extract) ProtoMessage() {}
 
 func (x *InstallResponse_Extract) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_dataq_proto_msgTypes[9]
+	mi := &file_rpc_dataq_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -807,7 +623,7 @@ type ExtractResponse_Transform struct {
 
 func (x *ExtractResponse_Transform) Reset() {
 	*x = ExtractResponse_Transform{}
-	mi := &file_rpc_dataq_proto_msgTypes[11]
+	mi := &file_rpc_dataq_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -819,7 +635,7 @@ func (x *ExtractResponse_Transform) String() string {
 func (*ExtractResponse_Transform) ProtoMessage() {}
 
 func (x *ExtractResponse_Transform) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_dataq_proto_msgTypes[11]
+	mi := &file_rpc_dataq_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -860,7 +676,7 @@ type TransformResponse_Extract struct {
 
 func (x *TransformResponse_Extract) Reset() {
 	*x = TransformResponse_Extract{}
-	mi := &file_rpc_dataq_proto_msgTypes[14]
+	mi := &file_rpc_dataq_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -872,7 +688,7 @@ func (x *TransformResponse_Extract) String() string {
 func (*TransformResponse_Extract) ProtoMessage() {}
 
 func (x *TransformResponse_Extract) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_dataq_proto_msgTypes[14]
+	mi := &file_rpc_dataq_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -917,7 +733,7 @@ type TransformResponse_Permanode struct {
 
 func (x *TransformResponse_Permanode) Reset() {
 	*x = TransformResponse_Permanode{}
-	mi := &file_rpc_dataq_proto_msgTypes[15]
+	mi := &file_rpc_dataq_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -929,7 +745,7 @@ func (x *TransformResponse_Permanode) String() string {
 func (*TransformResponse_Permanode) ProtoMessage() {}
 
 func (x *TransformResponse_Permanode) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_dataq_proto_msgTypes[15]
+	mi := &file_rpc_dataq_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1124,49 +940,21 @@ var file_rpc_dataq_proto_rawDesc = []byte{
 	0x69, 0x61, 0x6c, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x00,
 	0x52, 0x14, 0x66, 0x69, 0x6e, 0x61, 0x6e, 0x63, 0x69, 0x61, 0x6c, 0x54, 0x72, 0x61, 0x6e, 0x73,
 	0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x09, 0x0a, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61,
-	0x64, 0x22, 0x95, 0x01, 0x0a, 0x0a, 0x44, 0x61, 0x74, 0x61, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65,
-	0x12, 0x25, 0x0a, 0x0e, 0x70, 0x65, 0x72, 0x6d, 0x61, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x68, 0x61,
-	0x73, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x70, 0x65, 0x72, 0x6d, 0x61, 0x6e,
-	0x6f, 0x64, 0x65, 0x48, 0x61, 0x73, 0x68, 0x12, 0x36, 0x0a, 0x17, 0x74, 0x72, 0x61, 0x6e, 0x73,
-	0x66, 0x6f, 0x72, 0x6d, 0x5f, 0x72, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x68, 0x61,
-	0x73, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x15, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66,
-	0x6f, 0x72, 0x6d, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x48, 0x61, 0x73, 0x68, 0x12,
-	0x16, 0x0a, 0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x06, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x04,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x22, 0xa1, 0x02, 0x0a, 0x10, 0x50, 0x65,
-	0x72, 0x6d, 0x61, 0x6e, 0x6f, 0x64, 0x65, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x25,
-	0x0a, 0x0e, 0x70, 0x65, 0x72, 0x6d, 0x61, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x68, 0x61, 0x73, 0x68,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x70, 0x65, 0x72, 0x6d, 0x61, 0x6e, 0x6f, 0x64,
-	0x65, 0x48, 0x61, 0x73, 0x68, 0x12, 0x1c, 0x0a, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
-	0x6d, 0x70, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74,
-	0x61, 0x6d, 0x70, 0x12, 0x18, 0x0a, 0x07, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x18, 0x04,
-	0x20, 0x01, 0x28, 0x08, 0x52, 0x07, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x12, 0x29, 0x0a,
-	0x06, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e,
-	0x64, 0x61, 0x74, 0x61, 0x71, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65,
-	0x52, 0x06, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x12, 0x24, 0x0a, 0x05, 0x65, 0x6d, 0x61, 0x69,
-	0x6c, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71, 0x2e,
-	0x45, 0x6d, 0x61, 0x69, 0x6c, 0x48, 0x00, 0x52, 0x05, 0x65, 0x6d, 0x61, 0x69, 0x6c, 0x12, 0x52,
-	0x0a, 0x15, 0x66, 0x69, 0x6e, 0x61, 0x6e, 0x63, 0x69, 0x61, 0x6c, 0x5f, 0x74, 0x72, 0x61, 0x6e,
-	0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1b, 0x2e,
-	0x64, 0x61, 0x74, 0x61, 0x71, 0x2e, 0x46, 0x69, 0x6e, 0x61, 0x6e, 0x63, 0x69, 0x61, 0x6c, 0x54,
-	0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x00, 0x52, 0x14, 0x66, 0x69,
-	0x6e, 0x61, 0x6e, 0x63, 0x69, 0x61, 0x6c, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69,
-	0x6f, 0x6e, 0x42, 0x09, 0x0a, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x32, 0xc7, 0x01,
-	0x0a, 0x0b, 0x44, 0x61, 0x74, 0x61, 0x51, 0x50, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x12, 0x3a, 0x0a,
-	0x07, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x12, 0x15, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71,
-	0x2e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x16, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71, 0x2e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x3a, 0x0a, 0x07, 0x45, 0x78, 0x74,
-	0x72, 0x61, 0x63, 0x74, 0x12, 0x15, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71, 0x2e, 0x45, 0x78, 0x74,
-	0x72, 0x61, 0x63, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x64, 0x61,
-	0x74, 0x61, 0x71, 0x2e, 0x45, 0x78, 0x74, 0x72, 0x61, 0x63, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x40, 0x0a, 0x09, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f,
-	0x72, 0x6d, 0x12, 0x17, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71, 0x2e, 0x54, 0x72, 0x61, 0x6e, 0x73,
-	0x66, 0x6f, 0x72, 0x6d, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x18, 0x2e, 0x64, 0x61,
-	0x74, 0x61, 0x71, 0x2e, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x17, 0x5a, 0x15, 0x67, 0x6f, 0x2e, 0x71, 0x75,
-	0x69, 0x6e, 0x6e, 0x2e, 0x69, 0x6f, 0x2f, 0x64, 0x61, 0x74, 0x61, 0x71, 0x2f, 0x72, 0x70, 0x63,
-	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x64, 0x32, 0xc7, 0x01, 0x0a, 0x0b, 0x44, 0x61, 0x74, 0x61, 0x51, 0x50, 0x6c, 0x75, 0x67, 0x69,
+	0x6e, 0x12, 0x3a, 0x0a, 0x07, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x12, 0x15, 0x2e, 0x64,
+	0x61, 0x74, 0x61, 0x71, 0x2e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71, 0x2e, 0x49, 0x6e, 0x73, 0x74,
+	0x61, 0x6c, 0x6c, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x3a, 0x0a,
+	0x07, 0x45, 0x78, 0x74, 0x72, 0x61, 0x63, 0x74, 0x12, 0x15, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71,
+	0x2e, 0x45, 0x78, 0x74, 0x72, 0x61, 0x63, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x16, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71, 0x2e, 0x45, 0x78, 0x74, 0x72, 0x61, 0x63, 0x74, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x40, 0x0a, 0x09, 0x54, 0x72, 0x61,
+	0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x12, 0x17, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71, 0x2e, 0x54,
+	0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x18, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x71, 0x2e, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72,
+	0x6d, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x17, 0x5a, 0x15, 0x67,
+	0x6f, 0x2e, 0x71, 0x75, 0x69, 0x6e, 0x6e, 0x2e, 0x69, 0x6f, 0x2f, 0x64, 0x61, 0x74, 0x61, 0x71,
+	0x2f, 0x72, 0x70, 0x63, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1181,7 +969,7 @@ func file_rpc_dataq_proto_rawDescGZIP() []byte {
 	return file_rpc_dataq_proto_rawDescData
 }
 
-var file_rpc_dataq_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_rpc_dataq_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_rpc_dataq_proto_goTypes = []any{
 	(*InstallRequest)(nil),              // 0: dataq.InstallRequest
 	(*InstallResponse)(nil),             // 1: dataq.InstallResponse
@@ -1190,49 +978,44 @@ var file_rpc_dataq_proto_goTypes = []any{
 	(*ExtractResponse)(nil),             // 4: dataq.ExtractResponse
 	(*TransformRequest)(nil),            // 5: dataq.TransformRequest
 	(*TransformResponse)(nil),           // 6: dataq.TransformResponse
-	(*DataSource)(nil),                  // 7: dataq.DataSource
-	(*PermanodeVersion)(nil),            // 8: dataq.PermanodeVersion
-	(*InstallResponse_Extract)(nil),     // 9: dataq.InstallResponse.Extract
-	nil,                                 // 10: dataq.ExtractRequest.MetadataEntry
-	(*ExtractResponse_Transform)(nil),   // 11: dataq.ExtractResponse.Transform
-	nil,                                 // 12: dataq.ExtractResponse.Transform.MetadataEntry
-	nil,                                 // 13: dataq.TransformRequest.MetadataEntry
-	(*TransformResponse_Extract)(nil),   // 14: dataq.TransformResponse.Extract
-	(*TransformResponse_Permanode)(nil), // 15: dataq.TransformResponse.Permanode
-	nil,                                 // 16: dataq.TransformResponse.Extract.MetadataEntry
-	(*OAuth2)(nil),                      // 17: dataq.OAuth2
-	(*Email)(nil),                       // 18: dataq.Email
-	(*FinancialTransaction)(nil),        // 19: dataq.FinancialTransaction
+	(*InstallResponse_Extract)(nil),     // 7: dataq.InstallResponse.Extract
+	nil,                                 // 8: dataq.ExtractRequest.MetadataEntry
+	(*ExtractResponse_Transform)(nil),   // 9: dataq.ExtractResponse.Transform
+	nil,                                 // 10: dataq.ExtractResponse.Transform.MetadataEntry
+	nil,                                 // 11: dataq.TransformRequest.MetadataEntry
+	(*TransformResponse_Extract)(nil),   // 12: dataq.TransformResponse.Extract
+	(*TransformResponse_Permanode)(nil), // 13: dataq.TransformResponse.Permanode
+	nil,                                 // 14: dataq.TransformResponse.Extract.MetadataEntry
+	(*OAuth2)(nil),                      // 15: dataq.OAuth2
+	(*Email)(nil),                       // 16: dataq.Email
+	(*FinancialTransaction)(nil),        // 17: dataq.FinancialTransaction
 }
 var file_rpc_dataq_proto_depIdxs = []int32{
 	2,  // 0: dataq.InstallResponse.configs:type_name -> dataq.PluginConfig
-	17, // 1: dataq.InstallResponse.oauth:type_name -> dataq.OAuth2
-	9,  // 2: dataq.InstallResponse.extracts:type_name -> dataq.InstallResponse.Extract
-	17, // 3: dataq.ExtractRequest.oauth:type_name -> dataq.OAuth2
-	10, // 4: dataq.ExtractRequest.metadata:type_name -> dataq.ExtractRequest.MetadataEntry
-	11, // 5: dataq.ExtractResponse.transforms:type_name -> dataq.ExtractResponse.Transform
-	13, // 6: dataq.TransformRequest.metadata:type_name -> dataq.TransformRequest.MetadataEntry
-	14, // 7: dataq.TransformResponse.extracts:type_name -> dataq.TransformResponse.Extract
-	15, // 8: dataq.TransformResponse.permanodes:type_name -> dataq.TransformResponse.Permanode
-	7,  // 9: dataq.PermanodeVersion.source:type_name -> dataq.DataSource
-	18, // 10: dataq.PermanodeVersion.email:type_name -> dataq.Email
-	19, // 11: dataq.PermanodeVersion.financial_transaction:type_name -> dataq.FinancialTransaction
-	2,  // 12: dataq.InstallResponse.Extract.configs:type_name -> dataq.PluginConfig
-	12, // 13: dataq.ExtractResponse.Transform.metadata:type_name -> dataq.ExtractResponse.Transform.MetadataEntry
-	16, // 14: dataq.TransformResponse.Extract.metadata:type_name -> dataq.TransformResponse.Extract.MetadataEntry
-	18, // 15: dataq.TransformResponse.Permanode.email:type_name -> dataq.Email
-	19, // 16: dataq.TransformResponse.Permanode.financial_transaction:type_name -> dataq.FinancialTransaction
-	0,  // 17: dataq.DataQPlugin.Install:input_type -> dataq.InstallRequest
-	3,  // 18: dataq.DataQPlugin.Extract:input_type -> dataq.ExtractRequest
-	5,  // 19: dataq.DataQPlugin.Transform:input_type -> dataq.TransformRequest
-	1,  // 20: dataq.DataQPlugin.Install:output_type -> dataq.InstallResponse
-	4,  // 21: dataq.DataQPlugin.Extract:output_type -> dataq.ExtractResponse
-	6,  // 22: dataq.DataQPlugin.Transform:output_type -> dataq.TransformResponse
-	20, // [20:23] is the sub-list for method output_type
-	17, // [17:20] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	15, // 1: dataq.InstallResponse.oauth:type_name -> dataq.OAuth2
+	7,  // 2: dataq.InstallResponse.extracts:type_name -> dataq.InstallResponse.Extract
+	15, // 3: dataq.ExtractRequest.oauth:type_name -> dataq.OAuth2
+	8,  // 4: dataq.ExtractRequest.metadata:type_name -> dataq.ExtractRequest.MetadataEntry
+	9,  // 5: dataq.ExtractResponse.transforms:type_name -> dataq.ExtractResponse.Transform
+	11, // 6: dataq.TransformRequest.metadata:type_name -> dataq.TransformRequest.MetadataEntry
+	12, // 7: dataq.TransformResponse.extracts:type_name -> dataq.TransformResponse.Extract
+	13, // 8: dataq.TransformResponse.permanodes:type_name -> dataq.TransformResponse.Permanode
+	2,  // 9: dataq.InstallResponse.Extract.configs:type_name -> dataq.PluginConfig
+	10, // 10: dataq.ExtractResponse.Transform.metadata:type_name -> dataq.ExtractResponse.Transform.MetadataEntry
+	14, // 11: dataq.TransformResponse.Extract.metadata:type_name -> dataq.TransformResponse.Extract.MetadataEntry
+	16, // 12: dataq.TransformResponse.Permanode.email:type_name -> dataq.Email
+	17, // 13: dataq.TransformResponse.Permanode.financial_transaction:type_name -> dataq.FinancialTransaction
+	0,  // 14: dataq.DataQPlugin.Install:input_type -> dataq.InstallRequest
+	3,  // 15: dataq.DataQPlugin.Extract:input_type -> dataq.ExtractRequest
+	5,  // 16: dataq.DataQPlugin.Transform:input_type -> dataq.TransformRequest
+	1,  // 17: dataq.DataQPlugin.Install:output_type -> dataq.InstallResponse
+	4,  // 18: dataq.DataQPlugin.Extract:output_type -> dataq.ExtractResponse
+	6,  // 19: dataq.DataQPlugin.Transform:output_type -> dataq.TransformResponse
+	17, // [17:20] is the sub-list for method output_type
+	14, // [14:17] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_rpc_dataq_proto_init() }
@@ -1250,11 +1033,7 @@ func file_rpc_dataq_proto_init() {
 		(*TransformRequest_Hash)(nil),
 		(*TransformRequest_Content)(nil),
 	}
-	file_rpc_dataq_proto_msgTypes[8].OneofWrappers = []any{
-		(*PermanodeVersion_Email)(nil),
-		(*PermanodeVersion_FinancialTransaction)(nil),
-	}
-	file_rpc_dataq_proto_msgTypes[15].OneofWrappers = []any{
+	file_rpc_dataq_proto_msgTypes[13].OneofWrappers = []any{
 		(*TransformResponse_Permanode_Email)(nil),
 		(*TransformResponse_Permanode_FinancialTransaction)(nil),
 	}
@@ -1264,7 +1043,7 @@ func file_rpc_dataq_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_rpc_dataq_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -9,12 +9,10 @@ import (
 // RegisterRoutes adds all page routes to the Echo instance
 func RegisterRoutes(e *echo.Echo) {
 	e.GET("/blob/:hash", BlobHashGET)
-	e.GET("/content/:hash", ContentHashGET)
 	e.GET("/content", ContentGET)
 	e.GET("/", IndexGET)
 	e.GET("/plugin/:id/edit", PluginIdEditGET)
 	e.POST("/plugin/:id/edit", PluginIdEditPOST)
-	e.GET("/plugin/:id/extract/:hash", PluginIdExtractHashGET)
 	e.GET("/plugin/:id/oauth/begin", PluginIdOauthBeginGET)
 	e.POST("/plugin/:id/oauth/begin", PluginIdOauthBeginPOST)
 	e.GET("/plugin/:id/send/:reqtype/:kind", PluginIdSendReqtypeKindGET)
@@ -24,6 +22,10 @@ func RegisterRoutes(e *echo.Echo) {
 	e.POST("/plugin/:id/transform/:hash", PluginIdTransformHashPOST)
 	e.GET("/plugin/install", PluginInstallGET)
 	e.POST("/plugin/install", PluginInstallPOST)
+	e.GET("/schema/extract-request/:hash", SchemaExtractRequestHashGET)
+	e.POST("/schema/extract-request/:hash", SchemaExtractRequestHashPOST)
+	e.GET("/schema/transform-request/:hash", SchemaTransformRequestHashGET)
+	e.POST("/schema/transform-request/:hash", SchemaTransformRequestHashPOST)
 }
 
 // BlobHashGET handles GET requests to /blob/:hash
@@ -33,15 +35,6 @@ func BlobHashGET(c echo.Context) error {
 		return err
 	}
 	return pages.BlobHash(result).Render(c.Request().Context(), c.Response().Writer)
-}
-
-// ContentHashGET handles GET requests to /content/:hash
-func ContentHashGET(c echo.Context) error {
-	result, err := pages.ContentHashGET(c, c.Param("hash"))
-	if err != nil {
-		return err
-	}
-	return pages.ContentHash(result).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // ContentGET handles GET requests to /content
@@ -74,15 +67,6 @@ func PluginIdEditGET(c echo.Context) error {
 // PluginIdEditPOST handles POST requests to /plugin/:id/edit
 func PluginIdEditPOST(c echo.Context) error {
 	return pages.PluginIdEditPOST(c, c.Param("id"))
-}
-
-// PluginIdExtractHashGET handles GET requests to /plugin/:id/extract/:hash
-func PluginIdExtractHashGET(c echo.Context) error {
-	result, err := pages.PluginIdExtractHashGET(c, c.Param("id"), c.Param("hash"))
-	if err != nil {
-		return err
-	}
-	return pages.PluginIdExtractHash(result).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // PluginIdOauthBeginGET handles GET requests to /plugin/:id/oauth/begin
@@ -148,4 +132,32 @@ func PluginInstallGET(c echo.Context) error {
 // PluginInstallPOST handles POST requests to /plugin/install
 func PluginInstallPOST(c echo.Context) error {
 	return pages.PluginInstallPOST(c)
+}
+
+// SchemaExtractRequestHashGET handles GET requests to /schema/extract-request/:hash
+func SchemaExtractRequestHashGET(c echo.Context) error {
+	result, err := pages.SchemaExtractRequestHashGET(c, c.Param("hash"))
+	if err != nil {
+		return err
+	}
+	return pages.SchemaExtractRequestHash(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// SchemaExtractRequestHashPOST handles POST requests to /schema/extract-request/:hash
+func SchemaExtractRequestHashPOST(c echo.Context) error {
+	return pages.SchemaExtractRequestHashPOST(c, c.Param("hash"))
+}
+
+// SchemaTransformRequestHashGET handles GET requests to /schema/transform-request/:hash
+func SchemaTransformRequestHashGET(c echo.Context) error {
+	result, err := pages.SchemaTransformRequestHashGET(c, c.Param("hash"))
+	if err != nil {
+		return err
+	}
+	return pages.SchemaTransformRequestHash(result).Render(c.Request().Context(), c.Response().Writer)
+}
+
+// SchemaTransformRequestHashPOST handles POST requests to /schema/transform-request/:hash
+func SchemaTransformRequestHashPOST(c echo.Context) error {
+	return pages.SchemaTransformRequestHashPOST(c, c.Param("hash"))
 }

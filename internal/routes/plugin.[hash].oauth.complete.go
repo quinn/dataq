@@ -11,11 +11,11 @@ import (
 
 func PluginOauthComplete(c echo.Context) error {
 	b := middleware.GetBoot(c)
-	id := c.Param("id")
+	hash := c.Param("hash")
 	code := c.QueryParam("code")
 
 	var plugin schema.PluginInstance
-	if err := b.Index.GetPermanode(c.Request().Context(), id, &plugin); err != nil {
+	if err := b.Index.GetPermanode(c.Request().Context(), hash, &plugin); err != nil {
 		return fmt.Errorf("failed to get plugin: %w", err)
 	}
 
@@ -27,9 +27,9 @@ func PluginOauthComplete(c echo.Context) error {
 
 	// Save the token
 	plugin.Oauth.Token = schema.NewRPCOauthToken(token)
-	if _, err := b.Index.UpdatePermanode(c.Request().Context(), id, &plugin); err != nil {
+	if _, err := b.Index.UpdatePermanode(c.Request().Context(), hash, &plugin); err != nil {
 		return fmt.Errorf("failed to update plugin: %w", err)
 	}
 
-	return c.Redirect(http.StatusFound, "/plugin/"+id+"/edit")
+	return c.Redirect(http.StatusFound, "/plugin/"+hash+"/edit")
 }

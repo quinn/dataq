@@ -83,9 +83,9 @@ func (i *Index) GetRels(ctx context.Context, hash string) ([]Rel, error) {
 				continue
 			}
 
-			if sval != hash {
-				return nil, fmt.Errorf("unexpected value for field %q: %q", field, sval)
-			}
+			// if sval != hash {
+			// 	return nil, fmt.Errorf("unexpected value for field %q: %q", field, sval)
+			// }
 
 			typeName := strings.TrimSuffix(field, "_hash")
 			entry.Type = typeName
